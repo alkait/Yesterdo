@@ -1,0 +1,19 @@
+/// The brand kit. Screens compose these instead of styling Material widgets
+/// directly, so a visual change lands in one place.
+library;
+
+export 'brand.dart';
+export 'branded_app.dart';
+export 'branded_app_bar.dart';
+export 'branded_bottom_bar.dart';
+export 'branded_button.dart';
+export 'branded_checkbox.dart';
+export 'branded_dismissible.dart';
+export 'branded_divider.dart';
+export 'branded_icon.dart';
+export 'branded_row.dart';
+export 'branded_scaffold.dart';
+export 'branded_selection_circle.dart';
+export 'branded_sheet.dart';
+export 'branded_text.dart';
+export 'branded_text_field.dart';

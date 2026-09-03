@@ -1,0 +1,47 @@
+import 'day.dart';
+
+const _weekdayNames = <String>[
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+  'Sunday',
+];
+
+const _monthNames = <String>[
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
+
+const weekdayInitials = <String>['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+/// The headline shown above the list: a relative word when one reads better
+/// than a weekday name.
+String dayHeadline(DateTime date, {DateTime? now}) {
+  final offset = date.epochDay - (now ?? todayDate()).epochDay;
+  return switch (offset) {
+    0 => 'Today',
+    -1 => 'Yesterday',
+    1 => 'Tomorrow',
+    _ => _weekdayNames[date.weekday - 1],
+  };
+}
+
+/// The supporting line: `September 3, 2026`.
+String longDate(DateTime date) =>
+    '${_monthNames[date.month - 1]} ${date.day}, ${date.year}';
+
+String monthAndYear(DateTime date) =>
+    '${_monthNames[date.month - 1]} ${date.year}';
