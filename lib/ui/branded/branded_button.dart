@@ -44,10 +44,12 @@ class BrandedTextButton extends StatelessWidget {
     super.key,
     required this.label,
     required this.onTap,
+    this.tone = BrandedTone.primary,
   });
 
   final String label;
   final VoidCallback onTap;
+  final BrandedTone tone;
 
   @override
   Widget build(BuildContext context) => Semantics(
@@ -56,8 +58,8 @@ class BrandedTextButton extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        child: BrandedText(label, role: BrandedTextRole.action),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: BrandedText(label, role: BrandedTextRole.action, tone: tone),
       ),
     ),
   );

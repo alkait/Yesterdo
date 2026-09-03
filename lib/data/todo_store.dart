@@ -9,5 +9,8 @@ abstract interface class TodoStore {
 
   Future<void> save(Todo todo);
 
+  /// Writes the given order back as positions 0, 1, 2 and so on.
+  Future<void> reorder(List<Todo> ordered);
+
   Future<void> delete(int id);
 }

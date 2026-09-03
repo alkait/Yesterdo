@@ -38,6 +38,20 @@ class SqliteTodoStore implements TodoStore {
   );
 
   @override
+  Future<void> reorder(List<Todo> ordered) async {
+    final batch = _db.batch();
+    for (var index = 0; index < ordered.length; index++) {
+      batch.update(
+        _table,
+        <String, Object?>{'position': index},
+        where: 'id = ?',
+        whereArgs: [ordered[index].id],
+      );
+    }
+    await batch.commit(noResult: true);
+  }
+
+  @override
   Future<void> delete(int id) =>
       _db.delete(_table, where: 'id = ?', whereArgs: [id]);
 

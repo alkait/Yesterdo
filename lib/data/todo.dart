@@ -26,6 +26,29 @@ class Todo {
   /// Epoch milliseconds of the last completion, or null while open.
   final int? completedAt;
 
+  /// The one line a list shows. A task may hold more, written on the editor
+  /// screen, but only the opening line is ever displayed.
+  String get firstLine {
+    final wrap = title.indexOf('\n');
+    return wrap == -1 ? title : title.substring(0, wrap);
+  }
+
+  Todo repositioned(int newPosition) => Todo(
+    id: id,
+    title: title,
+    done: done,
+    position: newPosition,
+    completedAt: completedAt,
+  );
+
+  Todo renamed(String newTitle) => Todo(
+    id: id,
+    title: newTitle,
+    done: done,
+    position: position,
+    completedAt: completedAt,
+  );
+
   Todo toggled(int nowMillis) => Todo(
     id: id,
     title: title,
@@ -43,10 +66,15 @@ class Todo {
   };
 }
 
-/// Open tasks keep their insertion order. Completed ones sink to the bottom,
-/// most recently checked last.
+/// Open tasks keep their insertion order. Completed ones sink below them, and
+/// the one just checked sits at the top of that struck group so it lands where
+/// the eye already is.
 int compareTodos(Todo a, Todo b) {
   if (a.done != b.done) return a.done ? 1 : -1;
-  if (a.done) return (a.completedAt ?? 0).compareTo(b.completedAt ?? 0);
-  return a.position.compareTo(b.position);
+  final ranked = a.done
+      ? (b.completedAt ?? 0).compareTo(a.completedAt ?? 0)
+      : a.position.compareTo(b.position);
+  // Positions can collide after a reorder, so id settles it and the list
+  // never reshuffles between rebuilds.
+  return ranked != 0 ? ranked : a.id.compareTo(b.id);
 }

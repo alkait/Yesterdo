@@ -9,22 +9,42 @@ class BrandedTextField extends StatelessWidget {
     required this.controller,
     required this.focusNode,
     required this.hint,
-    required this.onSubmitted,
+    this.onSubmitted,
+    this.role = BrandedTextRole.body,
+    this.autofocus = false,
+    this.multiline = false,
   });
 
   final TextEditingController controller;
   final FocusNode focusNode;
   final String hint;
-  final ValueChanged<String> onSubmitted;
+  final ValueChanged<String>? onSubmitted;
+  final BrandedTextRole role;
+  final bool autofocus;
+
+  /// Grows with the text and keeps the return key as a newline.
+  final bool multiline;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      ValueListenableBuilder<TextEditingValue>(
+        valueListenable: controller,
+        builder: (context, value, _) => _field(context, value.text),
+      );
+
+  Widget _field(BuildContext context, String text) {
     final scheme = Theme.of(context).colorScheme;
-    final style = BrandedText.styleFor(BrandedTextRole.body);
+    final style = BrandedText.styleFor(role);
     return TextField(
+      textDirection: brandedTextDirection(text),
       controller: controller,
       focusNode: focusNode,
-      textInputAction: TextInputAction.done,
+      autofocus: autofocus,
+      maxLines: multiline ? null : 1,
+      keyboardType: multiline ? TextInputType.multiline : TextInputType.text,
+      textInputAction: multiline
+          ? TextInputAction.newline
+          : TextInputAction.done,
       textCapitalization: TextCapitalization.sentences,
       cursorColor: scheme.onSurface,
       onSubmitted: onSubmitted,

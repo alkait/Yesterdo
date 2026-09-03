@@ -36,7 +36,7 @@ abstract final class AppTheme {
       surface: Color(0xFF000000),
       onSurface: Color(0xFFF5F5F7),
       onSurfaceVariant: Color(0xFF8A8A8E),
-      outlineVariant: Color(0xFF1E1E21),
+      outlineVariant: Color(0xFF2C2C31),
       surfaceContainerHighest: Color(0xFF131315),
     ),
   );
@@ -66,4 +66,3 @@ abstract final class AppTheme {
     ),
   );
 }
-

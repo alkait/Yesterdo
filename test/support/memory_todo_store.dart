@@ -34,6 +34,14 @@ class MemoryTodoStore implements TodoStore {
   }
 
   @override
+  Future<void> reorder(List<Todo> ordered) {
+    for (var index = 0; index < ordered.length; index++) {
+      save(ordered[index].repositioned(index));
+    }
+    return Future.value();
+  }
+
+  @override
   Future<void> delete(int id) {
     for (final items in _byDay.values) {
       items.removeWhere((item) => item.id == id);

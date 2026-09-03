@@ -5,7 +5,7 @@ import '../../state/providers.dart';
 import '../branded/branded.dart';
 import 'todo_tile.dart';
 
-/// The day's tasks. Open first, checked ones settled at the bottom.
+/// The day's tasks. Open first and draggable, checked ones settled below.
 class TodoListView extends ConsumerWidget {
   const TodoListView({super.key});
 
@@ -17,13 +17,12 @@ class TodoListView extends ConsumerWidget {
     if (todos == null) return const SizedBox.shrink();
     if (todos.isEmpty) return const _EmptyDay();
 
-    return ListView.builder(
-      padding: const EdgeInsets.only(top: 4, bottom: 12),
-      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+    return BrandedReorderableList(
       itemCount: todos.length,
+      onReorder: ref.read(todosProvider.notifier).reorder,
       itemBuilder: (context, index) {
         final todo = todos[index];
-        return TodoTile(key: ValueKey(todo.id), todo: todo);
+        return TodoTile(key: ValueKey(todo.id), todo: todo, index: index);
       },
     );
   }

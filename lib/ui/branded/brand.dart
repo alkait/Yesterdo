@@ -7,11 +7,18 @@ abstract final class Brand {
   static const gutter = 20.0;
   static const gap = 14.0;
   static const rowMinHeight = 52.0;
-  static const rowPadding = 12.0;
+  static const cardRadius = 12.0;
+  static const cardGap = 8.0;
+  static const cardPaddingH = 16.0;
+  static const cardPaddingV = 14.0;
+  static const borderWidth = 1.0;
   static const tapTarget = 48.0;
   static const checkSize = 22.0;
   static const daySize = 36.0;
   static const sheetRadius = 18.0;
+  static const tileRadius = 14.0;
+  static const tileHeight = 92.0;
+  static const tileGap = 10.0;
 
   // Width caps, so a tablet shows a readable column instead of stretched rows
   static const maxContentWidth = 620.0;

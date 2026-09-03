@@ -48,11 +48,7 @@ class _MonthPickerState extends State<_MonthPicker> {
       const SizedBox(height: 4),
       const _WeekdayStrip(),
       const SizedBox(height: 4),
-      _DayGrid(
-        month: _month,
-        selected: widget.selected,
-        onPick: widget.onPick,
-      ),
+      _DayGrid(month: _month, selected: widget.selected, onPick: widget.onPick),
       const SizedBox(height: 8),
       BrandedTextButton(
         label: 'Today',
