@@ -1664,40 +1664,6 @@ void main() {
       expect(scheduler.permissionAsks, 0);
     });
 
-    testWidgets('a test reminder goes out ten seconds from now', (
-      tester,
-    ) async {
-      final scheduler = MemoryReminderScheduler(
-        status: ReminderPermission.granted,
-      );
-      await tester.pumpWidget(
-        bootApp(scheduler: scheduler, clock: () => at(9, 0)),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.byIcon(Icons.settings_outlined));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('Send a test reminder'));
-      await tester.pumpAndSettle();
-      expect(scheduler.tests.single.$1, at(9, 0).add(SettingsPage.testDelay));
-      expect(scheduler.permissionAsks, 0, reason: 'already allowed');
-    });
-
-    testWidgets('a test reminder asks for permission first if it must', (
-      tester,
-    ) async {
-      final scheduler = MemoryReminderScheduler();
-      await tester.pumpWidget(bootApp(scheduler: scheduler));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byIcon(Icons.settings_outlined));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Send a test reminder'));
-      await tester.pumpAndSettle();
-      expect(scheduler.permissionAsks, 1);
-      expect(scheduler.tests, hasLength(1));
-      expect(find.text('Allowed'), findsOneWidget);
-    });
-
     testWidgets('the app comes up in the look it was left in', (tester) async {
       await tester.pumpWidget(bootApp(theme: AppThemeChoice.forest));
       await tester.pumpAndSettle();
@@ -1958,13 +1924,6 @@ void main() {
       await finishDueSheet(tester);
       await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();
-
-      // And the test reminder speaks in it too.
-      await tester.tap(find.byIcon(Icons.settings_outlined));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Send a test reminder'));
-      await tester.pumpAndSettle();
-      expect(scheduler.tests.single.$2, ReminderSound.harp);
     });
 
     testWidgets('the sound comes back after a relaunch', (tester) async {

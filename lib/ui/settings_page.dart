@@ -27,22 +27,6 @@ class SettingsPage extends ConsumerWidget {
     }
   }
 
-  /// The test goes out a few seconds from now, after permission if it has
-  /// not been asked for yet.
-  static const testDelay = Duration(seconds: 10);
-
-  Future<void> _sendTest(WidgetRef ref, ReminderPermission? permission) async {
-    final scheduler = ref.read(reminderSchedulerProvider);
-    if (permission == ReminderPermission.notAsked) {
-      await scheduler.requestPermission();
-      ref.invalidate(reminderPermissionProvider);
-    }
-    await scheduler.sendTest(
-      at: ref.read(clockProvider)().add(testDelay),
-      sound: ref.read(lastSoundProvider),
-    );
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final chosen = ref.watch(themeChoiceProvider);
@@ -104,14 +88,6 @@ class SettingsPage extends ConsumerWidget {
                   onTap: permission == null
                       ? () {}
                       : () => _onNotificationsTap(ref, permission),
-                ),
-                const BrandedDivider(),
-                BrandedOptionRow(
-                  key: const ValueKey('settings-test-reminder'),
-                  label: 'Send a test reminder',
-                  detail: 'Arrives in ${testDelay.inSeconds} seconds',
-                  icon: Icons.send_outlined,
-                  onTap: () => _sendTest(ref, permission),
                 ),
               ],
             ),

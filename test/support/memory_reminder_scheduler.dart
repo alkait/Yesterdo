@@ -1,4 +1,3 @@
-import 'package:remind_me/data/reminder_sound.dart';
 import 'package:remind_me/reminders/planned_reminder.dart';
 import 'package:remind_me/reminders/reminder_scheduler.dart';
 
@@ -12,14 +11,6 @@ class MemoryReminderScheduler implements ReminderScheduler {
   ReminderPermission status;
   int permissionAsks = 0;
   int settingsOpened = 0;
-  final List<(DateTime, ReminderSound)> tests = <(DateTime, ReminderSound)>[];
-
-  @override
-  Future<void> sendTest({required DateTime at, required ReminderSound sound}) {
-    tests.add((at, sound));
-    return Future.value();
-  }
-
   @override
   Future<void> replaceAll(List<PlannedReminder> reminders) {
     pending = List.unmodifiable(reminders);

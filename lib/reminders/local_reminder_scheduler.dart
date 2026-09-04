@@ -1,7 +1,6 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 
-import '../data/reminder_sound.dart';
 import '../platform/device_bridge.dart';
 import 'planned_reminder.dart';
 import 'reminder_scheduler.dart';
@@ -61,29 +60,6 @@ class LocalReminderScheduler implements ReminderScheduler {
       );
     }
   }
-
-  /// Well clear of any task's id, which is a positive hash.
-  static const _testId = 0;
-
-  @override
-  Future<void> sendTest({required DateTime at, required ReminderSound sound}) =>
-      _plugin.zonedSchedule(
-        id: _testId,
-        title: 'Test reminder',
-        body: 'This is what a reminder looks like.',
-        scheduledDate: tz.TZDateTime.from(at, tz.UTC),
-        notificationDetails: NotificationDetails(
-          iOS: DarwinNotificationDetails(
-            sound: sound.file,
-            interruptionLevel: InterruptionLevel.active,
-            presentAlert: true,
-            presentBanner: true,
-            presentList: true,
-            presentSound: true,
-          ),
-        ),
-        androidScheduleMode: AndroidScheduleMode.exact,
-      );
 
   IOSFlutterLocalNotificationsPlugin? get _ios => _plugin
       .resolvePlatformSpecificImplementation<

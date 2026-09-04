@@ -274,12 +274,9 @@ in one place and shows up everywhere.
 - The settings screen is `SettingsPage`, opened from the gear at the right end of
   the bottom bar. The gear sits in the bar's `trailing` slot, outside the add tap
   target, so it can never open the editor.
-- A "Send a test reminder" row puts one notification out ten seconds later,
-  asking permission first if it was never asked. It is the one notification
-  shown while the app is in front, since that is where the person asking is.
 - The sound chosen last is saved under `sound` and is what a new reminder
   starts from, through `lastSoundProvider`; `main` reads it before the first
-  frame like the look. The test reminder speaks in it too.
+  frame like the look.
 - The looks are offered on a sheet from the Theme row. A choice applies the
   moment it is tapped, and the sheet stays up so the change is seen behind it.
   There is no save step.

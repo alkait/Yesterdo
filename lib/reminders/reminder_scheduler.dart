@@ -1,4 +1,3 @@
-import '../data/reminder_sound.dart';
 import 'planned_reminder.dart';
 
 /// Whether the system lets the app notify.
@@ -17,11 +16,6 @@ abstract class ReminderScheduler {
   /// Replaces every pending notification with this batch. Always called with
   /// the whole plan, so nothing stale can linger.
   Future<void> replaceAll(List<PlannedReminder> reminders);
-
-  /// Shows one notification a few seconds from now, so the sound and the
-  /// banner can be checked from the settings screen. Shown even with the app
-  /// in front, which is where the person asking for it is.
-  Future<void> sendTest({required DateTime at, required ReminderSound sound});
 
   Future<ReminderPermission> permission();
 
