@@ -234,6 +234,11 @@ in one place and shows up everywhere.
   series do not reach it. This is never asked about.
 - The attention sheet offers Not Today too, between Snooze and Dismiss, with the
   same grid and the same move.
+- TEMPORARY: an alarm button between Not Today and Delete asks which sound,
+  then rings the task's own reminder in it ten seconds later, shown even in
+  front, through `ReminderScheduler.rehearse`. It exists so the notification path can be tried
+  without waiting for a real time. Remove the button, `rehearseReminder`,
+  `rehearse` and their test together when it has served.
 - A card carries no drag grip. Pressing and holding anywhere on it lifts it, through
   `BrandedDragLift`, and the whole width is left to the words.
 - Only open tasks can be lifted. Completed ones are ranked by when they were

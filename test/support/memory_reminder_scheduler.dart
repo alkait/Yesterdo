@@ -17,6 +17,14 @@ class MemoryReminderScheduler implements ReminderScheduler {
     return Future.value();
   }
 
+  final List<PlannedReminder> rehearsed = <PlannedReminder>[];
+
+  @override
+  Future<void> rehearse(PlannedReminder reminder) {
+    rehearsed.add(reminder);
+    return Future.value();
+  }
+
   @override
   Future<ReminderPermission> permission() => Future.value(status);
 

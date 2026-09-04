@@ -78,6 +78,12 @@ class TodoTile extends ConsumerWidget {
             label: 'Not today',
             onTap: () => moveTask(context, ref, todo),
           ),
+        // TEMPORARY: rings this task's reminder ten seconds from now.
+        BrandedSwipeAction(
+          icon: Icons.alarm_on_rounded,
+          label: 'Rehearse reminder',
+          onTap: () => rehearseReminder(context, ref, todo),
+        ),
         BrandedSwipeAction(
           icon: Icons.delete_outline_rounded,
           label: 'Delete',

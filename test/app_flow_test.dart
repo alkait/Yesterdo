@@ -17,6 +17,7 @@ import 'package:remind_me/ui/branded/branded.dart';
 import 'package:remind_me/ui/home_page.dart';
 import 'package:remind_me/ui/settings_page.dart';
 import 'package:remind_me/ui/widgets/date_header.dart';
+import 'package:remind_me/ui/widgets/task_actions.dart';
 import 'package:remind_me/ui/widgets/todo_list_view.dart';
 import 'package:remind_me/ui/widgets/todo_tile.dart';
 
@@ -1374,6 +1375,46 @@ void main() {
     await tester.pumpAndSettle();
     expect(fieldFocus().hasFocus, isTrue);
   });
+
+  testWidgets(
+    'TEMPORARY: the rehearsal button rings the reminder in ten seconds',
+    (tester) async {
+      final scheduler = MemoryReminderScheduler(
+        status: ReminderPermission.granted,
+      );
+      await tester.pumpWidget(
+        bootApp(scheduler: scheduler, clock: () => at(9, 0)),
+      );
+      await tester.pumpAndSettle();
+      await addTask(
+        tester,
+        'Call Sam',
+        due: Due(minute: minuteOf(14, 30), sound: ReminderSound.bell),
+      );
+
+      await swipe(tester, 'Call Sam', const Offset(-260, 0));
+      await tester.tap(find.byIcon(Icons.alarm_on_rounded));
+      await tester.pumpAndSettle();
+
+      // The sound is asked for, opening on the task's own.
+      final ticked = tester
+          .widgetList<BrandedOptionRow>(find.byType(BrandedOptionRow))
+          .where((row) => row.selected)
+          .map((row) => row.label);
+      expect(ticked, ['Bell']);
+      await tester.tap(find.byKey(const ValueKey('sound-harp')));
+      await tester.pump();
+      await tester.tap(find.text('Done'));
+      await tester.pumpAndSettle();
+
+      final rehearsal = scheduler.rehearsed.single;
+      expect(rehearsal.fireAt, at(9, 0).add(rehearsalDelay));
+      expect(rehearsal.title, 'Call Sam');
+      expect(rehearsal.dueLabel, 'Due 2:30 PM');
+      expect(rehearsal.sound, ReminderSound.harp);
+      expect(rehearsal.payload, '${todayDate().epochDay}:t1');
+    },
+  );
 
   group('not today', () {
     final today = todayDate().epochDay;

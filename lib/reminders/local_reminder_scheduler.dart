@@ -61,6 +61,26 @@ class LocalReminderScheduler implements ReminderScheduler {
     }
   }
 
+  @override
+  Future<void> rehearse(PlannedReminder reminder) => _plugin.zonedSchedule(
+    id: reminder.id,
+    title: reminder.title,
+    body: reminder.dueLabel,
+    scheduledDate: tz.TZDateTime.from(reminder.fireAt, tz.UTC),
+    notificationDetails: NotificationDetails(
+      iOS: DarwinNotificationDetails(
+        sound: reminder.sound.file,
+        interruptionLevel: InterruptionLevel.active,
+        presentAlert: true,
+        presentBanner: true,
+        presentList: true,
+        presentSound: true,
+      ),
+    ),
+    androidScheduleMode: AndroidScheduleMode.exact,
+    payload: reminder.payload,
+  );
+
   IOSFlutterLocalNotificationsPlugin? get _ios => _plugin
       .resolvePlatformSpecificImplementation<
         IOSFlutterLocalNotificationsPlugin

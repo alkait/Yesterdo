@@ -4,11 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/day.dart';
 import '../../data/repeat_rule.dart';
 import '../../data/todo.dart';
+import '../../reminders/planned_reminder.dart';
+import '../../reminders/reminder_scheduler.dart';
 import '../../state/providers.dart';
 import '../../state/task_draft.dart';
 import '../branded/branded.dart';
 import '../task_editor_page.dart';
 import 'month_picker_sheet.dart';
+import 'sound_picker_sheet.dart';
 
 /// The things you can do to a task, reached by swiping its card. Named in
 /// one place so the buttons and their labels cannot drift.
@@ -48,6 +51,43 @@ Future<void> moveTask(BuildContext context, WidgetRef ref, Todo todo) async {
   );
   if (picked == null) return;
   await ref.read(todosProvider.notifier).moveToDay(todo, picked.epochDay);
+}
+
+/// TEMPORARY. Puts this task's reminder up ten seconds from now, exactly as
+/// the real one would come, so the notification path can be tried without
+/// waiting. Remove with the button on the card and the scheduler's
+/// `rehearse`.
+const Duration rehearsalDelay = Duration(seconds: 10);
+
+Future<void> rehearseReminder(
+  BuildContext context,
+  WidgetRef ref,
+  Todo todo,
+) async {
+  final due = todo.due;
+  // The sound is asked for each time, so every one can be heard as a real
+  // notification, not only in the chooser.
+  final sound = await showSoundPicker(
+    context,
+    current: due?.sound ?? ref.read(lastSoundProvider),
+  );
+  if (sound == null) return;
+
+  final scheduler = ref.read(reminderSchedulerProvider);
+  if (await scheduler.permission() == ReminderPermission.notAsked) {
+    await scheduler.requestPermission();
+  }
+  await scheduler.rehearse(
+    PlannedReminder(
+      day: ref.read(selectedDayProvider).epochDay,
+      key: todo.key,
+      title: todo.firstLine,
+      dueLabel: due == null ? 'Rehearsal' : 'Due ${due.label()}',
+      fireAt: ref.read(clockProvider)().add(rehearsalDelay),
+      before: 0,
+      sound: sound,
+    ),
+  );
 }
 
 /// Deleting a repeating task asks which showings to take.
