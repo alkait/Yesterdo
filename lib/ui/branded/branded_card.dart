@@ -24,7 +24,8 @@ class BrandedCard extends StatefulWidget {
   final Widget? trailing;
   final VoidCallback? onTap;
 
-  /// Settles the card into the background, for content that is done with.
+  /// Settles the card into the page, for content that is done with: the
+  /// raised surface colour, and no shadow to lift it.
   final bool recessed;
 
   /// Asks for attention, continuously, until answered.
@@ -96,7 +97,7 @@ class _BrandedCardState extends State<BrandedCard>
             horizontal: Brand.gutter,
             vertical: Brand.cardGap / 2,
           ),
-          constraints: const BoxConstraints(minHeight: Brand.rowMinHeight),
+          constraints: const BoxConstraints(minHeight: Brand.cardMinHeight),
           decoration: BoxDecoration(
             color: Color.lerp(
               face,
@@ -112,6 +113,17 @@ class _BrandedCardState extends State<BrandedCard>
               )!,
               width: Brand.borderWidth,
             ),
+            boxShadow: widget.recessed
+                ? null
+                : [
+                    BoxShadow(
+                      color: scheme.onSurface.withValues(
+                        alpha: Brand.shadowAlpha,
+                      ),
+                      blurRadius: Brand.shadowBlur,
+                      offset: Brand.shadowOffset,
+                    ),
+                  ],
           ),
           padding: const EdgeInsets.symmetric(
             horizontal: Brand.cardPaddingH,

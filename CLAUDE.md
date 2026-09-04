@@ -168,8 +168,9 @@ in one place and shows up everywhere.
   `ColorScheme`, so a new look needs no widget changes.
 - `main` reads the saved look before the first frame and binds it to
   `initialThemeChoiceProvider`, so the app never flashes one look and switches.
-- Flat means no elevation, no shadows, no ripple. Keep splash and highlight
-  transparent.
+- Flat means no Material elevation and no ripple. Keep splash and highlight
+  transparent. The one shadow is the open card's, a touch drawn by
+  `BrandedCard` from the `Brand.shadow` constants; nothing else casts one.
 - Cap content width for iPad rather than letting rows stretch. `BrandedScaffold`
   already does this; check a phone and a tablet before calling a layout done.
 - No splash screen. The launch storyboard stays a blank system-coloured view.
@@ -202,11 +203,12 @@ in one place and shows up everywhere.
 - The words get the card's whole width. Everything else about a task, the repeat
   glyph, a bell when a reminder is set and the time, sits in small print on a
   second line underneath, and takes the accent while the card is calling.
-- Each task is a bordered card, not a row with a rule between. Completed cards are
-  recessed onto the raised surface colour.
-- A card shows one line and one line only. Anything past the first break comes off
-  through `Todo.firstLine`, and a long line ellipsises. A task may still hold more
-  text, written on the editor screen.
+- Each task is a bordered card, not a row with a rule between, lifted off the
+  page by the one shadow in the app. Completed cards are recessed onto the
+  raised surface colour and carry no shadow.
+- A card shows up to `Brand.cardLines` lines of the words, two, in the `card`
+  text role, and ellipsises past that. A task may still hold more text, written
+  on the editor screen. `Todo.firstLine` is what a notification says.
 - `BrandedText` picks its own reading direction from its content, so an Arabic or
   Hebrew task sits against the right edge of its card. Never pass a direction in
   from a screen.

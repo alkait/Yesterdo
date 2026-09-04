@@ -459,18 +459,59 @@ void main() {
         .first,
   );
 
-  testWidgets('a card shows one line only, ellipsised', (tester) async {
+  testWidgets('an open card casts a touch of shadow, a done one none', (
+    tester,
+  ) async {
+    await tester.pumpWidget(bootApp());
+    await tester.pumpAndSettle();
+    await addTask(tester, 'Buy milk');
+    await addTask(tester, 'Call Sam');
+    await actOn(tester, 'Call Sam', 'Done');
+
+    BoxDecoration faceOf(String title) {
+      final box = tester.widget<Container>(
+        find
+            .descendant(
+              of: find.ancestor(
+                of: find.text(title),
+                matching: find.byType(BrandedCard),
+              ),
+              matching: find.byType(Container),
+            )
+            .first,
+      );
+      return box.decoration! as BoxDecoration;
+    }
+
+    final scheme = homeScheme(tester);
+    final open = faceOf('Buy milk');
+    expect(open.color, scheme.surface);
+    expect(open.boxShadow, hasLength(1));
+    expect(open.boxShadow!.single.color.a, closeTo(Brand.shadowAlpha, 0.01));
+    expect(open.boxShadow!.single.blurRadius, Brand.shadowBlur);
+
+    final done = faceOf('Call Sam');
+    expect(done.color, scheme.surfaceContainerHighest);
+    expect(done.boxShadow, isNull);
+  });
+
+  testWidgets('a card shows two lines at most, ellipsised past that', (
+    tester,
+  ) async {
     await tester.pumpWidget(bootApp());
     await tester.pumpAndSettle();
 
-    await addTask(tester, 'Buy milk\nand bread');
+    await addTask(tester, 'Buy milk');
+    await addTask(tester, 'Buy milk\nand bread\nand eggs');
 
-    expect(find.text('Buy milk'), findsOneWidget);
-    expect(find.textContaining('and bread'), findsNothing);
-
-    final rendered = titleTextOf(tester, 'Buy milk');
-    expect(rendered.maxLines, 1);
+    final rendered = titleTextOf(tester, 'Buy milk\nand bread\nand eggs');
+    expect(rendered.maxLines, Brand.cardLines);
     expect(rendered.overflow, TextOverflow.ellipsis);
+    // Two lines drawn, the third cut.
+    final box = tester.getSize(find.text('Buy milk\nand bread\nand eggs'));
+    final oneLine = tester.getSize(find.text('Buy milk')).height;
+    expect(box.height, greaterThan(oneLine * 1.5));
+    expect(box.height, lessThan(oneLine * 2.5));
   });
 
   testWidgets('an Arabic task lays out right to left', (tester) async {
@@ -1754,7 +1795,7 @@ void main() {
       expect(scheduler.pending.single.day, today);
 
       // The editor row says what was chosen.
-      await actOn(tester, 'Call Sam', 'Edit');
+      await actOn(tester, 'Call Sam\nabout the invoice', 'Edit');
       expect(find.text('2:30 PM'), findsOneWidget);
       expect(find.text('15 min before'), findsOneWidget);
     });
@@ -2034,13 +2075,18 @@ void main() {
       );
       await tester.pumpWidget(bootApp(store: store, clock: () => at(9, 0)));
       await tester.pumpAndSettle();
-      expect(find.text('Call Sam\nabout the invoice'), findsNothing);
 
-      await tester.tap(find.text('Call Sam'));
+      await tester.tap(find.text('Call Sam\nabout the invoice'));
       await tester.pumpAndSettle();
 
       expect(find.byKey(const ValueKey('attention-title')), findsOneWidget);
-      expect(find.text('Call Sam\nabout the invoice'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('attention-title')),
+          matching: find.text('Call Sam\nabout the invoice'),
+        ),
+        findsOneWidget,
+      );
       expect(find.text('Due 8:30 AM'), findsOneWidget);
       expect(find.text('Done'), findsOneWidget);
       expect(find.text('Snooze'), findsOneWidget);
@@ -2257,13 +2303,22 @@ void main() {
 
         expect(find.text('Tomorrow'), findsOneWidget);
         expect(find.byKey(const ValueKey('attention-title')), findsOneWidget);
-        expect(find.text('Call Sam\nabout the invoice'), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byKey(const ValueKey('attention-title')),
+            matching: find.text('Call Sam\nabout the invoice'),
+          ),
+          findsOneWidget,
+        );
         expect(container.read(attentionRequestProvider), isNull);
 
         await tester.tap(find.text('Done'));
         await tester.pump(reorderDelay);
         await tester.pumpAndSettle();
-        expect(tileFor(tester, 'Call Sam').todo.done, isTrue);
+        expect(
+          tileFor(tester, 'Call Sam\nabout the invoice').todo.done,
+          isTrue,
+        );
       },
     );
 

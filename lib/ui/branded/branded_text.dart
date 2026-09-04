@@ -41,6 +41,7 @@ enum BrandedTextRole {
   caption,
   wheel,
   glyph,
+  card,
 }
 
 /// The only way to put text on screen.
@@ -106,6 +107,9 @@ class BrandedText extends StatelessWidget {
       fontWeight: FontWeight.w600,
     ),
     BrandedTextRole.body => const TextStyle(fontSize: 17, height: 1.3),
+    // The words on a task card: a touch smaller than body, set tighter so
+    // two lines stay compact.
+    BrandedTextRole.card => const TextStyle(fontSize: 16, height: 1.25),
     BrandedTextRole.action => const TextStyle(
       fontSize: 15,
       fontWeight: FontWeight.w600,

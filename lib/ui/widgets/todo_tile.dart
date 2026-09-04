@@ -7,9 +7,10 @@ import '../branded/branded.dart';
 import 'attention_sheet.dart';
 import 'task_actions.dart';
 
-/// One task, on its own bordered card, always a single line of words. Swipe
-/// either way for buttons, press and hold to reorder. A calling card is the
-/// one card that takes a tap, which puts up the attention sheet.
+/// One task, on its own bordered card, its words on up to two lines and
+/// ellipsised past that. Swipe either way for buttons, press and hold to
+/// reorder. A calling card is the one card that takes a tap, which puts up
+/// the attention sheet.
 class TodoTile extends ConsumerWidget {
   const TodoTile({
     super.key,
@@ -40,10 +41,11 @@ class TodoTile extends ConsumerWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           BrandedText(
-            todo.firstLine,
+            todo.title,
+            role: BrandedTextRole.card,
             struck: todo.done,
             tone: todo.done ? BrandedTone.muted : BrandedTone.primary,
-            maxLines: 1,
+            maxLines: Brand.cardLines,
           ),
           // The words get the whole width. Anything else about the task
           // goes in small print underneath.

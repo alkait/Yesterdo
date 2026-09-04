@@ -9,10 +9,20 @@ abstract final class Brand {
   static const rowMinHeight = 52.0;
   static const rowPadding = 12.0;
   static const cardRadius = 12.0;
-  static const cardGap = 8.0;
+  static const cardGap = 12.0;
   static const cardPaddingH = 16.0;
-  static const cardPaddingV = 14.0;
+  static const cardPaddingV = 10.0;
+  static const cardMinHeight = 44.0;
+
+  /// How many lines of words a card shows before ellipsising.
+  static const cardLines = 2;
   static const borderWidth = 1.0;
+
+  /// The one shadow in the app: a touch under each open card, so it lifts
+  /// off the page. Soft, short and faint.
+  static const shadowBlur = 6.0;
+  static const shadowOffset = Offset(0, 2);
+  static const shadowAlpha = 0.07;
   static const swipeActionWidth = 56.0;
   static const swipeActionGap = 6.0;
   static const tapTarget = 48.0;
