@@ -28,9 +28,9 @@ final settingsStoreProvider = Provider<SettingsStore>(
 );
 
 /// The look in force when the app came up. `main` overrides it with the
-/// saved choice; left alone, it is the plain one.
+/// saved choice; left alone, it is the one the app ships in.
 final initialThemeChoiceProvider = Provider<AppThemeChoice>(
-  (ref) => AppThemeChoice.ink,
+  (ref) => AppThemeChoice.fallback,
 );
 
 final themeChoiceProvider = NotifierProvider<ThemeChoice, AppThemeChoice>(

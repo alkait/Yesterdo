@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:remind_me/data/app_database.dart';
+import 'package:remind_me/data/repeat_rule.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 /// The schema as version 1 shipped it, kept here so the upgrade is tested
@@ -58,6 +59,17 @@ CREATE TABLE recurrences (
   );
 }
 
+/// The schema as version 3 shipped it: one day of the month per rule, and
+/// the settings table.
+Future<void> createVersionThree(Database db, int version) async {
+  await createVersionTwo(db, version);
+  await db.execute('''
+CREATE TABLE settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+)''');
+}
+
 void main() {
   setUpAll(sqfliteFfiInit);
 
@@ -82,7 +94,7 @@ void main() {
     db = await databaseFactoryFfi.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 3,
+        version: 4,
         onCreate: AppDatabase.createSchema,
         onUpgrade: AppDatabase.upgradeSchema,
       ),
@@ -105,7 +117,7 @@ void main() {
       'title': 'Take the pills',
       'kind': 'daily',
       'weekdays': 0,
-      'month_day': 1,
+      'month_days': 0,
       'start_day': 20699,
       'position': 1,
     });
@@ -140,20 +152,105 @@ void main() {
     db = await databaseFactoryFfi.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 3,
+        version: 4,
         onCreate: AppDatabase.createSchema,
         onUpgrade: AppDatabase.upgradeSchema,
       ),
     );
     addTearDown(db.close);
 
-    expect(await db.query('recurrences'), hasLength(1));
+    final rule = (await db.query('recurrences')).single;
+    expect(rule['title'], 'Take the pills');
+    expect(rule['month_days'], 1, reason: 'the 1st became bit 0');
     expect(await db.query('settings'), isEmpty);
     await db.insert('settings', <String, Object?>{
       'key': 'theme',
       'value': 'forest',
     });
     expect(await db.query('settings'), hasLength(1));
+  });
+
+  test('a version 3 rule on one day becomes a set of days', () async {
+    final directory = await Directory.systemTemp.createTemp('remind_me_test');
+    addTearDown(() => directory.delete(recursive: true));
+    final path = p.join(directory.path, 'remind_me.db');
+
+    var db = await databaseFactoryFfi.openDatabase(
+      path,
+      options: OpenDatabaseOptions(version: 3, onCreate: createVersionThree),
+    );
+    Map<String, Object?> rule(String title, int monthDay) => <String, Object?>{
+      'title': title,
+      'kind': 'monthly',
+      'weekdays': 0,
+      'month_day': monthDay,
+      'start_day': 20699,
+      'end_day': 20800,
+      'position': 0,
+    };
+    await db.insert('recurrences', rule('Pay the rent', 1));
+    await db.insert('recurrences', rule('Mid month', 15));
+    await db.insert('recurrences', rule('Month end', 31));
+    await db.insert('recurrences', rule('Nearly month end', 29));
+    // A written-down occurrence keeps pointing at its rule.
+    await db.insert('todos', <String, Object?>{
+      'day': 20699,
+      'title': 'Pay the rent',
+      'done': 1,
+      'position': 0,
+      'recurrence_id': 1,
+      'hidden': 0,
+    });
+    await db.close();
+
+    db = await databaseFactoryFfi.openDatabase(
+      path,
+      options: OpenDatabaseOptions(
+        version: 4,
+        onCreate: AppDatabase.createSchema,
+        onUpgrade: AppDatabase.upgradeSchema,
+      ),
+    );
+    addTearDown(db.close);
+
+    final rows = await db.query('recurrences', orderBy: 'id');
+    expect(rows.map((row) => row['title']), [
+      'Pay the rent',
+      'Mid month',
+      'Month end',
+      'Nearly month end',
+    ]);
+    expect(rows[0]['month_days'], RepeatRule.monthDayBit(1));
+    expect(rows[1]['month_days'], RepeatRule.monthDayBit(15));
+    expect(
+      rows[2]['month_days'],
+      RepeatRule.lastDayOfMonthBit,
+      reason: 'the 31st is no longer offered; the last day is what it meant',
+    );
+    expect(rows[3]['month_days'], RepeatRule.lastDayOfMonthBit);
+    expect(rows[0]['id'], 1, reason: 'ids survive, so occurrences still point');
+    expect(
+      rows[0]['end_day'],
+      20800,
+      reason: 'every other column carries over',
+    );
+
+    // The old column is gone, and the index came back with the table.
+    final columns = await db.rawQuery('PRAGMA table_info(recurrences)');
+    expect(columns.map((c) => c['name']), isNot(contains('month_day')));
+    final indexes = await db.rawQuery('PRAGMA index_list(recurrences)');
+    expect(indexes.map((i) => i['name']), contains('recurrences_start_idx'));
+
+    // And the rebuilt table still takes new rules.
+    await db.insert('recurrences', <String, Object?>{
+      'title': 'Team sync',
+      'kind': 'weekly',
+      'weekdays': 2,
+      'month_days': 0,
+      'start_day': 20699,
+      'position': 4,
+    });
+    expect(await db.query('recurrences'), hasLength(5));
   });
 
   test('a fresh database and an upgraded one end up the same shape', () async {
@@ -168,7 +265,7 @@ void main() {
     final fresh = await databaseFactoryFfi.openDatabase(
       p.join(directory.path, 'fresh.db'),
       options: OpenDatabaseOptions(
-        version: 3,
+        version: 4,
         onCreate: AppDatabase.createSchema,
       ),
     );
@@ -183,7 +280,7 @@ void main() {
     upgraded = await databaseFactoryFfi.openDatabase(
       upgradedPath,
       options: OpenDatabaseOptions(
-        version: 3,
+        version: 4,
         onCreate: AppDatabase.createSchema,
         onUpgrade: AppDatabase.upgradeSchema,
       ),

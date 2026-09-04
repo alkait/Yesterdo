@@ -10,7 +10,7 @@ class RepeatRule {
     required this.kind,
     required this.startDay,
     this.weekdays = 0,
-    this.monthDay = 1,
+    this.monthDays = 0,
     this.endDay,
   });
 
@@ -23,11 +23,21 @@ class RepeatRule {
     weekdays: weekdays,
   );
 
-  factory RepeatRule.monthly(int startDay, int monthDay) => RepeatRule(
+  factory RepeatRule.monthly(int startDay, int monthDays) => RepeatRule(
     kind: RepeatKind.monthly,
     startDay: startDay,
-    monthDay: monthDay,
+    monthDays: monthDays,
   );
+
+  /// The highest day of the month that can be chosen. Every month has it,
+  /// so a rule never has to make do with a different day.
+  static const lastChoosableMonthDay = 28;
+
+  /// The bit in [monthDays] that means the last day of the month, whatever
+  /// its length. Kept clear of the day bits, which run from bit 0 for the 1st.
+  static const lastDayOfMonthBit = 1 << 31;
+
+  static int monthDayBit(int day) => 1 << (day - 1);
 
   final RepeatKind kind;
 
@@ -38,14 +48,19 @@ class RepeatRule {
   /// Bitmask of weekdays, bit 0 being Monday, to match `DateTime.weekday`.
   final int weekdays;
 
-  /// Day of the month, clamped to the last day of shorter months.
-  final int monthDay;
+  /// Bitmask of days of the month, bit 0 being the 1st, plus
+  /// [lastDayOfMonthBit] for the last day of every month.
+  final int monthDays;
 
   final int? endDay;
 
   static int weekdayBit(int weekday) => 1 << (weekday - 1);
 
   bool includesWeekday(int weekday) => weekdays & weekdayBit(weekday) != 0;
+
+  bool includesMonthDay(int day) => monthDays & monthDayBit(day) != 0;
+
+  bool get includesLastDayOfMonth => monthDays & lastDayOfMonthBit != 0;
 
   bool fallsOn(int day) {
     if (day < startDay) return false;
@@ -55,7 +70,9 @@ class RepeatRule {
     return switch (kind) {
       RepeatKind.daily => true,
       RepeatKind.weekly => includesWeekday(date.weekday),
-      RepeatKind.monthly => date.day == monthDay.clamp(1, daysInMonth(date)),
+      RepeatKind.monthly =>
+        includesMonthDay(date.day) ||
+            (includesLastDayOfMonth && date.day == daysInMonth(date)),
     };
   }
 
@@ -90,8 +107,27 @@ class RepeatRule {
   String get label => switch (kind) {
     RepeatKind.daily => 'Every day',
     RepeatKind.weekly => _weeklyLabel,
-    RepeatKind.monthly => 'Monthly on the ${ordinal(monthDay)}',
+    RepeatKind.monthly => 'Every month',
   };
+
+  /// The small print under [label]: which days a monthly rule lands on.
+  /// Empty for the other kinds, whose label already says it all.
+  String get detail =>
+      kind == RepeatKind.monthly ? monthDaysLabel(monthDays) : '';
+
+  /// `On the 1st and 15th`, `On the last day`, `On the 3rd, 17th and last
+  /// day`. Empty when no day is chosen.
+  static String monthDaysLabel(int monthDays) {
+    final parts = [
+      for (var day = 1; day <= lastChoosableMonthDay; day++)
+        if (monthDays & monthDayBit(day) != 0) ordinal(day),
+      if (monthDays & lastDayOfMonthBit != 0) 'last day',
+    ];
+    if (parts.isEmpty) return '';
+    if (parts.length == 1) return 'On the ${parts.single}';
+    final head = parts.sublist(0, parts.length - 1).join(', ');
+    return 'On the $head and ${parts.last}';
+  }
 
   String get _weeklyLabel {
     final days = [
@@ -107,13 +143,13 @@ class RepeatRule {
   RepeatRule copyWith({
     RepeatKind? kind,
     int? weekdays,
-    int? monthDay,
+    int? monthDays,
     int? startDay,
   }) => RepeatRule(
     kind: kind ?? this.kind,
     startDay: startDay ?? this.startDay,
     weekdays: weekdays ?? this.weekdays,
-    monthDay: monthDay ?? this.monthDay,
+    monthDays: monthDays ?? this.monthDays,
     endDay: endDay,
   );
 }
@@ -135,7 +171,7 @@ class Recurrence {
       kind: RepeatKind.values.byName(row['kind']! as String),
       startDay: row['start_day']! as int,
       weekdays: row['weekdays']! as int,
-      monthDay: row['month_day']! as int,
+      monthDays: row['month_days']! as int,
       endDay: row['end_day'] as int?,
     ),
   );
@@ -155,7 +191,7 @@ class Recurrence {
     'title': title,
     'kind': rule.kind.name,
     'weekdays': rule.weekdays,
-    'month_day': rule.monthDay,
+    'month_days': rule.monthDays,
     'start_day': rule.startDay,
     'end_day': rule.endDay,
     'position': position,

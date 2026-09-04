@@ -13,11 +13,15 @@ enum AppThemeChoice {
   /// What the settings screen calls it.
   final String label;
 
-  /// The choice written under this name, or [ink] for a name it does not
-  /// know, so a stale or missing setting never leaves the app without a look.
+  /// The look the app ships in, and the one it falls back to.
+  static const fallback = AppThemeChoice.blossom;
+
+  /// The choice written under this name, or [fallback] for a name it does
+  /// not know, so a stale or missing setting never leaves the app without a
+  /// look.
   static AppThemeChoice fromName(String? name) => values.firstWhere(
     (choice) => choice.name == name,
-    orElse: () => AppThemeChoice.ink,
+    orElse: () => fallback,
   );
 }
 

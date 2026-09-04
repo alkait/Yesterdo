@@ -12,16 +12,20 @@ class BrandedFieldRow extends StatelessWidget {
     required this.label,
     required this.value,
     required this.onTap,
+    this.detail,
   });
 
   final String label;
   final String value;
   final VoidCallback onTap;
 
+  /// Small print under the value. Nothing is drawn for null or empty.
+  final String? detail;
+
   @override
   Widget build(BuildContext context) => Semantics(
     button: true,
-    label: '$label, $value',
+    label: [label, value, ?detail].where((s) => s.isNotEmpty).join(', '),
     child: GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
@@ -31,8 +35,23 @@ class BrandedFieldRow extends StatelessWidget {
         child: Row(
           children: [
             BrandedText(label, tone: BrandedTone.muted),
-            const Spacer(),
-            BrandedText(value, maxLines: 1),
+            const SizedBox(width: Brand.gap),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  BrandedText(value, maxLines: 1),
+                  if (detail case final detail? when detail.isNotEmpty)
+                    BrandedText(
+                      detail,
+                      role: BrandedTextRole.caption,
+                      tone: BrandedTone.muted,
+                      maxLines: 1,
+                    ),
+                ],
+              ),
+            ),
             const SizedBox(width: 4),
             const BrandedIcon(
               Icons.chevron_right_rounded,

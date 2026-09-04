@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:remind_me/app.dart';
 import 'package:remind_me/core/app_theme.dart';
-import 'package:remind_me/core/date_labels.dart';
+import 'package:remind_me/core/day.dart';
 import 'package:remind_me/state/providers.dart';
 import 'package:remind_me/state/theme_choice.dart';
 import 'package:remind_me/state/todos_controller.dart';
@@ -17,7 +17,7 @@ import 'support/memory_todo_store.dart';
 
 Widget bootApp({
   MemorySettingsStore? settings,
-  AppThemeChoice theme = AppThemeChoice.ink,
+  AppThemeChoice theme = AppThemeChoice.blossom,
 }) => ProviderScope(
   overrides: [
     todoStoreProvider.overrideWithValue(MemoryTodoStore()),
@@ -49,19 +49,60 @@ Future<void> addTask(
   await tester.tap(find.text('Add a task'));
   await tester.pumpAndSettle();
   await tester.enterText(find.byType(TextField), title);
+  await tester.pump();
   if (repeat != null) await chooseRepeat(tester, repeat);
   await tester.tap(find.text('Save'));
   await tester.pumpAndSettle();
 }
 
 /// Opens the repeat picker from the editor and settles on one option.
-Future<void> chooseRepeat(WidgetTester tester, String option) async {
+///
+/// "Every month" opens the day chooser on its own screen; [monthDays] names
+/// the dots to tap there before coming back, on top of the default one.
+Future<void> chooseRepeat(
+  WidgetTester tester,
+  String option, {
+  List<String> monthDays = const [],
+}) async {
   await tester.tap(find.text('Repeat'));
   await tester.pumpAndSettle();
   await tester.tap(find.text(option).last);
   await tester.pumpAndSettle();
+  if (option == 'Every month') {
+    for (final day in monthDays) {
+      await tester.tap(find.byKey(ValueKey('month-day-$day')));
+      await tester.pumpAndSettle();
+    }
+    await tester.tap(find.byKey(const ValueKey('month-days-done')));
+    await tester.pumpAndSettle();
+  }
   await tester.tap(find.text('Done'));
   await tester.pumpAndSettle();
+}
+
+/// Whether the day chooser shows [day] as picked.
+bool monthDayPicked(WidgetTester tester, int day) => tester
+    .widget<BrandedSelectionCircle>(
+      find.descendant(
+        of: find.byKey(ValueKey('month-day-$day')),
+        matching: find.byType(BrandedSelectionCircle),
+      ),
+    )
+    .selected;
+
+/// Walks the header to the next day on or after today whose day of the
+/// month satisfies [test].
+Future<DateTime> stepToDay(
+  WidgetTester tester,
+  bool Function(DateTime) test,
+) async {
+  final today = DateTime.now().startOfDay;
+  var target = today;
+  while (!test(target)) {
+    target = target.addDays(1);
+  }
+  await stepDay(tester, target.epochDay - today.epochDay);
+  return target;
 }
 
 /// Steps the day header forward or back.
@@ -75,23 +116,23 @@ Future<void> stepDay(WidgetTester tester, int days) async {
   }
 }
 
-Future<void> openActions(WidgetTester tester, String title) async {
-  final tile = find.text(title);
-  await tester.tap(tile);
-  await tester.pump(const Duration(milliseconds: 40));
-  await tester.tap(tile);
-  await tester.pumpAndSettle();
-}
-
-/// Opens the action sheet and taps one of its buttons.
+/// Swipes a card to uncover the button for [action] and taps it. Done, Not
+/// done and Edit live on the leading side, Delete on the trailing side.
 Future<void> actOn(
   WidgetTester tester,
   String title,
   String action, {
   bool settle = true,
 }) async {
-  await openActions(tester, title);
-  await tester.tap(find.text(action));
+  final (direction, icon) = switch (action) {
+    'Done' => (const Offset(200, 0), Icons.check_rounded),
+    'Not done' => (const Offset(200, 0), Icons.remove_done_rounded),
+    'Edit' => (const Offset(200, 0), Icons.edit_outlined),
+    'Delete' => (const Offset(-160, 0), Icons.delete_outline_rounded),
+    _ => throw ArgumentError.value(action, 'action'),
+  };
+  await swipe(tester, title, direction);
+  await tester.tap(find.byIcon(icon));
   if (settle) {
     await tester.pump(reorderDelay);
     await tester.pumpAndSettle();
@@ -158,6 +199,7 @@ void main() {
     await tester.tap(find.text('Add a task'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'Buy milk');
+    await tester.pump();
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
 
@@ -184,16 +226,53 @@ void main() {
     expect(find.byType(BrandedSelectionCircle), findsNothing);
   });
 
-  testWidgets('double tapping opens the actions for that task', (tester) async {
+  testWidgets('tapping a card, once or twice, opens nothing', (tester) async {
     await tester.pumpWidget(bootApp());
     await tester.pumpAndSettle();
     await addTask(tester, 'Buy milk');
 
-    await openActions(tester, 'Buy milk');
+    final tile = find.text('Buy milk');
+    await tester.tap(tile);
+    await tester.pump(const Duration(milliseconds: 40));
+    await tester.tap(tile);
+    await tester.pumpAndSettle();
 
-    expect(find.text('Done'), findsOneWidget);
-    expect(find.text('Edit'), findsOneWidget);
-    expect(find.text('Delete'), findsOneWidget);
+    expect(find.byIcon(Icons.check_rounded), findsNothing);
+    expect(find.byIcon(Icons.edit_outlined), findsNothing);
+    expect(find.byIcon(Icons.delete_outline_rounded), findsNothing);
+    expect(visibleTitles(tester), ['Buy milk']);
+  });
+
+  testWidgets('save stays greyed until there are words', (tester) async {
+    await tester.pumpWidget(bootApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Add a task'));
+    await tester.pumpAndSettle();
+
+    BrandedTextButton button(String label) => tester.widget<BrandedTextButton>(
+      find.widgetWithText(BrandedTextButton, label),
+    );
+    expect(button('Save').enabled, isFalse);
+    expect(button('Cancel').enabled, isTrue);
+    expect(button('Cancel').tone, BrandedTone.primary);
+
+    // Tapping the greyed button goes nowhere.
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(find.text('New task'), findsOneWidget);
+
+    // Blank space does not count as words.
+    await tester.enterText(find.byType(TextField), '   ');
+    await tester.pump();
+    expect(button('Save').enabled, isFalse);
+
+    await tester.enterText(find.byType(TextField), 'Buy milk');
+    await tester.pump();
+    expect(button('Save').enabled, isTrue);
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(visibleTitles(tester), ['Buy milk']);
   });
 
   testWidgets('marking done strikes the task, then sinks it', (tester) async {
@@ -257,14 +336,13 @@ void main() {
     await tester.pumpAndSettle();
     await addTask(tester, 'Buy milk');
 
-    await openActions(tester, 'Buy milk');
-    await tester.tap(find.text('Edit'));
-    await tester.pumpAndSettle();
+    await actOn(tester, 'Buy milk', 'Edit');
 
     expect(find.text('Edit task'), findsOneWidget);
     expect(find.widgetWithText(TextField, 'Buy milk'), findsOneWidget);
 
     await tester.enterText(find.byType(TextField), 'Buy oat milk');
+    await tester.pump();
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
 
@@ -474,6 +552,7 @@ void main() {
     expect(find.text('Edit task'), findsOneWidget);
 
     await tester.enterText(find.byType(TextField), 'Buy oat milk');
+    await tester.pump();
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
 
@@ -554,23 +633,172 @@ void main() {
       expect(keys, hasLength(4), reason: 'every tile needs its own key');
     });
 
-    testWidgets('the picker offers this day, not a leftover from the rule', (
+    testWidgets('the chooser offers this day, not a leftover from the rule', (
       tester,
     ) async {
       await tester.pumpWidget(bootApp());
       await tester.pumpAndSettle();
 
-      // A weekly rule carries no meaningful day of the month, so the monthly
-      // option must fall back to the day being looked at.
-      final today = DateTime.now().day;
+      // A weekly rule carries no meaningful day of the month, so the chooser
+      // must start from the day being looked at.
+      final today = await stepToDay(tester, (date) => date.day <= 28);
       await addTask(tester, 'Team sync', repeat: 'Every week');
-      await openActions(tester, 'Team sync');
-      await tester.tap(find.text('Edit'));
-      await tester.pumpAndSettle();
+      await actOn(tester, 'Team sync', 'Edit');
       await tester.tap(find.text('Repeat'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Monthly on the ${ordinal(today)}'), findsOneWidget);
+      expect(find.text('Every month'), findsOneWidget);
+      await tester.tap(find.text('Every month'));
+      await tester.pumpAndSettle();
+
+      expect(monthDayPicked(tester, today.day), isTrue);
+      for (var day = 1; day <= 28; day++) {
+        if (day != today.day) expect(monthDayPicked(tester, day), isFalse);
+      }
+    });
+
+    testWidgets('the chooser shows 29 to 31 greyed and will not take them', (
+      tester,
+    ) async {
+      await tester.pumpWidget(bootApp());
+      await tester.pumpAndSettle();
+
+      await stepToDay(tester, (date) => date.day <= 28);
+      await tester.tap(find.text('Add a task'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Repeat'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Every month'));
+      await tester.pumpAndSettle();
+
+      for (final day in [29, 30, 31]) {
+        expect(find.byKey(ValueKey('month-day-$day')), findsOneWidget);
+        await tester.tap(find.byKey(ValueKey('month-day-$day')));
+        await tester.pumpAndSettle();
+        expect(monthDayPicked(tester, day), isFalse, reason: 'day $day');
+      }
+      expect(find.text('Last day of every month'), findsOneWidget);
+    });
+
+    testWidgets('past the 28th the chooser starts on the last day', (
+      tester,
+    ) async {
+      await tester.pumpWidget(bootApp());
+      await tester.pumpAndSettle();
+
+      await stepToDay(tester, (date) => date.day > 28);
+      await tester.tap(find.text('Add a task'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Repeat'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Every month'));
+      await tester.pumpAndSettle();
+
+      final lastDay = tester.widget<BrandedOptionRow>(
+        find.byKey(const ValueKey('month-last-day')),
+      );
+      expect(lastDay.selected, isTrue);
+      for (var day = 1; day <= 28; day++) {
+        expect(monthDayPicked(tester, day), isFalse);
+      }
+    });
+
+    testWidgets('several days of the month all fire, and the sheet says so', (
+      tester,
+    ) async {
+      await tester.pumpWidget(bootApp());
+      await tester.pumpAndSettle();
+
+      final first = await stepToDay(tester, (date) => date.day == 1);
+      await tester.tap(find.text('Add a task'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'Pay the rent');
+      await tester.pump();
+      await chooseRepeat(tester, 'Every month', monthDays: ['15']);
+
+      // Back on the editor, the field spells the days out.
+      expect(find.text('Every month'), findsOneWidget);
+      expect(find.text('On the 1st and 15th'), findsOneWidget);
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      expect(visibleTitles(tester), ['Pay the rent']);
+      await stepDay(tester, 14);
+      expect(visibleTitles(tester), ['Pay the rent'], reason: 'the 15th');
+      await stepDay(tester, -1);
+      expect(find.text('Nothing planned'), findsOneWidget);
+
+      // And the next month's 1st.
+      final next = DateTime(first.year, first.month + 1, 1);
+      await stepDay(tester, next.epochDay - (first.epochDay + 13));
+      expect(visibleTitles(tester), ['Pay the rent']);
+    });
+
+    testWidgets('the last day lands on the end of the next month too', (
+      tester,
+    ) async {
+      await tester.pumpWidget(bootApp());
+      await tester.pumpAndSettle();
+
+      final date = await stepToDay(
+        tester,
+        (date) => date.day == daysInMonth(date),
+      );
+      await tester.tap(find.text('Add a task'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'Pay the rent');
+      await tester.pump();
+      await chooseRepeat(tester, 'Every month');
+      expect(find.text('On the last day'), findsOneWidget);
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      expect(visibleTitles(tester), ['Pay the rent']);
+      final next = DateTime(date.year, date.month + 2, 0);
+      await stepDay(tester, next.epochDay - date.epochDay);
+      expect(visibleTitles(tester), ['Pay the rent']);
+      await stepDay(tester, -1);
+      expect(find.text('Nothing planned'), findsOneWidget);
+    });
+
+    testWidgets('backing out of the chooser leaves the rule as it was', (
+      tester,
+    ) async {
+      await tester.pumpWidget(bootApp());
+      await tester.pumpAndSettle();
+
+      await addTask(tester, 'Take the pills', repeat: 'Every day');
+      await actOn(tester, 'Take the pills', 'Edit');
+      await tester.tap(find.text('Repeat'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Every month'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+
+      // Still on the sheet, still daily.
+      final ticked = tester
+          .widgetList<BrandedOptionRow>(find.byType(BrandedOptionRow))
+          .where((row) => row.selected)
+          .map((row) => row.label);
+      expect(ticked, ['Every day']);
+    });
+
+    testWidgets('the chooser never lets every day be cleared', (tester) async {
+      await tester.pumpWidget(bootApp());
+      await tester.pumpAndSettle();
+
+      final today = await stepToDay(tester, (date) => date.day <= 28);
+      await tester.tap(find.text('Add a task'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Repeat'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Every month'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(ValueKey('month-day-${today.day}')));
+      await tester.pumpAndSettle();
+      expect(monthDayPicked(tester, today.day), isTrue);
     });
 
     testWidgets('a weekly task skipping today leaves today at once', (
@@ -585,6 +813,7 @@ void main() {
       await tester.tap(find.text('Add a task'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'Team sync');
+      await tester.pump();
       await tester.tap(find.text('Repeat'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Every week').last);
@@ -651,9 +880,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await addTask(tester, 'Take the pills', repeat: 'Every day');
-      await openActions(tester, 'Take the pills');
-      await tester.tap(find.text('Delete'));
-      await tester.pumpAndSettle();
+      await actOn(tester, 'Take the pills', 'Delete');
 
       expect(find.text('This task repeats'), findsOneWidget);
       await tester.tap(find.text('Delete this one'));
@@ -675,9 +902,7 @@ void main() {
 
       // Cut the series two days out, not on the day it began.
       await stepDay(tester, 2);
-      await openActions(tester, 'Take the pills');
-      await tester.tap(find.text('Delete'));
-      await tester.pumpAndSettle();
+      await actOn(tester, 'Take the pills', 'Delete');
       await tester.tap(find.text('Delete this and later ones'));
       await tester.pumpAndSettle();
 
@@ -702,9 +927,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await addTask(tester, 'Take the pills', repeat: 'Every day');
-      await openActions(tester, 'Take the pills');
-      await tester.tap(find.text('Delete'));
-      await tester.pumpAndSettle();
+      await actOn(tester, 'Take the pills', 'Delete');
 
       expect(find.text('Delete this one'), findsOneWidget);
       expect(
@@ -730,16 +953,12 @@ void main() {
 
       // End the run two days out, then stand on its final day.
       await stepDay(tester, 2);
-      await openActions(tester, 'Take the pills');
-      await tester.tap(find.text('Delete'));
-      await tester.pumpAndSettle();
+      await actOn(tester, 'Take the pills', 'Delete');
       await tester.tap(find.text('Delete this and later ones'));
       await tester.pumpAndSettle();
 
       await stepDay(tester, -1);
-      await openActions(tester, 'Take the pills');
-      await tester.tap(find.text('Delete'));
-      await tester.pumpAndSettle();
+      await actOn(tester, 'Take the pills', 'Delete');
 
       expect(find.text('Delete this one'), findsOneWidget);
       expect(find.text('Delete this and earlier ones'), findsOneWidget);
@@ -757,16 +976,12 @@ void main() {
 
       // Cut the future off tomorrow, leaving today as the only showing.
       await stepDay(tester, 1);
-      await openActions(tester, 'Take the pills');
-      await tester.tap(find.text('Delete'));
-      await tester.pumpAndSettle();
+      await actOn(tester, 'Take the pills', 'Delete');
       await tester.tap(find.text('Delete this and later ones'));
       await tester.pumpAndSettle();
 
       await stepDay(tester, -1);
-      await openActions(tester, 'Take the pills');
-      await tester.tap(find.text('Delete'));
-      await tester.pumpAndSettle();
+      await actOn(tester, 'Take the pills', 'Delete');
 
       expect(find.text('This task repeats'), findsNothing);
       expect(find.text('Nothing planned'), findsOneWidget);
@@ -780,9 +995,7 @@ void main() {
 
       await addTask(tester, 'Take the pills', repeat: 'Every day');
       await stepDay(tester, 2);
-      await openActions(tester, 'Take the pills');
-      await tester.tap(find.text('Delete'));
-      await tester.pumpAndSettle();
+      await actOn(tester, 'Take the pills', 'Delete');
 
       expect(find.text('Delete this one'), findsOneWidget);
       expect(find.text('Delete this and earlier ones'), findsOneWidget);
@@ -812,9 +1025,7 @@ void main() {
 
       // Cut two days out, so there are days on both sides of the cut.
       await stepDay(tester, 2);
-      await openActions(tester, 'Take the pills');
-      await tester.tap(find.text('Delete'));
-      await tester.pumpAndSettle();
+      await actOn(tester, 'Take the pills', 'Delete');
       await tester.tap(find.text('Delete this and earlier ones'));
       await tester.pumpAndSettle();
 
@@ -844,16 +1055,12 @@ void main() {
 
       // Cut the future off at day three, then the past off at day one.
       await stepDay(tester, 3);
-      await openActions(tester, 'Take the pills');
-      await tester.tap(find.text('Delete'));
-      await tester.pumpAndSettle();
+      await actOn(tester, 'Take the pills', 'Delete');
       await tester.tap(find.text('Delete this and later ones'));
       await tester.pumpAndSettle();
 
       await stepDay(tester, -2);
-      await openActions(tester, 'Take the pills');
-      await tester.tap(find.text('Delete'));
-      await tester.pumpAndSettle();
+      await actOn(tester, 'Take the pills', 'Delete');
       await tester.tap(find.text('Delete this and earlier ones'));
       await tester.pumpAndSettle();
 
@@ -870,9 +1077,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await addTask(tester, 'Buy milk');
-      await openActions(tester, 'Buy milk');
-      await tester.tap(find.text('Delete'));
-      await tester.pumpAndSettle();
+      await actOn(tester, 'Buy milk', 'Delete');
 
       expect(find.text('This task repeats'), findsNothing);
       expect(find.text('Nothing planned'), findsOneWidget);
@@ -885,9 +1090,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await addTask(tester, 'Take the pills', repeat: 'Every day');
-      await openActions(tester, 'Take the pills');
-      await tester.tap(find.text('Delete'));
-      await tester.pumpAndSettle();
+      await actOn(tester, 'Take the pills', 'Delete');
       await tester.tap(find.text('Delete every one'));
       await tester.pumpAndSettle();
 
@@ -904,14 +1107,13 @@ void main() {
       await tester.pumpAndSettle();
 
       await addTask(tester, 'Take the pills', repeat: 'Every day');
-      await openActions(tester, 'Take the pills');
-      await tester.tap(find.text('Edit'));
-      await tester.pumpAndSettle();
+      await actOn(tester, 'Take the pills', 'Edit');
 
       // The editor opens on the rule already in force.
       expect(find.text('Every day'), findsOneWidget);
 
       await tester.enterText(find.byType(TextField), 'Take the vitamins');
+      await tester.pump();
       await tester.tap(find.text('Save'));
       await tester.pumpAndSettle();
 
@@ -927,9 +1129,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await addTask(tester, 'Take the pills', repeat: 'Every day');
-      await openActions(tester, 'Take the pills');
-      await tester.tap(find.text('Edit'));
-      await tester.pumpAndSettle();
+      await actOn(tester, 'Take the pills', 'Edit');
       await chooseRepeat(tester, 'Never');
       await tester.tap(find.text('Save'));
       await tester.pumpAndSettle();
@@ -948,9 +1148,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await addTask(tester, 'Take the pills');
-      await openActions(tester, 'Take the pills');
-      await tester.tap(find.text('Edit'));
-      await tester.pumpAndSettle();
+      await actOn(tester, 'Take the pills', 'Edit');
       await chooseRepeat(tester, 'Every day');
       await tester.tap(find.text('Save'));
       await tester.pumpAndSettle();
@@ -1070,8 +1268,11 @@ void main() {
       await tester.pumpWidget(bootApp(settings: settings));
       await tester.pumpAndSettle();
 
-      final ink = AppTheme.schemeFor(AppThemeChoice.ink, Brightness.light);
-      expect(homeScheme(tester).primary, ink.primary);
+      final blossom = AppTheme.schemeFor(
+        AppThemeChoice.blossom,
+        Brightness.light,
+      );
+      expect(homeScheme(tester).primary, blossom.primary, reason: 'shipped');
 
       await tester.tap(find.byIcon(Icons.settings_outlined));
       await tester.pumpAndSettle();

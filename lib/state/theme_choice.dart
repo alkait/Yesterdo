@@ -13,7 +13,8 @@ class ThemeChoice extends Notifier<AppThemeChoice> {
   /// The name the choice is written under in the settings store.
   static const settingKey = 'theme';
 
-  /// Reads the saved choice, or [AppThemeChoice.ink] when nothing is saved.
+  /// Reads the saved choice, or [AppThemeChoice.fallback] when nothing is
+  /// saved.
   static Future<AppThemeChoice> load(SettingsStore store) async =>
       AppThemeChoice.fromName(await store.read(settingKey));
 

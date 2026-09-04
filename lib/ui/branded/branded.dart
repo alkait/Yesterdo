@@ -3,8 +3,6 @@
 library;
 
 export 'brand.dart';
-export 'branded_action_button.dart';
-export 'branded_action_grid.dart';
 export 'branded_app.dart';
 export 'branded_app_bar.dart';
 export 'branded_bottom_bar.dart';

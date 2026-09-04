@@ -19,7 +19,7 @@ void main() {
     db = await databaseFactoryFfi.openDatabase(
       inMemoryDatabasePath,
       options: OpenDatabaseOptions(
-        version: 3,
+        version: 4,
         onCreate: AppDatabase.createSchema,
       ),
     );
@@ -39,6 +39,34 @@ void main() {
 
   Future<List<String>> titlesOn(int on) async =>
       (await store.todosOn(on)).map((todo) => todo.title).toList();
+
+  group('a monthly rule', () {
+    test('lands on each chosen day and the last day of every month', () async {
+      final january = DateTime(2026, 1, 15).epochDay;
+      await store.insertSeries(
+        day: january,
+        title: 'Pay the rent',
+        rule: RepeatRule.monthly(
+          january,
+          RepeatRule.monthDayBit(15) | RepeatRule.lastDayOfMonthBit,
+        ),
+      );
+
+      expect(await titlesOn(january), ['Pay the rent']);
+      expect(await titlesOn(DateTime(2026, 1, 31).epochDay), ['Pay the rent']);
+      expect(await titlesOn(DateTime(2026, 2, 15).epochDay), ['Pay the rent']);
+      expect(await titlesOn(DateTime(2026, 2, 28).epochDay), ['Pay the rent']);
+      expect(await titlesOn(DateTime(2026, 3, 28).epochDay), isEmpty);
+      expect(await titlesOn(DateTime(2026, 3, 31).epochDay), ['Pay the rent']);
+
+      // The set survives a round trip through the table.
+      final row = (await db.query('recurrences')).single;
+      expect(
+        row['month_days'],
+        RepeatRule.monthDayBit(15) | RepeatRule.lastDayOfMonthBit,
+      );
+    });
+  });
 
   group('ending a run', () {
     test('cutting later days keeps the earlier ones', () async {

@@ -123,7 +123,7 @@ class MemoryTodoStore implements TodoStore {
         kind: existing.rule.kind,
         startDay: existing.rule.startDay,
         weekdays: existing.rule.weekdays,
-        monthDay: existing.rule.monthDay,
+        monthDays: existing.rule.monthDays,
         endDay: day - 1,
       ),
     );
@@ -152,7 +152,7 @@ class MemoryTodoStore implements TodoStore {
         kind: existing.rule.kind,
         startDay: day + 1,
         weekdays: existing.rule.weekdays,
-        monthDay: existing.rule.monthDay,
+        monthDays: existing.rule.monthDays,
         endDay: endDay,
       ),
     );

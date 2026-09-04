@@ -7,7 +7,7 @@ import '../branded/branded.dart';
 import 'task_actions.dart';
 
 /// One task, on its own bordered card, always a single line. Swipe either way
-/// for buttons, double tap for all of them, press and hold to reorder.
+/// for buttons, press and hold to reorder.
 class TodoTile extends ConsumerWidget {
   const TodoTile({
     super.key,
@@ -34,7 +34,6 @@ class TodoTile extends ConsumerWidget {
               tone: BrandedTone.muted,
             )
           : null,
-      onDoubleTap: () => showTaskActions(context, ref, todo),
       child: BrandedText(
         todo.firstLine,
         struck: todo.done,

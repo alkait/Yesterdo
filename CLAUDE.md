@@ -62,7 +62,14 @@ A day-at-a-time todo list for iPhone and iPad. Offline, local, no account, no sy
   sort ties on `Todo.key`, never on the id. The key survives materialisation.
 - Words and rule both belong to the series, so editing a repeating task changes
   every day it appears on. Only done, not done and delete-this-one are per day.
-- Monthly on the 31st clamps to the last day of shorter months.
+- A monthly rule is a set of days, stored as a bitmask in `month_days`: bit 0 is
+  the 1st, up to the 28th, plus `RepeatRule.lastDayOfMonthBit` for the last day of
+  every month. The 29th, 30th and 31st cannot be chosen, so no rule ever has to
+  clamp. Their dots are drawn greyed in the chooser and ignore the finger.
+- The repeat sheet's row always says "Every month". Tapping it opens
+  `MonthDaysPage` as its own screen, which hands the set back through the
+  navigator; the sheet and the editor then show the days as small print. The
+  chooser never lets the last remaining day be cleared.
 - The schema is versioned. Add an `onUpgrade` branch and cover it in
   `test/migration_test.dart`, which runs against real SQLite. The fake-clock hang
   only affects widget tests, so a plain test with the ffi driver is fine.
@@ -73,7 +80,7 @@ Every visual element is wrapped in a Branded widget, so a change to the look lan
 in one place and shows up everywhere.
 
 - Screens compose `BrandedText`, `BrandedIcon`, `BrandedIconButton`,
-  `BrandedTextButton`, `BrandedActionButton`, `BrandedActionGrid`,
+  `BrandedTextButton`,
   `BrandedFieldRow`, `BrandedOptionRow`,
   `BrandedAppBar`, `BrandedBottomBar`, `BrandedScaffold`, `BrandedCard`,
   `BrandedDragLift`, `BrandedReorderableList`, `BrandedSwipeActions`,
@@ -95,8 +102,16 @@ in one place and shows up everywhere.
   `BrandedText.styleFor`.
 - Metrics, durations and width caps come from the `Brand` constants. No magic
   numbers in a screen.
-- Colours are defined only in `AppTheme`, and every colour needs a light and a dark
-  value.
+- Colours are defined only in `AppTheme.schemeFor`, keyed by `AppThemeChoice` and
+  brightness. Every look needs a light and a dark palette; the system still picks
+  which of the two is showing.
+- The app ships in Blossom, `AppThemeChoice.fallback`, which is also what an
+  unknown saved name falls back to.
+- The look in force is `themeChoiceProvider`. `BrandedApp` is the only widget that
+  reads it to build a theme; everything else gets its colours through the
+  `ColorScheme`, so a new look needs no widget changes.
+- `main` reads the saved look before the first frame and binds it to
+  `initialThemeChoiceProvider`, so the app never flashes one look and switches.
 - Flat means no elevation, no shadows, no ripple. Keep splash and highlight
   transparent.
 - Cap content width for iPad rather than letting rows stretch. `BrandedScaffold`
@@ -107,10 +122,9 @@ in one place and shows up everywhere.
 
 - Writing a task never happens inline. Both adding and editing push
   `TaskEditorPage` as a full screen, which returns the text through the navigator.
-- A task row carries no checkbox. Double tapping it opens the action sheet, which is
-  where done, edit and delete live.
-- Single tap on a row is deliberately unbound. Binding it would make Flutter hold
-  every tap for the double-tap timeout, which is the opposite of blazing fast.
+  Save is greyed and inert until there are words; Cancel is never greyed.
+- A task row carries no checkbox and no tap of its own. Done, edit and delete live
+  on the swipe buttons and nowhere else; there is no action sheet.
 - Each task is a bordered card, not a row with a rule between. Completed cards are
   recessed onto the raised surface colour.
 - A card shows one line and one line only. Anything past the first break comes off
@@ -128,7 +142,7 @@ in one place and shows up everywhere.
   finished, so lifting one would promise a move the list cannot keep. A drag that
   lands among them is clamped back into the open group.
 - The lift waits for the long-press timeout, which leaves a plain sideways swipe
-  free for the row's buttons and a double tap free for the sheet.
+  free for the row's buttons.
 - A swipe never acts on its own. It uncovers buttons and nothing happens until one
   is tapped, so a swipe can always be taken back. Swiping right uncovers done and
   edit, swiping left uncovers delete.
@@ -136,8 +150,8 @@ in one place and shows up everywhere.
   keeps both of its rounded ends.
 - One row is open at a time. The list owns a `BrandedSwipeGroup` and hands it to
   every row, which closes the last one when another opens.
-- The three task actions are named once in `task_actions.dart`. The swipe buttons
-  and the sheet both read from there so their icons and labels cannot drift.
+- The three task actions are named once in `task_actions.dart`, so their icons and
+  labels cannot drift.
 - Deleting a repeating task asks first, with up to four scopes: this one, this and
   earlier ones, this and later ones, or every one. It is the only place a choice is
   put to the user. A one-off deletes without being asked.

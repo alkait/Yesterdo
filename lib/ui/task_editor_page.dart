@@ -30,9 +30,13 @@ class TaskEditorPage extends StatefulWidget {
 }
 
 class _TaskEditorPageState extends State<TaskEditorPage> {
-  late final _controller = TextEditingController(text: widget.initialText);
+  late final _controller = TextEditingController(text: widget.initialText)
+    ..addListener(_onTextChanged);
   final _focus = FocusNode();
   late RepeatRule? _repeat = widget.initialRepeat;
+
+  /// Whether there is anything to save. Save stays greyed until there is.
+  bool get _hasWords => _controller.text.trim().isNotEmpty;
 
   @override
   void dispose() {
@@ -41,12 +45,14 @@ class _TaskEditorPageState extends State<TaskEditorPage> {
     super.dispose();
   }
 
+  void _onTextChanged() => setState(() {});
+
   void _cancel() => Navigator.of(context).pop();
 
   void _save() {
-    final text = _controller.text.trim();
+    if (!_hasWords) return;
     Navigator.of(context)
-        .pop(text.isEmpty ? null : TaskDraft(title: text, repeat: _repeat));
+        .pop(TaskDraft(title: _controller.text.trim(), repeat: _repeat));
   }
 
   Future<void> _pickRepeat() async {
@@ -63,17 +69,17 @@ class _TaskEditorPageState extends State<TaskEditorPage> {
   Widget build(BuildContext context) => BrandedScaffold(
     children: [
       BrandedAppBar(
-        leading: BrandedTextButton(
-          label: 'Cancel',
-          onTap: _cancel,
-          tone: BrandedTone.muted,
-        ),
+        leading: BrandedTextButton(label: 'Cancel', onTap: _cancel),
         center: BrandedText(
           widget.heading,
           role: BrandedTextRole.title,
           align: TextAlign.center,
         ),
-        trailing: BrandedTextButton(label: 'Save', onTap: _save),
+        trailing: BrandedTextButton(
+          label: 'Save',
+          onTap: _save,
+          enabled: _hasWords,
+        ),
       ),
       Expanded(
         child: SingleChildScrollView(
@@ -95,6 +101,7 @@ class _TaskEditorPageState extends State<TaskEditorPage> {
               BrandedFieldRow(
                 label: 'Repeat',
                 value: _repeat?.label ?? 'Never',
+                detail: _repeat?.detail,
                 onTap: _pickRepeat,
               ),
             ],

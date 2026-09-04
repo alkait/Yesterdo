@@ -188,7 +188,7 @@ class SqliteTodoStore implements TodoStore {
         'title': title,
         'kind': rule.kind.name,
         'weekdays': rule.weekdays,
-        'month_day': rule.monthDay,
+        'month_days': rule.monthDays,
         'start_day': rule.startDay,
         'end_day': rule.endDay,
       },

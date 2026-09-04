@@ -12,6 +12,7 @@ class BrandedOptionRow extends StatelessWidget {
     required this.onTap,
     this.icon,
     this.leading,
+    this.detail,
     this.selected = false,
     this.tone = BrandedTone.primary,
   }) : assert(icon == null || leading == null, 'pick an icon or a leading');
@@ -25,6 +26,9 @@ class BrandedOptionRow extends StatelessWidget {
   /// Shown ahead of the label instead of an icon, for something that is not
   /// one, such as a swatch.
   final Widget? leading;
+
+  /// Small print under the label. Nothing is drawn for null or empty.
+  final String? detail;
 
   final bool selected;
   final BrandedTone tone;
@@ -49,7 +53,22 @@ class BrandedOptionRow extends StatelessWidget {
           child: Row(
             children: [
               if (ahead != null) ...[ahead, const SizedBox(width: Brand.gap)],
-              Expanded(child: BrandedText(label, tone: tone, maxLines: 1)),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    BrandedText(label, tone: tone, maxLines: 1),
+                    if (detail case final detail? when detail.isNotEmpty)
+                      BrandedText(
+                        detail,
+                        role: BrandedTextRole.caption,
+                        tone: BrandedTone.muted,
+                        maxLines: 1,
+                      ),
+                  ],
+                ),
+              ),
               if (selected)
                 const BrandedIcon(
                   Icons.check_rounded,

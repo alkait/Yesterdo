@@ -4,6 +4,7 @@ import '../../core/date_labels.dart';
 import '../../core/day.dart';
 import '../../data/repeat_rule.dart';
 import '../branded/branded.dart';
+import '../month_days_page.dart';
 
 /// Asks how often a task should come back. Returns the chosen rule, or null
 /// for a task that happens once.
@@ -40,16 +41,36 @@ class _RepeatPickerState extends State<_RepeatPicker> {
   late int _weekdays = widget.current?.kind == RepeatKind.weekly
       ? widget.current!.weekdays
       : RepeatRule.weekdayBit(dateFromEpochDay(widget.anchorDay).weekday);
-  late final int _monthDay = widget.current?.kind == RepeatKind.monthly
-      ? widget.current!.monthDay
-      : dateFromEpochDay(widget.anchorDay).day;
+  late int _monthDays = widget.current?.kind == RepeatKind.monthly
+      ? widget.current!.monthDays
+      : _monthDaysFor(dateFromEpochDay(widget.anchorDay).day);
+
+  /// The day being looked at, as a first choice. Past the 28th it is a day
+  /// the chooser cannot offer, so the last day stands in for it.
+  static int _monthDaysFor(int day) => day <= RepeatRule.lastChoosableMonthDay
+      ? RepeatRule.monthDayBit(day)
+      : RepeatRule.lastDayOfMonthBit;
 
   RepeatRule? get _rule => switch (_kind) {
     null => null,
     RepeatKind.daily => RepeatRule.daily(_start),
     RepeatKind.weekly => RepeatRule.weekly(_start, _weekdays),
-    RepeatKind.monthly => RepeatRule.monthly(_start, _monthDay),
+    RepeatKind.monthly => RepeatRule.monthly(_start, _monthDays),
   };
+
+  /// Opens the day chooser on its own screen. Coming back with a choice makes
+  /// the rule monthly; backing out leaves things as they were.
+  Future<void> _chooseMonthDays() async {
+    final chosen = await openBrandedPage<int>(
+      context,
+      (_) => MonthDaysPage(initialMonthDays: _monthDays),
+    );
+    if (!mounted || chosen == null) return;
+    setState(() {
+      _kind = RepeatKind.monthly;
+      _monthDays = chosen;
+    });
+  }
 
   /// An existing rule keeps its own beginning; a new one starts here.
   int get _start => widget.current?.startDay ?? widget.anchorDay;
@@ -87,9 +108,12 @@ class _RepeatPickerState extends State<_RepeatPicker> {
         _WeekdayToggles(weekdays: _weekdays, onToggle: _toggleWeekday),
       const BrandedDivider(),
       BrandedOptionRow(
-        label: 'Monthly on the ${ordinal(_monthDay)}',
+        label: 'Every month',
+        detail: _kind == RepeatKind.monthly
+            ? RepeatRule.monthDaysLabel(_monthDays)
+            : null,
         selected: _kind == RepeatKind.monthly,
-        onTap: () => setState(() => _kind = RepeatKind.monthly),
+        onTap: _chooseMonthDays,
       ),
       const SizedBox(height: 8),
       BrandedTextButton(

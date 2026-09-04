@@ -54,24 +54,52 @@ void main() {
   });
 
   group('monthly', () {
+    final fifteenth = RepeatRule.monthDayBit(15);
+    final lastDay = RepeatRule.lastDayOfMonthBit;
+
     test('fires on its day of the month', () {
-      final rule = RepeatRule.monthly(dayOf(2026, 1, 15), 15);
+      final rule = RepeatRule.monthly(dayOf(2026, 1, 15), fifteenth);
       expect(rule.fallsOn(dayOf(2026, 2, 15)), isTrue);
       expect(rule.fallsOn(dayOf(2026, 2, 14)), isFalse);
+      expect(rule.includesMonthDay(15), isTrue);
+      expect(rule.includesLastDayOfMonth, isFalse);
     });
 
-    test('the 31st clamps to the last day of a shorter month', () {
-      final rule = RepeatRule.monthly(dayOf(2026, 1, 31), 31);
-      expect(rule.fallsOn(dayOf(2026, 1, 31)), isTrue);
-      expect(rule.fallsOn(dayOf(2026, 2, 28)), isTrue, reason: 'February');
-      expect(rule.fallsOn(dayOf(2026, 4, 30)), isTrue, reason: 'April');
-      expect(rule.fallsOn(dayOf(2026, 4, 29)), isFalse);
+    test('fires on every chosen day', () {
+      final rule = RepeatRule.monthly(
+        dayOf(2026, 1, 1),
+        RepeatRule.monthDayBit(1) | fifteenth,
+      );
+      expect(rule.fallsOn(dayOf(2026, 2, 1)), isTrue);
+      expect(rule.fallsOn(dayOf(2026, 2, 15)), isTrue);
+      expect(rule.fallsOn(dayOf(2026, 2, 8)), isFalse);
     });
 
-    test('clamping follows a leap year', () {
-      final rule = RepeatRule.monthly(dayOf(2024, 1, 31), 31);
-      expect(rule.fallsOn(dayOf(2024, 2, 29)), isTrue);
+    test('the last day means the last day, whatever the month holds', () {
+      final rule = RepeatRule.monthly(dayOf(2024, 1, 31), lastDay);
+      expect(rule.fallsOn(dayOf(2024, 1, 31)), isTrue);
+      expect(rule.fallsOn(dayOf(2024, 2, 29)), isTrue, reason: 'leap');
       expect(rule.fallsOn(dayOf(2024, 2, 28)), isFalse);
+      expect(rule.fallsOn(dayOf(2025, 2, 28)), isTrue, reason: 'common');
+      expect(rule.fallsOn(dayOf(2025, 4, 30)), isTrue);
+      expect(rule.fallsOn(dayOf(2025, 4, 29)), isFalse);
+      expect(rule.includesLastDayOfMonth, isTrue);
+    });
+
+    test('the last day sits alongside numbered days', () {
+      final rule = RepeatRule.monthly(dayOf(2026, 1, 1), fifteenth | lastDay);
+      expect(rule.fallsOn(dayOf(2026, 2, 15)), isTrue);
+      expect(rule.fallsOn(dayOf(2026, 2, 28)), isTrue);
+      expect(rule.fallsOn(dayOf(2026, 3, 28)), isFalse);
+      expect(rule.fallsOn(dayOf(2026, 3, 31)), isTrue);
+    });
+
+    test('the 28th is the highest day that can be chosen', () {
+      expect(RepeatRule.lastChoosableMonthDay, 28);
+      // The last-day bit sits clear of every choosable day.
+      for (var day = 1; day <= 31; day++) {
+        expect(RepeatRule.monthDayBit(day) & lastDay, 0);
+      }
     });
   });
 
@@ -111,8 +139,13 @@ void main() {
     });
 
     test('monthly looks past a whole month', () {
-      final rule = RepeatRule.monthly(dayOf(2026, 1, 31), 31);
+      final rule = RepeatRule.monthly(
+        dayOf(2026, 1, 31),
+        RepeatRule.lastDayOfMonthBit,
+      );
+      expect(rule.hasOccurrenceBefore(dayOf(2026, 1, 31)), isFalse);
       expect(rule.hasOccurrenceBefore(dayOf(2026, 2, 28)), isTrue);
+      expect(rule.hasOccurrenceBefore(dayOf(2026, 3, 31)), isTrue);
       expect(rule.hasOccurrenceAfter(dayOf(2026, 1, 31)), isTrue);
     });
 
@@ -136,7 +169,28 @@ void main() {
         ).label,
         'Every Mon, Wed',
       );
-      expect(RepeatRule.monthly(tuesday, 3).label, 'Monthly on the 3rd');
+      expect(
+        RepeatRule.monthly(tuesday, RepeatRule.monthDayBit(3)).label,
+        'Every month',
+      );
+    });
+
+    test('a monthly rule spells its days out in the small print', () {
+      final third = RepeatRule.monthDayBit(3);
+      final seventeenth = RepeatRule.monthDayBit(17);
+      final last = RepeatRule.lastDayOfMonthBit;
+      expect(RepeatRule.monthly(tuesday, third).detail, 'On the 3rd');
+      expect(RepeatRule.monthly(tuesday, last).detail, 'On the last day');
+      expect(
+        RepeatRule.monthly(tuesday, third | seventeenth).detail,
+        'On the 3rd and 17th',
+      );
+      expect(
+        RepeatRule.monthly(tuesday, third | seventeenth | last).detail,
+        'On the 3rd, 17th and last day',
+      );
+      expect(RepeatRule.daily(tuesday).detail, isEmpty);
+      expect(RepeatRule.monthDaysLabel(0), isEmpty);
     });
 
     test('ordinals', () {

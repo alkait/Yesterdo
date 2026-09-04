@@ -11,7 +11,6 @@ class BrandedCard extends StatelessWidget {
     required this.child,
     this.trailing,
     this.onTap,
-    this.onDoubleTap,
     this.recessed = false,
   });
 
@@ -19,7 +18,6 @@ class BrandedCard extends StatelessWidget {
   final Widget child;
   final Widget? trailing;
   final VoidCallback? onTap;
-  final VoidCallback? onDoubleTap;
 
   /// Settles the card into the background, for content that is done with.
   final bool recessed;
@@ -31,7 +29,6 @@ class BrandedCard extends StatelessWidget {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
-      onDoubleTap: onDoubleTap,
       child: Container(
         margin: const EdgeInsets.symmetric(
           horizontal: Brand.gutter,

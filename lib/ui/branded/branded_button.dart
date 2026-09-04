@@ -38,28 +38,36 @@ class BrandedIconButton extends StatelessWidget {
   );
 }
 
-/// A flat text button. No fill, no border, no ripple.
+/// A flat text button. No fill, no border, no ripple. Greyed and inert
+/// while not [enabled].
 class BrandedTextButton extends StatelessWidget {
   const BrandedTextButton({
     super.key,
     required this.label,
     required this.onTap,
     this.tone = BrandedTone.primary,
+    this.enabled = true,
   });
 
   final String label;
   final VoidCallback onTap;
   final BrandedTone tone;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) => Semantics(
     button: true,
+    enabled: enabled,
     child: GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: onTap,
+      onTap: enabled ? onTap : null,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: BrandedText(label, role: BrandedTextRole.action, tone: tone),
+        child: BrandedText(
+          label,
+          role: BrandedTextRole.action,
+          tone: enabled ? tone : BrandedTone.muted,
+        ),
       ),
     ),
   );
