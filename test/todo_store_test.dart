@@ -4,6 +4,7 @@ library;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:remind_me/core/day.dart';
 import 'package:remind_me/data/app_database.dart';
+import 'package:remind_me/data/due.dart';
 import 'package:remind_me/data/repeat_rule.dart';
 import 'package:remind_me/data/sqlite_todo_store.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -19,7 +20,7 @@ void main() {
     db = await databaseFactoryFfi.openDatabase(
       inMemoryDatabasePath,
       options: OpenDatabaseOptions(
-        version: 4,
+        version: 5,
         onCreate: AppDatabase.createSchema,
       ),
     );
@@ -123,6 +124,83 @@ void main() {
 
       await store.startSeriesAfter(recurrenceId: id, day: day + 2);
       expect(await db.query('todos'), isEmpty);
+    });
+  });
+
+  group('a due time', () {
+    const due = Due(minute: 9 * 60 + 30, reminder: 15);
+
+    test('is kept on a one-off', () async {
+      await store.insert(day: day, title: 'Call Sam', due: due);
+      final read = (await store.todosOn(day)).single;
+      expect(read.due, due);
+      expect(read.dismissed, isFalse);
+    });
+
+    test('is kept on a rule and carried by every showing', () async {
+      await store.insertSeries(
+        day: day,
+        title: 'Take the pills',
+        rule: RepeatRule.daily(day),
+        due: due,
+      );
+      expect((await store.todosOn(day)).single.due, due);
+      expect((await store.todosOn(day + 3)).single.due, due);
+    });
+
+    test('a snooze and a wave-away are written for the day alone', () async {
+      await store.insertSeries(
+        day: day,
+        title: 'Take the pills',
+        rule: RepeatRule.daily(day),
+        due: due,
+      );
+      final projected = (await store.todosOn(day)).single;
+      final written = await store.materialize(day: day, todo: projected);
+      await store.save(written.snoozed(nowMinute: 10 * 60));
+      expect(
+        (await store.todosOn(day)).single.due,
+        const Due(minute: 10 * 60 + 10, reminder: 0),
+      );
+      expect((await store.todosOn(day + 1)).single.due, due);
+
+      await store.save(written.dismiss());
+      expect((await store.todosOn(day)).single.dismissed, isTrue);
+      expect((await store.todosOn(day + 1)).single.dismissed, isFalse);
+    });
+
+    test('rewriting the series gives every showing the new time', () async {
+      final id = await startDaily();
+      final projected = (await store.todosOn(day)).single;
+      final written = await store.materialize(day: day, todo: projected);
+      await store.save(written.dismiss());
+
+      await store.saveSeries(
+        recurrenceId: id,
+        title: 'Take the pills',
+        rule: RepeatRule.daily(day),
+        due: due,
+      );
+      final today = (await store.todosOn(day)).single;
+      expect(today.due, due);
+      expect(today.dismissed, isFalse, reason: 'a new time is a new call');
+      expect((await store.todosOn(day + 1)).single.due, due);
+
+      await store.saveSeries(
+        recurrenceId: id,
+        title: 'Take the pills',
+        rule: RepeatRule.daily(day),
+      );
+      expect((await store.todosOn(day)).single.due, isNull);
+    });
+
+    test('brings a task whose time has come to the top', () async {
+      await store.insert(day: day, title: 'Buy milk');
+      await store.insert(day: day, title: 'Call Sam', due: due);
+      expect(await titlesOn(day), ['Buy milk', 'Call Sam']);
+      final ten = DateTime(2026, 9, 4, 10);
+      final atTen = await store.todosOn(day, now: ten);
+      expect(atTen.map((t) => t.title), ['Call Sam', 'Buy milk']);
     });
   });
 

@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:remind_me/app.dart';
 import 'package:remind_me/core/app_theme.dart';
 import 'package:remind_me/core/day.dart';
+import 'package:remind_me/data/due.dart';
 import 'package:remind_me/state/providers.dart';
 import 'package:remind_me/state/theme_choice.dart';
 import 'package:remind_me/state/todos_controller.dart';
@@ -12,20 +14,51 @@ import 'package:remind_me/ui/branded/branded.dart';
 import 'package:remind_me/ui/home_page.dart';
 import 'package:remind_me/ui/widgets/todo_tile.dart';
 
+import 'support/memory_reminder_scheduler.dart';
 import 'support/memory_settings_store.dart';
 import 'support/memory_todo_store.dart';
 
 Widget bootApp({
+  MemoryTodoStore? store,
   MemorySettingsStore? settings,
+  MemoryReminderScheduler? scheduler,
+  DateTime Function()? clock,
   AppThemeChoice theme = AppThemeChoice.blossom,
 }) => ProviderScope(
   overrides: [
-    todoStoreProvider.overrideWithValue(MemoryTodoStore()),
+    todoStoreProvider.overrideWithValue(store ?? MemoryTodoStore()),
     settingsStoreProvider.overrideWithValue(settings ?? MemorySettingsStore()),
+    reminderSchedulerProvider.overrideWithValue(
+      scheduler ?? MemoryReminderScheduler(),
+    ),
+    if (clock != null) clockProvider.overrideWithValue(clock),
     initialThemeChoiceProvider.overrideWithValue(theme),
   ],
   child: const RemindMeApp(),
 );
+
+/// A moment on the real today, since the list opens on the real today.
+DateTime at(int hour, int minute) {
+  final today = todayDate();
+  return DateTime(today.year, today.month, today.day, hour, minute);
+}
+
+const int _minutesPerHour = 60;
+int minuteOf(int hour, int minute) => hour * _minutesPerHour + minute;
+
+/// The card for [title], as built.
+TodoTile tileFor(WidgetTester tester, String title) => tester.widget<TodoTile>(
+  find.ancestor(of: find.text(title), matching: find.byType(TodoTile)),
+);
+
+/// Turns the pulse off, the way the system's reduce-motion setting does, so
+/// the tester's settle has something to settle on. A calling card breathes
+/// without end otherwise.
+void holdStill(WidgetTester tester) {
+  tester.platformDispatcher.accessibilityFeaturesTestValue =
+      const FakeAccessibilityFeatures(disableAnimations: true);
+  addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+}
 
 /// The colours the home screen is currently drawn in.
 ColorScheme homeScheme(WidgetTester tester) =>
@@ -40,18 +73,39 @@ List<String> visibleTitles(WidgetTester tester) => tester
 
 /// Writes a task the way a person does: on the editor screen.
 ///
-/// Pass [repeat] to also work the repeat picker, naming the option to choose.
+/// Pass [repeat] to also work the repeat picker, naming the option to choose,
+/// and [due] to work the time chooser.
 Future<void> addTask(
   WidgetTester tester,
   String title, {
   String? repeat,
+  Due? due,
 }) async {
   await tester.tap(find.text('Add a task'));
   await tester.pumpAndSettle();
   await tester.enterText(find.byType(TextField), title);
   await tester.pump();
+  if (due != null) await chooseDue(tester, due);
   if (repeat != null) await chooseRepeat(tester, repeat);
   await tester.tap(find.text('Save'));
+  await tester.pumpAndSettle();
+}
+
+/// Opens the time chooser from the editor, turns the wheel to [due] and
+/// picks its reminder. The wheel is turned by hand rather than dragged, since
+/// what matters here is what comes back.
+Future<void> chooseDue(WidgetTester tester, Due due) async {
+  await tester.tap(find.text('Due'));
+  await tester.pumpAndSettle();
+  tester
+      .widget<CupertinoDatePicker>(find.byType(CupertinoDatePicker))
+      .onDateTimeChanged(
+        DateTime(2000, 1, 1, due.minute ~/ 60, due.minute % 60),
+      );
+  await tester.pump();
+  await tester.tap(find.byKey(ValueKey('reminder-${due.reminder ?? 'none'}')));
+  await tester.pump();
+  await tester.tap(find.text('Done'));
   await tester.pumpAndSettle();
 }
 
@@ -1301,6 +1355,520 @@ void main() {
         Brightness.light,
       );
       expect(homeScheme(tester).primary, forest.primary);
+    });
+  });
+
+  group('due times', () {
+    final today = todayDate().epochDay;
+
+    testWidgets('the editor offers a time, above repeat', (tester) async {
+      await tester.pumpWidget(bootApp());
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Add a task'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Due'), findsOneWidget);
+      expect(find.text('None'), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.text('Due')).dy,
+        lessThan(tester.getTopLeft(find.text('Repeat')).dy),
+      );
+    });
+
+    testWidgets('a time shows on the row, then on the card', (tester) async {
+      final scheduler = MemoryReminderScheduler();
+      await tester.pumpWidget(
+        bootApp(scheduler: scheduler, clock: () => at(9, 0)),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Add a task'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'Call Sam');
+      await chooseDue(tester, Due(minute: minuteOf(14, 30)));
+
+      expect(find.text('2:30 PM'), findsOneWidget);
+      expect(find.text('None'), findsNothing);
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('2:30 PM'), findsOneWidget);
+      expect(find.byIcon(Icons.notifications_none_rounded), findsNothing);
+      expect(scheduler.pending, isEmpty, reason: 'no reminder was asked for');
+      expect(scheduler.permissionAsks, 0);
+    });
+
+    testWidgets('the card keeps a 24-hour clock when the device does', (
+      tester,
+    ) async {
+      // The app reads the device's clock setting through the platform data
+      // above it, which is where a test can set it.
+      await tester.pumpWidget(
+        MediaQuery(
+          data: const MediaQueryData(alwaysUse24HourFormat: true),
+          child: bootApp(clock: () => at(9, 0)),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await addTask(tester, 'Call Sam', due: Due(minute: minuteOf(14, 30)));
+
+      expect(find.text('14:30'), findsOneWidget);
+    });
+
+    testWidgets('a reminder asks the system once and is laid down', (
+      tester,
+    ) async {
+      final scheduler = MemoryReminderScheduler();
+      await tester.pumpWidget(
+        bootApp(scheduler: scheduler, clock: () => at(9, 0)),
+      );
+      await tester.pumpAndSettle();
+      await addTask(
+        tester,
+        'Call Sam\nabout the invoice',
+        due: Due(minute: minuteOf(14, 30), reminder: 15),
+      );
+
+      expect(scheduler.permissionAsks, 1);
+      expect(find.byIcon(Icons.notifications_none_rounded), findsOneWidget);
+      expect(scheduler.pending, hasLength(1));
+      expect(scheduler.pending.single.fireAt, at(14, 15));
+      expect(scheduler.pending.single.title, 'Call Sam');
+      expect(scheduler.pending.single.day, today);
+
+      // The editor row says what was chosen.
+      await actOn(tester, 'Call Sam', 'Edit');
+      expect(find.text('2:30 PM'), findsOneWidget);
+      expect(find.text('15 minutes before'), findsOneWidget);
+    });
+
+    testWidgets('the reminders laid down follow the list', (tester) async {
+      final scheduler = MemoryReminderScheduler();
+      await tester.pumpWidget(
+        bootApp(scheduler: scheduler, clock: () => at(9, 0)),
+      );
+      await tester.pumpAndSettle();
+      await addTask(
+        tester,
+        'Take the pills',
+        repeat: 'Every day',
+        due: Due(minute: minuteOf(20, 0), reminder: 0),
+      );
+      expect(
+        scheduler.pending,
+        hasLength(15),
+        reason: 'today and the fortnight after it',
+      );
+
+      await actOn(tester, 'Take the pills', 'Done');
+      expect(scheduler.pending, hasLength(14), reason: 'today is done with');
+
+      await actOn(tester, 'Take the pills', 'Delete');
+      await tester.tap(find.text('Delete every one'));
+      await tester.pumpAndSettle();
+      expect(scheduler.pending, isEmpty);
+    });
+
+    testWidgets('a task whose time has come heads the list, calling', (
+      tester,
+    ) async {
+      holdStill(tester);
+      await tester.pumpWidget(bootApp(clock: () => at(9, 0)));
+      await tester.pumpAndSettle();
+      await addTask(tester, 'Buy milk');
+      await addTask(tester, 'Call Sam', due: Due(minute: minuteOf(8, 30)));
+
+      expect(visibleTitles(tester), ['Call Sam', 'Buy milk']);
+      expect(tileFor(tester, 'Call Sam').calling, isTrue);
+      expect(tileFor(tester, 'Buy milk').calling, isFalse);
+    });
+
+    testWidgets('a task rises the minute it falls due', (tester) async {
+      holdStill(tester);
+      var now = at(9, 0);
+      await tester.pumpWidget(bootApp(clock: () => now));
+      await tester.pumpAndSettle();
+      await addTask(tester, 'Buy milk');
+      await addTask(tester, 'Call Sam', due: Due(minute: minuteOf(9, 30)));
+      expect(visibleTitles(tester), ['Buy milk', 'Call Sam']);
+      expect(tileFor(tester, 'Call Sam').calling, isFalse);
+
+      now = at(9, 30);
+      await tester.pump(const Duration(minutes: 30));
+      await tester.pumpAndSettle();
+
+      expect(visibleTitles(tester), ['Call Sam', 'Buy milk']);
+      expect(tileFor(tester, 'Call Sam').calling, isTrue);
+    });
+
+    testWidgets('coming back to the front reads the day again', (tester) async {
+      holdStill(tester);
+      var now = at(9, 0);
+      final store = MemoryTodoStore();
+      await store.insert(day: today, title: 'Buy milk');
+      await store.insert(
+        day: today,
+        title: 'Call Sam',
+        due: Due(minute: minuteOf(9, 30)),
+      );
+      await tester.pumpWidget(bootApp(store: store, clock: () => now));
+      await tester.pumpAndSettle();
+      expect(visibleTitles(tester), ['Buy milk', 'Call Sam']);
+
+      now = at(9, 45);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+
+      expect(visibleTitles(tester), ['Call Sam', 'Buy milk']);
+    });
+
+    testWidgets('a calling card breathes, and holds still if motion is off', (
+      tester,
+    ) async {
+      final store = MemoryTodoStore();
+      await store.insert(
+        day: today,
+        title: 'Call Sam',
+        due: Due(minute: minuteOf(8, 30)),
+      );
+      await tester.pumpWidget(bootApp(store: store, clock: () => at(9, 0)));
+      await tester.pump();
+      await tester.pump(Brand.breath);
+      expect(tester.hasRunningAnimations, isTrue);
+      expect(tileFor(tester, 'Call Sam').calling, isTrue);
+
+      holdStill(tester);
+      await tester.pumpAndSettle();
+      expect(tester.hasRunningAnimations, isFalse);
+    });
+
+    testWidgets('a plain card does not breathe', (tester) async {
+      await tester.pumpWidget(bootApp(clock: () => at(9, 0)));
+      await tester.pumpAndSettle();
+      await addTask(tester, 'Call Sam', due: Due(minute: minuteOf(9, 30)));
+      await tester.pump(Brand.breath);
+      expect(tester.hasRunningAnimations, isFalse);
+    });
+
+    testWidgets('tapping a calling card puts up the sheet, words and all', (
+      tester,
+    ) async {
+      holdStill(tester);
+      final store = MemoryTodoStore();
+      await store.insert(
+        day: today,
+        title: 'Call Sam\nabout the invoice',
+        due: Due(minute: minuteOf(8, 30)),
+      );
+      await tester.pumpWidget(bootApp(store: store, clock: () => at(9, 0)));
+      await tester.pumpAndSettle();
+      expect(find.text('Call Sam\nabout the invoice'), findsNothing);
+
+      await tester.tap(find.text('Call Sam'));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('attention-title')), findsOneWidget);
+      expect(find.text('Call Sam\nabout the invoice'), findsOneWidget);
+      expect(find.text('Due 8:30 AM'), findsOneWidget);
+      expect(find.text('Done'), findsOneWidget);
+      expect(find.text('Snooze'), findsOneWidget);
+      expect(find.text('Dismiss'), findsOneWidget);
+    });
+
+    testWidgets('done from the sheet completes it', (tester) async {
+      holdStill(tester);
+      await tester.pumpWidget(bootApp(clock: () => at(9, 0)));
+      await tester.pumpAndSettle();
+      await addTask(tester, 'Buy milk');
+      await addTask(tester, 'Call Sam', due: Due(minute: minuteOf(8, 30)));
+
+      await tester.tap(find.text('Call Sam'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Done'));
+      await tester.pump(reorderDelay);
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('attention-title')), findsNothing);
+      expect(visibleTitles(tester), ['Buy milk', 'Call Sam']);
+      expect(tileFor(tester, 'Call Sam').todo.done, isTrue);
+      expect(tileFor(tester, 'Call Sam').calling, isFalse);
+    });
+
+    testWidgets('snooze puts it off from now, and it calls again then', (
+      tester,
+    ) async {
+      holdStill(tester);
+      var now = at(9, 0);
+      final scheduler = MemoryReminderScheduler();
+      await tester.pumpWidget(bootApp(scheduler: scheduler, clock: () => now));
+      await tester.pumpAndSettle();
+      await addTask(tester, 'Buy milk');
+      await addTask(tester, 'Call Sam', due: Due(minute: minuteOf(8, 30)));
+
+      await tester.tap(find.text('Call Sam'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Snooze'));
+      await tester.pumpAndSettle();
+
+      expect(visibleTitles(tester), ['Buy milk', 'Call Sam']);
+      expect(tileFor(tester, 'Call Sam').calling, isFalse);
+      expect(find.text('9:10 AM'), findsOneWidget);
+      expect(scheduler.pending, hasLength(1), reason: 'a fresh notification');
+      expect(scheduler.pending.single.fireAt, at(9, 10));
+
+      now = at(9, 10);
+      await tester.pump(const Duration(minutes: 10));
+      await tester.pumpAndSettle();
+      expect(visibleTitles(tester), ['Call Sam', 'Buy milk']);
+      expect(tileFor(tester, 'Call Sam').calling, isTrue);
+    });
+
+    testWidgets('dismiss quiets it for the day but keeps its time', (
+      tester,
+    ) async {
+      holdStill(tester);
+      await tester.pumpWidget(bootApp(clock: () => at(9, 0)));
+      await tester.pumpAndSettle();
+      await addTask(tester, 'Buy milk');
+      await addTask(tester, 'Call Sam', due: Due(minute: minuteOf(8, 30)));
+
+      await tester.tap(find.text('Call Sam'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Dismiss'));
+      await tester.pumpAndSettle();
+
+      expect(visibleTitles(tester), ['Buy milk', 'Call Sam']);
+      expect(tileFor(tester, 'Call Sam').calling, isFalse);
+      expect(find.text('8:30 AM'), findsOneWidget);
+
+      // Tapping it now does nothing, like any other card.
+      await tester.tap(find.text('Call Sam'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('attention-title')), findsNothing);
+    });
+
+    testWidgets('a snooze or dismissal on a repeating task is for today', (
+      tester,
+    ) async {
+      holdStill(tester);
+      await tester.pumpWidget(bootApp(clock: () => at(9, 0)));
+      await tester.pumpAndSettle();
+      await addTask(
+        tester,
+        'Take the pills',
+        repeat: 'Every day',
+        due: Due(minute: minuteOf(8, 30)),
+      );
+      await tester.tap(find.text('Take the pills'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Dismiss'));
+      await tester.pumpAndSettle();
+      expect(tileFor(tester, 'Take the pills').todo.dismissed, isTrue);
+
+      await stepDay(tester, 1);
+      expect(tileFor(tester, 'Take the pills').todo.dismissed, isFalse);
+      expect(find.text('8:30 AM'), findsOneWidget);
+    });
+
+    testWidgets('a calling card holds the top and cannot be lifted', (
+      tester,
+    ) async {
+      holdStill(tester);
+      await tester.pumpWidget(bootApp(clock: () => at(9, 0)));
+      await tester.pumpAndSettle();
+      await addTask(tester, 'Buy milk');
+      await addTask(tester, 'Post letter');
+      await addTask(tester, 'Call Sam', due: Due(minute: minuteOf(8, 30)));
+      expect(visibleTitles(tester), ['Call Sam', 'Buy milk', 'Post letter']);
+
+      await dragCardDown(tester, from: 'Call Sam', over: 'Post letter');
+      expect(visibleTitles(tester), ['Call Sam', 'Buy milk', 'Post letter']);
+
+      // A drag aimed above it lands just under it.
+      final start = tester.getCenter(find.text('Post letter'));
+      final gesture = await tester.startGesture(start);
+      await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+      await gesture.moveTo(tester.getTopLeft(find.text('Call Sam')));
+      await tester.pumpAndSettle();
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(visibleTitles(tester), ['Call Sam', 'Post letter', 'Buy milk']);
+    });
+
+    testWidgets('editing a repeating task changes its time on every day', (
+      tester,
+    ) async {
+      await tester.pumpWidget(bootApp(clock: () => at(9, 0)));
+      await tester.pumpAndSettle();
+      await addTask(
+        tester,
+        'Take the pills',
+        repeat: 'Every day',
+        due: Due(minute: minuteOf(14, 30)),
+      );
+      await actOn(tester, 'Take the pills', 'Edit');
+      await chooseDue(tester, Due(minute: minuteOf(15, 0)));
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('3:00 PM'), findsOneWidget);
+      await stepDay(tester, 1);
+      expect(find.text('3:00 PM'), findsOneWidget);
+    });
+
+    testWidgets('clearing the time takes it off the card', (tester) async {
+      await tester.pumpWidget(bootApp(clock: () => at(9, 0)));
+      await tester.pumpAndSettle();
+      await addTask(tester, 'Call Sam', due: Due(minute: minuteOf(14, 30)));
+
+      await actOn(tester, 'Call Sam', 'Edit');
+      await tester.tap(find.text('Due'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Clear'));
+      await tester.pumpAndSettle();
+      expect(find.text('None'), findsOneWidget);
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('2:30 PM'), findsNothing);
+    });
+
+    testWidgets('backing out of the chooser leaves the time as it was', (
+      tester,
+    ) async {
+      await tester.pumpWidget(bootApp(clock: () => at(9, 0)));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Add a task'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'Call Sam');
+      await chooseDue(tester, Due(minute: minuteOf(14, 30), reminder: 5));
+
+      await tester.tap(find.text('Due'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('reminder-60')));
+      await tester.pump();
+      // Swiped away rather than finished.
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
+
+      expect(find.text('2:30 PM'), findsOneWidget);
+      expect(find.text('5 minutes before'), findsOneWidget);
+    });
+
+    testWidgets(
+      'a tapped notification turns to the day and puts up the sheet',
+      (tester) async {
+        holdStill(tester);
+        final store = MemoryTodoStore();
+        await store.insert(day: today, title: 'Buy milk');
+        final tomorrow = await store.insert(
+          day: today + 1,
+          title: 'Call Sam\nabout the invoice',
+          due: Due(minute: minuteOf(8, 30), reminder: 0),
+        );
+        await tester.pumpWidget(bootApp(store: store, clock: () => at(9, 0)));
+        await tester.pumpAndSettle();
+        expect(find.text('Today'), findsOneWidget);
+
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(HomePage)),
+        );
+        container
+            .read(attentionRequestProvider.notifier)
+            .raiseFromPayload('${today + 1}:${tomorrow.key}');
+        await tester.pumpAndSettle();
+
+        expect(find.text('Tomorrow'), findsOneWidget);
+        expect(find.byKey(const ValueKey('attention-title')), findsOneWidget);
+        expect(find.text('Call Sam\nabout the invoice'), findsOneWidget);
+        expect(container.read(attentionRequestProvider), isNull);
+
+        await tester.tap(find.text('Done'));
+        await tester.pump(reorderDelay);
+        await tester.pumpAndSettle();
+        expect(tileFor(tester, 'Call Sam').todo.done, isTrue);
+      },
+    );
+
+    testWidgets('a notification for a task since gone opens the day only', (
+      tester,
+    ) async {
+      final store = MemoryTodoStore();
+      final gone = await store.insert(
+        day: today + 1,
+        title: 'Call Sam',
+        due: Due(minute: minuteOf(8, 30), reminder: 0),
+      );
+      await store.remove(day: today + 1, todo: gone);
+      await tester.pumpWidget(bootApp(store: store, clock: () => at(9, 0)));
+      await tester.pumpAndSettle();
+
+      ProviderScope.containerOf(tester.element(find.byType(HomePage)))
+          .read(attentionRequestProvider.notifier)
+          .raise(today + 1, gone.key);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Tomorrow'), findsOneWidget);
+      expect(find.byKey(const ValueKey('attention-title')), findsNothing);
+    });
+
+    testWidgets('a notification tapped while the editor is open closes it', (
+      tester,
+    ) async {
+      holdStill(tester);
+      final store = MemoryTodoStore();
+      final todo = await store.insert(
+        day: today,
+        title: 'Call Sam',
+        due: Due(minute: minuteOf(8, 30), reminder: 0),
+      );
+      await tester.pumpWidget(bootApp(store: store, clock: () => at(9, 0)));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Add a task'));
+      await tester.pumpAndSettle();
+      expect(find.text('New task'), findsOneWidget);
+
+      ProviderScope.containerOf(
+        tester.element(find.byType(HomePage, skipOffstage: false)),
+      ).read(attentionRequestProvider.notifier).raise(today, todo.key);
+      await tester.pumpAndSettle();
+
+      expect(find.text('New task'), findsNothing);
+      expect(find.byKey(const ValueKey('attention-title')), findsOneWidget);
+    });
+
+    testWidgets('a notification raised before the first frame is answered', (
+      tester,
+    ) async {
+      holdStill(tester);
+      final store = MemoryTodoStore();
+      final todo = await store.insert(
+        day: today,
+        title: 'Call Sam',
+        due: Due(minute: minuteOf(8, 30), reminder: 0),
+      );
+      final container = ProviderContainer(
+        overrides: [
+          todoStoreProvider.overrideWithValue(store),
+          settingsStoreProvider.overrideWithValue(MemorySettingsStore()),
+          reminderSchedulerProvider.overrideWithValue(
+            MemoryReminderScheduler(),
+          ),
+          clockProvider.overrideWithValue(() => at(9, 0)),
+        ],
+      );
+      addTearDown(container.dispose);
+      container.read(attentionRequestProvider.notifier).raise(today, todo.key);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const RemindMeApp(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('attention-title')), findsOneWidget);
     });
   });
 

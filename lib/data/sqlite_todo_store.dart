@@ -1,5 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 
+import 'due.dart';
 import 'repeat_rule.dart';
 import 'todo.dart';
 import 'todo_store.dart';
@@ -30,9 +31,13 @@ class SqliteTodoStore implements TodoStore {
   }
 
   @override
-  Future<Todo> insert({required int day, required String title}) async {
+  Future<Todo> insert({
+    required int day,
+    required String title,
+    Due? due,
+  }) async {
     final position = await _nextPosition(day);
-    final draft = Todo(title: title, done: false, position: position);
+    final draft = Todo(title: title, done: false, position: position, due: due);
     final id = await _db.insert(_todos, draft.toRow(day));
     return draft.stored(id);
   }
@@ -42,11 +47,12 @@ class SqliteTodoStore implements TodoStore {
     required int day,
     required String title,
     required RepeatRule rule,
+    Due? due,
   }) async {
     final position = await _nextPosition(day);
     await _db.insert(
       _recurrences,
-      Recurrence.rowFor(title: title, rule: rule, position: position),
+      Recurrence.rowFor(title: title, rule: rule, position: position, due: due),
     );
   }
 
@@ -69,6 +75,8 @@ class SqliteTodoStore implements TodoStore {
       'done': todo.done ? 1 : 0,
       'completed_at': todo.completedAt,
       'hidden': todo.hidden ? 1 : 0,
+      ...todo.due?.toRow() ?? Due.emptyRow,
+      'dismissed': todo.dismissed ? 1 : 0,
     },
     where: 'id = ?',
     whereArgs: [todo.id],
@@ -181,34 +189,38 @@ class SqliteTodoStore implements TodoStore {
     required int recurrenceId,
     required String title,
     required RepeatRule rule,
+    Due? due,
   }) async {
     await _db.update(
       _recurrences,
       <String, Object?>{
         'title': title,
-        'kind': rule.kind.name,
-        'weekdays': rule.weekdays,
-        'month_days': rule.monthDays,
-        'start_day': rule.startDay,
-        'end_day': rule.endDay,
+        ...Recurrence.ruleColumns(rule),
+        ...due?.toRow() ?? Due.emptyRow,
       },
       where: 'id = ?',
       whereArgs: [recurrenceId],
     );
-    // Written-down occurrences carry their own copy of the words.
+    // Written-down occurrences carry their own copy of the words and the
+    // time. A new time is a new call, so a wave-away no longer holds.
     await _db.update(
       _todos,
-      <String, Object?>{'title': title},
+      <String, Object?>{
+        'title': title,
+        ...due?.toRow() ?? Due.emptyRow,
+        'dismissed': 0,
+      },
       where: 'recurrence_id = ?',
       whereArgs: [recurrenceId],
     );
   }
 
   @override
-  Future<List<Todo>> todosOn(int day) async => mergeDay(
+  Future<List<Todo>> todosOn(int day, {DateTime? now}) async => mergeDay(
     stored: await storedTodosOn(day),
     recurrences: await recurrencesFor(day),
     day: day,
+    now: now,
   );
 
   Future<int> _nextPosition(int day) async {

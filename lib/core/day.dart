@@ -31,6 +31,20 @@ DateTime dateFromEpochDay(int value) {
 
 DateTime todayDate() => DateTime.now().startOfDay;
 
+/// A moment on a day, in local time. Built from calendar fields rather than
+/// by adding a duration to midnight, so a clock change in the night does not
+/// shift it.
+DateTime dateFromEpochDayAt(int day, int minuteOfDay) {
+  final date = dateFromEpochDay(day);
+  return DateTime(
+    date.year,
+    date.month,
+    date.day,
+    minuteOfDay ~/ 60,
+    minuteOfDay % 60,
+  );
+}
+
 /// Number of days in the month containing [date].
 int daysInMonth(DateTime date) => DateTime(date.year, date.month + 1, 0).day;
 

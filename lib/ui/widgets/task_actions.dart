@@ -26,6 +26,7 @@ Future<void> editTask(BuildContext context, WidgetRef ref, Todo todo) async {
       heading: 'Edit task',
       anchorDay: ref.read(selectedDayProvider).epochDay,
       initialText: todo.title,
+      initialDue: todo.due,
       initialRepeat: rule,
     ),
   );

@@ -1,5 +1,6 @@
 import '../core/date_labels.dart';
 import '../core/day.dart';
+import 'due.dart';
 
 enum RepeatKind { daily, weekly, monthly }
 
@@ -161,12 +162,14 @@ class Recurrence {
     required this.title,
     required this.rule,
     required this.position,
+    this.due,
   });
 
   factory Recurrence.fromRow(Map<String, Object?> row) => Recurrence(
     id: row['id']! as int,
     title: row['title']! as String,
     position: row['position']! as int,
+    due: Due.fromRow(row),
     rule: RepeatRule(
       kind: RepeatKind.values.byName(row['kind']! as String),
       startDay: row['start_day']! as int,
@@ -181,19 +184,29 @@ class Recurrence {
   final RepeatRule rule;
   final int position;
 
+  /// The time it is due on every day it falls on, or null for none.
+  final Due? due;
+
   bool fallsOn(int day) => rule.fallsOn(day);
 
   static Map<String, Object?> rowFor({
     required String title,
     required RepeatRule rule,
     required int position,
+    Due? due,
   }) => <String, Object?>{
     'title': title,
+    ...ruleColumns(rule),
+    'position': position,
+    ...due?.toRow() ?? Due.emptyRow,
+  };
+
+  /// The columns a rule is written into, shared by insert and update.
+  static Map<String, Object?> ruleColumns(RepeatRule rule) => <String, Object?>{
     'kind': rule.kind.name,
     'weekdays': rule.weekdays,
     'month_days': rule.monthDays,
     'start_day': rule.startDay,
     'end_day': rule.endDay,
-    'position': position,
   };
 }

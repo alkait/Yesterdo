@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/day.dart';
@@ -11,14 +13,25 @@ import 'task_draft.dart';
 const Duration reorderDelay = Duration(milliseconds: 260);
 
 /// The task list for the selected day. Rebuilds whenever the day changes.
+///
+/// Tasks whose time has come head the list. The controller keeps a timer set
+/// for the next such moment, so a card rises the minute it falls due even
+/// while nothing else is happening.
 class TodosController extends AsyncNotifier<List<Todo>> {
   int _day = 0;
+  Timer? _nextCall;
 
   @override
-  Future<List<Todo>> build() {
+  Future<List<Todo>> build() async {
+    ref.onDispose(() => _nextCall?.cancel());
     _day = ref.watch(selectedDayProvider).epochDay;
-    return ref.read(todoStoreProvider).todosOn(_day);
+    final todos = await ref.read(todoStoreProvider).todosOn(_day, now: _now);
+    _armFor(todos);
+    return todos;
   }
+
+  /// Reads the day afresh, as after time has passed while the app was away.
+  Future<void> refresh() => _reload();
 
   Future<void> add(TaskDraft draft) async {
     if (draft.title.isEmpty) return;
@@ -28,32 +41,66 @@ class TodosController extends AsyncNotifier<List<Todo>> {
         day: _day,
         title: draft.title,
         rule: draft.repeat!,
+        due: draft.due,
       );
       // A weekly rule may not fire on the day it was written on, so the day is
       // read afresh rather than guessed at.
       return _reload();
     }
 
-    final todo = await _store.insert(day: _day, title: draft.title);
+    final todo = await _store.insert(
+      day: _day,
+      title: draft.title,
+      due: draft.due,
+    );
     if (!ref.mounted) return;
-    state = AsyncData(<Todo>[..._items, todo]..sort(compareTodos));
+    _show(_sorted(<Todo>[..._items, todo]));
+    await _syncReminders();
   }
 
   Future<void> toggle(Todo todo) async {
     final written = await _write(todo);
-    final updated = written.toggled(DateTime.now().millisecondsSinceEpoch);
+    final updated = written.toggled(_now.millisecondsSinceEpoch);
     await _store.save(updated);
     if (!ref.mounted) return;
 
     // Flip in place first; re-order only after the strike has been seen.
-    state = AsyncData(_replacing(updated));
+    _show(_replacing(updated));
+    await _syncReminders();
     await Future<void>.delayed(reorderDelay);
     if (!ref.mounted) return;
-    state = AsyncData(<Todo>[..._items]..sort(compareTodos));
+    _show(_sorted(_items));
   }
 
-  /// Applies an edit. Words and rule both belong to the series, so editing a
-  /// repeating task changes every day it appears on.
+  /// Puts a calling task off for a few minutes. It settles back into place
+  /// and rises again when the new time comes.
+  Future<void> snooze(Todo todo) async {
+    final written = await _write(todo);
+    // Counted from now when the day is today. On another day there is no
+    // "now" to count from, so it goes from its own time.
+    final now = _now;
+    final updated = written.snoozed(
+      nowMinute: now.epochDay == _day ? now.hour * 60 + now.minute : null,
+    );
+    await _store.save(updated);
+    if (!ref.mounted) return;
+    _show(_sorted(_replacing(updated)));
+    await _syncReminders();
+  }
+
+  /// Waves a calling task away for the day. It keeps its time, but stops
+  /// asking.
+  Future<void> dismiss(Todo todo) async {
+    final written = await _write(todo);
+    final updated = written.dismiss();
+    await _store.save(updated);
+    if (!ref.mounted) return;
+    _show(_sorted(_replacing(updated)));
+    await _syncReminders();
+  }
+
+  /// Applies an edit. Words, time and rule all belong to the series, so
+  /// editing a repeating task changes every day it appears on.
   Future<void> apply(Todo todo, TaskDraft draft) async {
     if (draft.title.isEmpty) return;
 
@@ -62,11 +109,12 @@ class TodosController extends AsyncNotifier<List<Todo>> {
         recurrenceId: todo.recurrenceId!,
         title: draft.title,
         rule: draft.repeat!,
+        due: draft.due,
       );
     } else if (todo.repeats) {
       // Repeating no more: the series goes, and this day keeps a one-off.
       await _store.removeSeries(todo.recurrenceId!);
-      await _store.insert(day: _day, title: draft.title);
+      await _store.insert(day: _day, title: draft.title, due: draft.due);
     } else if (draft.repeat != null) {
       // A one-off becomes a series starting on this day.
       await _store.remove(day: _day, todo: todo);
@@ -74,9 +122,10 @@ class TodosController extends AsyncNotifier<List<Todo>> {
         day: _day,
         title: draft.title,
         rule: draft.repeat!,
+        due: draft.due,
       );
     } else {
-      await _store.save(todo.renamed(draft.title));
+      await _store.save(todo.renamed(draft.title).withDue(draft.due));
     }
 
     await _reload();
@@ -84,38 +133,46 @@ class TodosController extends AsyncNotifier<List<Todo>> {
 
   /// Drops this showing only. A repeating task stays on its other days.
   Future<void> removeOccurrence(Todo todo) async {
-    state = AsyncData(_without(todo));
+    _show(_without(todo));
     await _store.remove(day: _day, todo: todo);
+    await _syncReminders();
   }
 
   /// Drops this showing and every one before it, keeping the days after.
   Future<void> removeUpToHere(Todo todo) async {
-    state = AsyncData(_without(todo));
+    _show(_without(todo));
     await _store.startSeriesAfter(recurrenceId: todo.recurrenceId!, day: _day);
+    await _syncReminders();
   }
 
   /// Drops this showing and every one after it, keeping the days before.
   Future<void> removeFromHere(Todo todo) async {
-    state = AsyncData(_without(todo));
+    _show(_without(todo));
     await _store.endSeriesFrom(recurrenceId: todo.recurrenceId!, day: _day);
+    await _syncReminders();
   }
 
   /// Drops the whole repeating task, on every day.
   Future<void> removeSeries(Todo todo) async {
-    state = AsyncData(_without(todo));
+    _show(_without(todo));
     await _store.removeSeries(todo.recurrenceId!);
+    await _syncReminders();
   }
 
-  /// Moves an open task. Completed tasks hold their place at the bottom, so a
-  /// drag that lands among them is clamped back into the open group.
+  /// Moves an open task. Completed tasks hold their place at the bottom, and
+  /// calling ones hold the top, so a drag that lands among either is clamped
+  /// back into the band between.
   Future<void> reorder(int oldIndex, int newIndex) async {
     final items = _items;
     final firstDone = items.indexWhere((item) => item.done);
     final open = firstDone == -1 ? items.length : firstDone;
-    if (oldIndex >= open) return;
+    final calling = items
+        .takeWhile((item) => item.isCallingOn(day: _day, now: _now))
+        .length;
+    if (oldIndex < calling || oldIndex >= open) return;
 
     // newIndex already accounts for the item leaving its old slot.
-    final target = newIndex.clamp(0, open - 1);
+    final target = newIndex.clamp(calling, open - 1);
     if (target == oldIndex) return;
 
     // Positions only mean something on a written-down row.
@@ -129,7 +186,7 @@ class TodosController extends AsyncNotifier<List<Todo>> {
       for (var index = 0; index < moved.length; index++)
         moved[index].repositioned(index),
     ];
-    state = AsyncData(<Todo>[...renumbered, ...items.sublist(open)]);
+    _show(<Todo>[...renumbered, ...items.sublist(open)]);
     await _store.reorder(renumbered);
   }
 
@@ -139,9 +196,42 @@ class TodosController extends AsyncNotifier<List<Todo>> {
       : _store.materialize(day: _day, todo: todo);
 
   Future<void> _reload() async {
-    final todos = await _store.todosOn(_day);
-    if (ref.mounted) state = AsyncData(todos);
+    final todos = await _store.todosOn(_day, now: _now);
+    if (!ref.mounted) return;
+    _show(todos);
+    await _syncReminders();
   }
+
+  Future<void> _syncReminders() async {
+    if (!ref.mounted) return;
+    await ref.read(reminderSyncProvider).refresh(now: _now);
+  }
+
+  /// Puts a list on screen and sets the timer for the next task to rise.
+  void _show(List<Todo> items) {
+    state = AsyncData(items);
+    _armFor(items);
+  }
+
+  /// Wakes at the next moment a task on this day falls due, and brings it up.
+  void _armFor(List<Todo> items) {
+    _nextCall?.cancel();
+    final now = _now;
+    DateTime? next;
+    for (final todo in items) {
+      if (todo.done || todo.dismissed || todo.due == null) continue;
+      final at = todo.due!.instantOn(_day);
+      if (!at.isAfter(now)) continue;
+      if (next == null || at.isBefore(next)) next = at;
+    }
+    if (next == null) return;
+    _nextCall = Timer(next.difference(now), () {
+      if (ref.mounted) _show(_sorted(_items));
+    });
+  }
+
+  List<Todo> _sorted(List<Todo> items) =>
+      <Todo>[...items]..sort(todoOrderOn(day: _day, now: _now));
 
   List<Todo> _replacing(Todo updated) => <Todo>[
     for (final item in _items) item.key == updated.key ? updated : item,
@@ -153,6 +243,8 @@ class TodosController extends AsyncNotifier<List<Todo>> {
   ];
 
   TodoStore get _store => ref.read(todoStoreProvider);
+
+  DateTime get _now => ref.read(clockProvider)();
 
   List<Todo> get _items => state.value ?? const <Todo>[];
 }

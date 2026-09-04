@@ -22,6 +22,12 @@ abstract final class Brand {
   static const tileRadius = 14.0;
   static const tileHeight = 92.0;
   static const tileGap = 10.0;
+  static const wheelHeight = 200.0;
+  static const wheelMinuteStep = 5;
+
+  /// How much of the accent a calling card's face takes at the top of a
+  /// breath. Enough to be seen, not enough to shout.
+  static const callingTint = 0.10;
 
   // Width caps, so a tablet shows a readable column instead of stretched rows
   static const maxContentWidth = 620.0;
@@ -31,9 +37,13 @@ abstract final class Brand {
   static const quick = Duration(milliseconds: 180);
   static const swap = Duration(milliseconds: 140);
   static const curve = Curves.easeOut;
+
+  /// One in-and-out of a calling card's pulse.
+  static const breath = Duration(milliseconds: 1400);
+  static const breathCurve = Curves.easeInOut;
 }
 
-/// The four meanings a foreground colour can carry. Widgets name a tone;
+/// The five meanings a foreground colour can carry. Widgets name a tone;
 /// only [BrandedTone.resolve] knows which colour that is.
 enum BrandedTone {
   /// Primary reading colour.
@@ -46,12 +56,16 @@ enum BrandedTone {
   inverted,
 
   /// Destructive affordances.
-  danger;
+  danger,
+
+  /// The look's own colour, for the one thing asking to be noticed.
+  accent;
 
   Color resolve(ColorScheme scheme) => switch (this) {
     BrandedTone.primary => scheme.onSurface,
     BrandedTone.muted => scheme.onSurfaceVariant,
     BrandedTone.inverted => scheme.onPrimary,
     BrandedTone.danger => scheme.error,
+    BrandedTone.accent => scheme.primary,
   };
 }

@@ -1,3 +1,4 @@
+import 'package:remind_me/data/due.dart';
 import 'package:remind_me/data/repeat_rule.dart';
 import 'package:remind_me/data/todo.dart';
 import 'package:remind_me/data/todo_store.dart';
@@ -26,12 +27,13 @@ class MemoryTodoStore implements TodoStore {
   );
 
   @override
-  Future<Todo> insert({required int day, required String title}) {
+  Future<Todo> insert({required int day, required String title, Due? due}) {
     final todo = Todo(
       id: _nextTodoId++,
       title: title,
       done: false,
       position: _nextPosition(day),
+      due: due,
     );
     _dayOf(day).add(todo);
     return Future.value(todo);
@@ -42,6 +44,7 @@ class MemoryTodoStore implements TodoStore {
     required int day,
     required String title,
     required RepeatRule rule,
+    Due? due,
   }) {
     _recurrences.add(
       Recurrence(
@@ -49,6 +52,7 @@ class MemoryTodoStore implements TodoStore {
         title: title,
         rule: rule,
         position: _nextPosition(day),
+        due: due,
       ),
     );
     return Future.value();
@@ -119,6 +123,7 @@ class MemoryTodoStore implements TodoStore {
       id: existing.id,
       title: existing.title,
       position: existing.position,
+      due: existing.due,
       rule: RepeatRule(
         kind: existing.rule.kind,
         startDay: existing.rule.startDay,
@@ -148,6 +153,7 @@ class MemoryTodoStore implements TodoStore {
       id: existing.id,
       title: existing.title,
       position: existing.position,
+      due: existing.due,
       rule: RepeatRule(
         kind: existing.rule.kind,
         startDay: day + 1,
@@ -164,6 +170,7 @@ class MemoryTodoStore implements TodoStore {
     required int recurrenceId,
     required String title,
     required RepeatRule rule,
+    Due? due,
   }) {
     final index = _recurrences.indexWhere((each) => each.id == recurrenceId);
     if (index != -1) {
@@ -172,12 +179,15 @@ class MemoryTodoStore implements TodoStore {
         title: title,
         rule: rule,
         position: _recurrences[index].position,
+        due: due,
       );
     }
     for (final items in _byDay.values) {
       for (var at = 0; at < items.length; at++) {
         if (items[at].recurrenceId == recurrenceId) {
-          items[at] = items[at].renamed(title);
+          items[at] = items[at]
+              .renamed(title)
+              .copyWith(due: due, clearDue: due == null, dismissed: false);
         }
       }
     }
@@ -185,10 +195,11 @@ class MemoryTodoStore implements TodoStore {
   }
 
   @override
-  Future<List<Todo>> todosOn(int day) async => mergeDay(
+  Future<List<Todo>> todosOn(int day, {DateTime? now}) async => mergeDay(
     stored: await storedTodosOn(day),
     recurrences: await recurrencesFor(day),
     day: day,
+    now: now,
   );
 
   List<Todo> _dayOf(int day) => _byDay.putIfAbsent(day, () => <Todo>[]);

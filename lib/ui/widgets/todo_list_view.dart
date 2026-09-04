@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/day.dart';
 import '../../state/providers.dart';
 import '../branded/branded.dart';
 import 'todo_tile.dart';
@@ -26,6 +27,9 @@ class _TodoListViewState extends ConsumerState<TodoListView> {
   @override
   Widget build(BuildContext context) {
     final todos = ref.watch(todosProvider).value;
+    final day = ref.watch(selectedDayProvider).epochDay;
+    // Judged once per build, so every card agrees on the moment.
+    final now = ref.watch(clockProvider)();
 
     // Null only on the very first read of a day, which lasts a frame or two.
     if (todos == null) return const SizedBox.shrink();
@@ -44,6 +48,7 @@ class _TodoListViewState extends ConsumerState<TodoListView> {
           todo: todo,
           index: index,
           swipeGroup: _swipeGroup,
+          calling: todo.isCallingOn(day: day, now: now),
         );
       },
     );

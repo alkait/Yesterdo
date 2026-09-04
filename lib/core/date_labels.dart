@@ -63,3 +63,12 @@ String longDate(DateTime date) =>
 
 String monthAndYear(DateTime date) =>
     '${_monthNames[date.month - 1]} ${date.year}';
+
+/// `9:05 AM`, or `09:05` when the device keeps a 24-hour clock.
+String timeLabel(int minuteOfDay, {bool twentyFourHour = false}) {
+  final hour = minuteOfDay ~/ 60;
+  final minute = (minuteOfDay % 60).toString().padLeft(2, '0');
+  if (twentyFourHour) return '${hour.toString().padLeft(2, '0')}:$minute';
+  final clockHour = hour % 12 == 0 ? 12 : hour % 12;
+  return '$clockHour:$minute ${hour < 12 ? 'AM' : 'PM'}';
+}

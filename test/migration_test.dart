@@ -70,8 +70,104 @@ CREATE TABLE settings (
 )''');
 }
 
+/// The schema as version 4 shipped it: a set of days per rule, no due times.
+Future<void> createVersionFour(Database db, int version) async {
+  await db.execute('''
+CREATE TABLE todos (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  day INTEGER NOT NULL,
+  title TEXT NOT NULL,
+  done INTEGER NOT NULL DEFAULT 0,
+  position INTEGER NOT NULL,
+  completed_at INTEGER,
+  recurrence_id INTEGER,
+  hidden INTEGER NOT NULL DEFAULT 0
+)''');
+  await db.execute('CREATE INDEX todos_day_idx ON todos (day)');
+  await db.execute('''
+CREATE TABLE recurrences (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  weekdays INTEGER NOT NULL DEFAULT 0,
+  month_days INTEGER NOT NULL DEFAULT 0,
+  start_day INTEGER NOT NULL,
+  end_day INTEGER,
+  position INTEGER NOT NULL
+)''');
+  await db.execute(
+    'CREATE INDEX recurrences_start_idx ON recurrences (start_day)',
+  );
+  await db.execute(
+    'CREATE UNIQUE INDEX todos_occurrence_idx ON todos (recurrence_id, day) '
+    'WHERE recurrence_id IS NOT NULL',
+  );
+  await db.execute('''
+CREATE TABLE settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+)''');
+}
+
 void main() {
   setUpAll(sqfliteFfiInit);
+
+  test('a version 4 database keeps everything and gains due times', () async {
+    final directory = await Directory.systemTemp.createTemp('remind_me_test');
+    addTearDown(() => directory.delete(recursive: true));
+    final path = p.join(directory.path, 'remind_me.db');
+
+    var db = await databaseFactoryFfi.openDatabase(
+      path,
+      options: OpenDatabaseOptions(version: 4, onCreate: createVersionFour),
+    );
+    await db.insert('recurrences', <String, Object?>{
+      'title': 'Take the pills',
+      'kind': 'daily',
+      'weekdays': 0,
+      'month_days': 0,
+      'start_day': 20699,
+      'position': 0,
+    });
+    await db.insert('todos', <String, Object?>{
+      'day': 20699,
+      'title': 'Take the pills',
+      'done': 1,
+      'position': 0,
+      'recurrence_id': 1,
+      'hidden': 0,
+    });
+    await db.close();
+
+    db = await databaseFactoryFfi.openDatabase(
+      path,
+      options: OpenDatabaseOptions(
+        version: 5,
+        onCreate: AppDatabase.createSchema,
+        onUpgrade: AppDatabase.upgradeSchema,
+      ),
+    );
+    addTearDown(db.close);
+
+    final todo = (await db.query('todos')).single;
+    expect(todo['title'], 'Take the pills');
+    expect(todo['due_time'], isNull, reason: 'an old task has no time');
+    expect(todo['reminder'], isNull);
+    expect(todo['dismissed'], 0);
+    final rule = (await db.query('recurrences')).single;
+    expect(rule['due_time'], isNull);
+    expect(rule['reminder'], isNull);
+
+    // And the new columns take values.
+    await db.update('todos', <String, Object?>{
+      'due_time': 570,
+      'reminder': 15,
+      'dismissed': 1,
+    });
+    await db.update('recurrences', <String, Object?>{'due_time': 570});
+    expect((await db.query('todos')).single['due_time'], 570);
+    expect((await db.query('recurrences')).single['due_time'], 570);
+  });
 
   test('a version 1 database keeps its tasks and gains repeating ones and settings', () async {
     final directory = await Directory.systemTemp.createTemp('remind_me_test');
@@ -94,7 +190,7 @@ void main() {
     db = await databaseFactoryFfi.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 4,
+        version: 5,
         onCreate: AppDatabase.createSchema,
         onUpgrade: AppDatabase.upgradeSchema,
       ),
@@ -152,7 +248,7 @@ void main() {
     db = await databaseFactoryFfi.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 4,
+        version: 5,
         onCreate: AppDatabase.createSchema,
         onUpgrade: AppDatabase.upgradeSchema,
       ),
@@ -206,7 +302,7 @@ void main() {
     db = await databaseFactoryFfi.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 4,
+        version: 5,
         onCreate: AppDatabase.createSchema,
         onUpgrade: AppDatabase.upgradeSchema,
       ),
@@ -265,36 +361,43 @@ void main() {
     final fresh = await databaseFactoryFfi.openDatabase(
       p.join(directory.path, 'fresh.db'),
       options: OpenDatabaseOptions(
-        version: 4,
+        version: 5,
         onCreate: AppDatabase.createSchema,
       ),
     );
     addTearDown(fresh.close);
 
-    final upgradedPath = p.join(directory.path, 'upgraded.db');
-    var upgraded = await databaseFactoryFfi.openDatabase(
-      upgradedPath,
-      options: OpenDatabaseOptions(version: 1, onCreate: createVersionOne),
-    );
-    await upgraded.close();
-    upgraded = await databaseFactoryFfi.openDatabase(
-      upgradedPath,
-      options: OpenDatabaseOptions(
-        version: 4,
-        onCreate: AppDatabase.createSchema,
-        onUpgrade: AppDatabase.upgradeSchema,
-      ),
-    );
-    addTearDown(upgraded.close);
+    // Every version that ever shipped, so no upgrade path is left untried.
+    final shipped = <int, OnDatabaseCreateFn>{
+      1: createVersionOne,
+      2: createVersionTwo,
+      3: createVersionThree,
+      4: createVersionFour,
+    };
+    for (final MapEntry(key: version, value: create) in shipped.entries) {
+      final upgradedPath = p.join(directory.path, 'upgraded_$version.db');
+      var upgraded = await databaseFactoryFfi.openDatabase(
+        upgradedPath,
+        options: OpenDatabaseOptions(version: version, onCreate: create),
+      );
+      await upgraded.close();
+      upgraded = await databaseFactoryFfi.openDatabase(
+        upgradedPath,
+        options: OpenDatabaseOptions(
+          version: 5,
+          onCreate: AppDatabase.createSchema,
+          onUpgrade: AppDatabase.upgradeSchema,
+        ),
+      );
+      addTearDown(upgraded.close);
 
-    expect(await columnsOf(upgraded, 'todos'), await columnsOf(fresh, 'todos'));
-    expect(
-      await columnsOf(upgraded, 'recurrences'),
-      await columnsOf(fresh, 'recurrences'),
-    );
-    expect(
-      await columnsOf(upgraded, 'settings'),
-      await columnsOf(fresh, 'settings'),
-    );
+      for (final table in ['todos', 'recurrences', 'settings']) {
+        expect(
+          await columnsOf(upgraded, table),
+          await columnsOf(fresh, table),
+          reason: '$table from version $version',
+        );
+      }
+    }
   });
 }

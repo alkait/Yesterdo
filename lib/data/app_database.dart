@@ -4,7 +4,7 @@ import 'package:sqflite/sqflite.dart';
 /// Owns the on-device SQLite file. Nothing leaves the device.
 abstract final class AppDatabase {
   static const _fileName = 'remind_me.db';
-  static const _version = 4;
+  static const _version = 5;
 
   static Future<Database> open() async {
     final path = p.join(await getDatabasesPath(), _fileName);
@@ -27,7 +27,10 @@ CREATE TABLE todos (
   position INTEGER NOT NULL,
   completed_at INTEGER,
   recurrence_id INTEGER,
-  hidden INTEGER NOT NULL DEFAULT 0
+  hidden INTEGER NOT NULL DEFAULT 0,
+  due_time INTEGER,
+  reminder INTEGER,
+  dismissed INTEGER NOT NULL DEFAULT 0
 )''');
     await db.execute('CREATE INDEX todos_day_idx ON todos (day)');
     await _createRecurrences(db);
@@ -36,7 +39,8 @@ CREATE TABLE todos (
   }
 
   /// Version 1 knew nothing of repeating tasks. Version 2 had nowhere to keep
-  /// a setting. Version 3 held one day of the month per rule.
+  /// a setting. Version 3 held one day of the month per rule. Version 4 had
+  /// no due times.
   static Future<void> upgradeSchema(Database db, int from, int to) async {
     if (from < 2) {
       await db.execute('ALTER TABLE todos ADD COLUMN recurrence_id INTEGER');
@@ -50,6 +54,23 @@ CREATE TABLE todos (
       await _moveToMonthDays(db);
     }
     if (from < 3) await _createSettings(db);
+    // Every path above that touches `recurrences` makes it afresh, in
+    // today's shape, so only a version 4 table still needs its due columns.
+    if (from < 5) await _addDueTimes(db, recurrencesToo: from == 4);
+  }
+
+  static Future<void> _addDueTimes(
+    Database db, {
+    required bool recurrencesToo,
+  }) async {
+    await db.execute('ALTER TABLE todos ADD COLUMN due_time INTEGER');
+    await db.execute('ALTER TABLE todos ADD COLUMN reminder INTEGER');
+    await db.execute(
+      'ALTER TABLE todos ADD COLUMN dismissed INTEGER NOT NULL DEFAULT 0',
+    );
+    if (!recurrencesToo) return;
+    await db.execute('ALTER TABLE recurrences ADD COLUMN due_time INTEGER');
+    await db.execute('ALTER TABLE recurrences ADD COLUMN reminder INTEGER');
   }
 
   /// Turns the single `month_day` into the `month_days` set. A day every
@@ -90,7 +111,9 @@ CREATE TABLE recurrences (
   month_days INTEGER NOT NULL DEFAULT 0,
   start_day INTEGER NOT NULL,
   end_day INTEGER,
-  position INTEGER NOT NULL
+  position INTEGER NOT NULL,
+  due_time INTEGER,
+  reminder INTEGER
 )''');
     await db.execute(
       'CREATE INDEX recurrences_start_idx ON recurrences (start_day)',

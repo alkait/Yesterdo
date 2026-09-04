@@ -1,3 +1,4 @@
+import 'due.dart';
 import 'repeat_rule.dart';
 import 'todo.dart';
 
@@ -13,7 +14,7 @@ abstract class TodoStore {
   /// is [mergeDay]'s job.
   Future<List<Recurrence>> recurrencesFor(int day);
 
-  Future<Todo> insert({required int day, required String title});
+  Future<Todo> insert({required int day, required String title, Due? due});
 
   /// Starts a repeating task, positioned as of [day].
   ///
@@ -23,6 +24,7 @@ abstract class TodoStore {
     required int day,
     required String title,
     required RepeatRule rule,
+    Due? due,
   });
 
   /// Writes down a projected occurrence so it can carry state of its own.
@@ -46,15 +48,21 @@ abstract class TodoStore {
   /// before it. A cut at or after the rule's end removes it outright.
   Future<void> startSeriesAfter({required int recurrenceId, required int day});
 
+  /// Rewrites the series. Words, rule and time all belong to it, so every
+  /// written-down occurrence takes the new ones too.
   Future<void> saveSeries({
     required int recurrenceId,
     required String title,
     required RepeatRule rule,
+    Due? due,
   });
 
-  Future<List<Todo>> todosOn(int day) async => mergeDay(
+  /// The day as shown at [now]: tasks whose time has come head the list.
+  /// Without a moment the order is the plain one from [compareTodos].
+  Future<List<Todo>> todosOn(int day, {DateTime? now}) async => mergeDay(
     stored: await storedTodosOn(day),
     recurrences: await recurrencesFor(day),
     day: day,
+    now: now,
   );
 }

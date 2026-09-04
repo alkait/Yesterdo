@@ -4,6 +4,10 @@ import '../core/app_theme.dart';
 import '../data/settings_store.dart';
 import '../data/todo.dart';
 import '../data/todo_store.dart';
+import '../reminders/reminder_planner.dart';
+import '../reminders/reminder_scheduler.dart';
+import '../reminders/reminder_sync.dart';
+import 'attention_request.dart';
 import 'selected_day.dart';
 import 'theme_choice.dart';
 import 'todos_controller.dart';
@@ -22,6 +26,10 @@ final todosProvider = AsyncNotifierProvider<TodosController, List<Todo>>(
   TodosController.new,
 );
 
+/// The moment it is now. Tests bind a clock they can turn by hand, so a task
+/// can be watched falling due.
+final clockProvider = Provider<DateTime Function()>((ref) => DateTime.now);
+
 /// Bound to the opened database in `main`, alongside the todo store.
 final settingsStoreProvider = Provider<SettingsStore>(
   (ref) => throw StateError('settingsStoreProvider must be overridden'),
@@ -36,3 +44,21 @@ final initialThemeChoiceProvider = Provider<AppThemeChoice>(
 final themeChoiceProvider = NotifierProvider<ThemeChoice, AppThemeChoice>(
   ThemeChoice.new,
 );
+
+/// Bound to the system's notifications in `main`; tests bind a recorder.
+final reminderSchedulerProvider = Provider<ReminderScheduler>(
+  (ref) => throw StateError('reminderSchedulerProvider must be overridden'),
+);
+
+final reminderSyncProvider = Provider<ReminderSync>(
+  (ref) => ReminderSync(
+    ReminderPlanner(ref.watch(todoStoreProvider)),
+    ref.watch(reminderSchedulerProvider),
+  ),
+);
+
+/// The task a tapped notification asked to see, until the list has shown it.
+final attentionRequestProvider =
+    NotifierProvider<AttentionRequests, AttentionRequest?>(
+      AttentionRequests.new,
+    );

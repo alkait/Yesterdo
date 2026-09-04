@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:remind_me/core/date_labels.dart';
 import 'package:remind_me/core/day.dart';
+import 'package:remind_me/data/due.dart';
 import 'package:remind_me/data/todo.dart';
 import 'package:remind_me/ui/branded/branded.dart';
 
@@ -31,6 +32,81 @@ void main() {
       final items = [checked(1, 0, 100), checked(2, 1, 200)]
         ..sort(compareTodos);
       expect(items.map((t) => t.id), [2, 1]);
+    });
+  });
+
+  group('todoOrderOn', () {
+    final day = DateTime(2026, 9, 4).epochDay;
+    final nine = DateTime(2026, 9, 4, 9, 0);
+    Todo at(
+      int id,
+      int position,
+      int minute, {
+      bool done = false,
+      bool dismissed = false,
+    }) => Todo(
+      id: id,
+      title: 't$id',
+      done: done,
+      position: position,
+      due: Due(minute: minute),
+      dismissed: dismissed,
+      completedAt: done ? 1 : null,
+    );
+    Todo plain(int id, int position) =>
+        Todo(id: id, title: 't$id', done: false, position: position);
+
+    test('a task whose time has come heads the open ones', () {
+      final items = [plain(1, 0), at(2, 1, 8 * 60 + 30)]
+        ..sort(todoOrderOn(day: day, now: nine));
+      expect(items.map((t) => t.id), [2, 1]);
+    });
+
+    test('a task due later keeps its place until then', () {
+      final items = [plain(1, 0), at(2, 1, 9 * 60 + 30)]
+        ..sort(todoOrderOn(day: day, now: nine));
+      expect(items.map((t) => t.id), [1, 2]);
+      expect(items[1].isCallingOn(day: day, now: nine), isFalse);
+      expect(
+        items[1].isCallingOn(day: day, now: DateTime(2026, 9, 4, 9, 30)),
+        isTrue,
+        reason: 'the very minute counts',
+      );
+    });
+
+    test('calling tasks rank by time, earliest first', () {
+      final items = [at(1, 0, 8 * 60 + 45), at(2, 1, 8 * 60), plain(3, 2)]
+        ..sort(todoOrderOn(day: day, now: nine));
+      expect(items.map((t) => t.id), [2, 1, 3]);
+    });
+
+    test('done and dismissed tasks do not call', () {
+      final items = [
+        plain(1, 0),
+        at(2, 1, 8 * 60, done: true),
+        at(3, 2, 8 * 60, dismissed: true),
+      ]..sort(todoOrderOn(day: day, now: nine));
+      expect(items.map((t) => t.id), [1, 3, 2]);
+    });
+
+    test('a task on another day is judged against that day', () {
+      final tomorrow = day + 1;
+      expect(at(1, 0, 8 * 60).isCallingOn(day: tomorrow, now: nine), isFalse);
+      expect(at(1, 0, 8 * 60).isCallingOn(day: day - 1, now: nine), isTrue);
+    });
+
+    test('the plain order stands without a moment to judge by', () {
+      final items = [plain(1, 0), at(2, 1, 8 * 60)]..sort(compareTodos);
+      expect(items.map((t) => t.id), [1, 2]);
+    });
+
+    test('a new time is a new call, the same time keeps a wave-away', () {
+      final waved = at(1, 0, 8 * 60, dismissed: true);
+      expect(waved.withDue(const Due(minute: 8 * 60)).dismissed, isTrue);
+      expect(waved.withDue(const Due(minute: 9 * 60)).dismissed, isFalse);
+      expect(waved.withDue(null).due, isNull);
+      expect(waved.snoozed(nowMinute: 9 * 60).dismissed, isFalse);
+      expect(waved.snoozed(nowMinute: 9 * 60).due!.minute, 9 * 60 + 10);
     });
   });
 
