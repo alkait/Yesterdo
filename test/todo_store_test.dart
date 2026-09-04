@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:remind_me/core/day.dart';
 import 'package:remind_me/data/app_database.dart';
 import 'package:remind_me/data/due.dart';
+import 'package:remind_me/data/reminder_sound.dart';
 import 'package:remind_me/data/repeat_rule.dart';
 import 'package:remind_me/data/sqlite_todo_store.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -128,7 +129,11 @@ void main() {
   });
 
   group('a due time', () {
-    const due = Due(minute: 9 * 60 + 30, reminder: 15);
+    const due = Due(
+      minute: 9 * 60 + 30,
+      reminders: {15, 60},
+      sound: ReminderSound.bell,
+    );
 
     test('is kept on a one-off', () async {
       await store.insert(day: day, title: 'Call Sam', due: due);
@@ -160,7 +165,11 @@ void main() {
       await store.save(written.snoozed(nowMinute: 10 * 60));
       expect(
         (await store.todosOn(day)).single.due,
-        const Due(minute: 10 * 60 + 10, reminder: 0),
+        const Due(
+          minute: 10 * 60 + 10,
+          reminders: {0},
+          sound: ReminderSound.bell,
+        ),
       );
       expect((await store.todosOn(day + 1)).single.due, due);
 
@@ -201,6 +210,45 @@ void main() {
       final ten = DateTime(2026, 9, 4, 10);
       final atTen = await store.todosOn(day, now: ten);
       expect(atTen.map((t) => t.title), ['Call Sam', 'Buy milk']);
+    });
+  });
+
+  group('not today', () {
+    test('a one-off changes day and joins the end of that day', () async {
+      await store.insert(day: day + 3, title: 'Already there');
+      final milk = await store.insert(
+        day: day,
+        title: 'Buy milk',
+        due: const Due(minute: 600, reminders: {5}),
+      );
+      await store.save(milk.dismiss());
+      await store.moveToDay(fromDay: day, toDay: day + 3, todo: milk);
+
+      expect(await titlesOn(day), isEmpty);
+      final moved = await store.todosOn(day + 3);
+      expect(moved.map((t) => t.title), ['Already there', 'Buy milk']);
+      expect(moved.last.id, milk.id, reason: 'the same row, moved');
+      expect(moved.last.due, milk.due, reason: 'the time comes along');
+      expect(moved.last.dismissed, isFalse, reason: 'a new day is a new call');
+    });
+
+    test('a showing of a rule is hidden here and copied there', () async {
+      await store.insertSeries(
+        day: day,
+        title: 'Take the pills',
+        rule: RepeatRule.daily(day),
+        due: const Due(minute: 600),
+      );
+      final showing = (await store.todosOn(day)).single;
+      await store.moveToDay(fromDay: day, toDay: day + 2, todo: showing);
+
+      expect(await titlesOn(day), isEmpty);
+      expect(await titlesOn(day + 1), ['Take the pills'], reason: 'the rule');
+      final there = await store.todosOn(day + 2);
+      expect(there, hasLength(2), reason: 'the rule and the copy');
+      expect(there.where((t) => t.repeats), hasLength(1));
+      final copy = there.singleWhere((t) => !t.repeats);
+      expect(copy.due, const Due(minute: 600));
     });
   });
 

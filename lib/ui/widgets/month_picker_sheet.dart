@@ -6,6 +6,7 @@ import '../../core/day.dart';
 import '../../state/providers.dart';
 import '../branded/branded.dart';
 
+/// Turns the list to a day picked from the month grid.
 Future<void> showMonthPickerSheet(BuildContext context, WidgetRef ref) {
   final selected = ref.read(selectedDayProvider);
   return showBrandedSheet<void>(
@@ -20,11 +21,35 @@ Future<void> showMonthPickerSheet(BuildContext context, WidgetRef ref) {
   );
 }
 
+/// Asks for a day on or after [notBefore], marking [selected] as where the
+/// task is now. Days before that, [selected] itself included, are greyed and
+/// ignore the finger. Returns the day, or null when the sheet is swiped
+/// away.
+Future<DateTime?> showDayPicker(
+  BuildContext context, {
+  required DateTime selected,
+  required DateTime notBefore,
+}) => showBrandedSheet<DateTime>(
+  context,
+  (sheetContext) => _MonthPicker(
+    selected: selected,
+    notBefore: notBefore,
+    onPick: (date) => Navigator.of(sheetContext).pop(date),
+  ),
+);
+
 class _MonthPicker extends StatefulWidget {
-  const _MonthPicker({required this.selected, required this.onPick});
+  const _MonthPicker({
+    required this.selected,
+    required this.onPick,
+    this.notBefore,
+  });
 
   final DateTime selected;
   final ValueChanged<DateTime> onPick;
+
+  /// The first day that can be picked, or null for any day at all.
+  final DateTime? notBefore;
 
   @override
   State<_MonthPicker> createState() => _MonthPickerState();
@@ -48,12 +73,20 @@ class _MonthPickerState extends State<_MonthPicker> {
       const SizedBox(height: 4),
       const _WeekdayStrip(),
       const SizedBox(height: 4),
-      _DayGrid(month: _month, selected: widget.selected, onPick: widget.onPick),
-      const SizedBox(height: 8),
-      BrandedTextButton(
-        label: 'Today',
-        onTap: () => widget.onPick(todayDate()),
+      _DayGrid(
+        month: _month,
+        selected: widget.selected,
+        notBefore: widget.notBefore,
+        onPick: widget.onPick,
       ),
+      const SizedBox(height: 8),
+      // Only a free choice has a shortcut to today; a constrained one may
+      // not allow it.
+      if (widget.notBefore == null)
+        BrandedTextButton(
+          label: 'Today',
+          onTap: () => widget.onPick(todayDate()),
+        ),
     ],
   );
 }
@@ -120,11 +153,13 @@ class _DayGrid extends StatelessWidget {
     required this.month,
     required this.selected,
     required this.onPick,
+    this.notBefore,
   });
 
   final DateTime month;
   final DateTime selected;
   final ValueChanged<DateTime> onPick;
+  final DateTime? notBefore;
 
   @override
   Widget build(BuildContext context) {
@@ -145,11 +180,14 @@ class _DayGrid extends StatelessWidget {
         final dayNumber = index - blanks + 1;
         if (dayNumber < 1 || dayNumber > total) return const SizedBox.shrink();
         final date = DateTime(month.year, month.month, dayNumber);
+        final allowed =
+            notBefore == null || date.epochDay >= notBefore!.epochDay;
         return _DayCell(
+          key: ValueKey('pick-day-${date.epochDay}'),
           date: date,
           isSelected: date.isSameDayAs(selected),
           isToday: date.isSameDayAs(todayDate()),
-          onTap: () => onPick(date),
+          onTap: allowed ? () => onPick(date) : null,
         );
       },
     );
@@ -158,6 +196,7 @@ class _DayGrid extends StatelessWidget {
 
 class _DayCell extends StatelessWidget {
   const _DayCell({
+    super.key,
     required this.date,
     required this.isSelected,
     required this.isToday,
@@ -167,7 +206,9 @@ class _DayCell extends StatelessWidget {
   final DateTime date;
   final bool isSelected;
   final bool isToday;
-  final VoidCallback onTap;
+
+  /// Null for a day that cannot be picked, which is drawn greyed.
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) => GestureDetector(
@@ -183,7 +224,11 @@ class _DayCell extends StatelessWidget {
           role: isSelected || isToday
               ? BrandedTextRole.action
               : BrandedTextRole.label,
-          tone: isSelected ? BrandedTone.inverted : BrandedTone.primary,
+          tone: isSelected
+              ? BrandedTone.inverted
+              : onTap == null
+              ? BrandedTone.muted
+              : BrandedTone.primary,
         ),
       ),
     ),

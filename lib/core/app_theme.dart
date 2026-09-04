@@ -14,7 +14,7 @@ enum AppThemeChoice {
   final String label;
 
   /// The look the app ships in, and the one it falls back to.
-  static const fallback = AppThemeChoice.blossom;
+  static const fallback = AppThemeChoice.ink;
 
   /// The choice written under this name, or [fallback] for a name it does
   /// not know, so a stale or missing setting never leaves the app without a

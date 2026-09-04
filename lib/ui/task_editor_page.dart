@@ -41,12 +41,40 @@ class _TaskEditorPageState extends ConsumerState<TaskEditorPage> {
   final _focus = FocusNode();
   late Due? _due = widget.initialDue;
   late RepeatRule? _repeat = widget.initialRepeat;
+  Animation<double>? _arrival;
 
   /// Whether there is anything to save. Save stays greyed until there is.
   bool get _hasWords => _controller.text.trim().isNotEmpty;
 
+  /// The keyboard is asked for only once the screen has finished sliding
+  /// in. Raised during the transition, it fights the slide and the whole
+  /// thing judders. The route's animation is read after the first frame,
+  /// since during the first build it has not yet been started.
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _focusOnArrival());
+  }
+
+  void _focusOnArrival() {
+    if (!mounted) return;
+    final arrival = ModalRoute.of(context)?.animation;
+    if (arrival == null || arrival.isCompleted) {
+      _focus.requestFocus();
+      return;
+    }
+    _arrival = arrival..addStatusListener(_onArrival);
+  }
+
+  void _onArrival(AnimationStatus status) {
+    if (status != AnimationStatus.completed) return;
+    _arrival?.removeStatusListener(_onArrival);
+    if (mounted) _focus.requestFocus();
+  }
+
   @override
   void dispose() {
+    _arrival?.removeStatusListener(_onArrival);
     _controller.dispose();
     _focus.dispose();
     super.dispose();
@@ -67,10 +95,13 @@ class _TaskEditorPageState extends ConsumerState<TaskEditorPage> {
     final pick = await showDuePicker(context, current: _due);
     if (!mounted || pick == null) return;
     setState(() => _due = pick.due);
-    // The system is asked the first time a reminder is wanted, not at
-    // launch, so the ask arrives with its reason in view.
-    if (pick.due?.hasReminder ?? false) {
-      await ref.read(reminderSchedulerProvider).requestPermission();
+    if (pick.due case final due?) {
+      await ref.read(lastSoundProvider.notifier).remember(due.sound);
+      // The system is asked the first time a reminder is wanted, not at
+      // launch, so the ask arrives with its reason in view.
+      if (due.hasReminder) {
+        await ref.read(reminderSchedulerProvider).requestPermission();
+      }
     }
   }
 
@@ -113,7 +144,6 @@ class _TaskEditorPageState extends ConsumerState<TaskEditorPage> {
                 controller: _controller,
                 focusNode: _focus,
                 hint: 'What needs doing?',
-                autofocus: true,
                 multiline: true,
               ),
               const BrandedDivider(),
@@ -127,7 +157,11 @@ class _TaskEditorPageState extends ConsumerState<TaskEditorPage> {
                     ) ??
                     'None',
                 detail: _due?.hasReminder ?? false
-                    ? Due.reminderLabel(_due!.reminder)
+                    ? _due!.remindersLabel(
+                        twentyFourHour: MediaQuery.alwaysUse24HourFormatOf(
+                          context,
+                        ),
+                      )
                     : null,
                 onTap: _pickDue,
               ),

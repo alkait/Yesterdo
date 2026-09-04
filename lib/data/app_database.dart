@@ -4,7 +4,7 @@ import 'package:sqflite/sqflite.dart';
 /// Owns the on-device SQLite file. Nothing leaves the device.
 abstract final class AppDatabase {
   static const _fileName = 'remind_me.db';
-  static const _version = 5;
+  static const _version = 6;
 
   static Future<Database> open() async {
     final path = p.join(await getDatabasesPath(), _fileName);
@@ -30,6 +30,7 @@ CREATE TABLE todos (
   hidden INTEGER NOT NULL DEFAULT 0,
   due_time INTEGER,
   reminder INTEGER,
+  sound TEXT,
   dismissed INTEGER NOT NULL DEFAULT 0
 )''');
     await db.execute('CREATE INDEX todos_day_idx ON todos (day)');
@@ -40,7 +41,7 @@ CREATE TABLE todos (
 
   /// Version 1 knew nothing of repeating tasks. Version 2 had nowhere to keep
   /// a setting. Version 3 held one day of the month per rule. Version 4 had
-  /// no due times.
+  /// no due times. Version 5 held one reminder per task and no sound.
   static Future<void> upgradeSchema(Database db, int from, int to) async {
     if (from < 2) {
       await db.execute('ALTER TABLE todos ADD COLUMN recurrence_id INTEGER');
@@ -57,6 +58,19 @@ CREATE TABLE todos (
     // Every path above that touches `recurrences` makes it afresh, in
     // today's shape, so only a version 4 table still needs its due columns.
     if (from < 5) await _addDueTimes(db, recurrencesToo: from == 4);
+    if (from == 5) await _widenReminders(db);
+  }
+
+  /// Version 5 kept a single reminder as minutes before the time. Now the
+  /// column is a set, a bit per choice, and a sound sits beside it.
+  static Future<void> _widenReminders(Database db) async {
+    for (final table in ['todos', 'recurrences']) {
+      await db.execute('ALTER TABLE $table ADD COLUMN sound TEXT');
+      await db.execute('''
+UPDATE $table SET reminder = CASE reminder
+  WHEN 0 THEN 1 WHEN 5 THEN 2 WHEN 15 THEN 4 WHEN 30 THEN 8 WHEN 60 THEN 16
+  ELSE NULL END''');
+    }
   }
 
   static Future<void> _addDueTimes(
@@ -65,12 +79,14 @@ CREATE TABLE todos (
   }) async {
     await db.execute('ALTER TABLE todos ADD COLUMN due_time INTEGER');
     await db.execute('ALTER TABLE todos ADD COLUMN reminder INTEGER');
+    await db.execute('ALTER TABLE todos ADD COLUMN sound TEXT');
     await db.execute(
       'ALTER TABLE todos ADD COLUMN dismissed INTEGER NOT NULL DEFAULT 0',
     );
     if (!recurrencesToo) return;
     await db.execute('ALTER TABLE recurrences ADD COLUMN due_time INTEGER');
     await db.execute('ALTER TABLE recurrences ADD COLUMN reminder INTEGER');
+    await db.execute('ALTER TABLE recurrences ADD COLUMN sound TEXT');
   }
 
   /// Turns the single `month_day` into the `month_days` set. A day every
@@ -113,7 +129,8 @@ CREATE TABLE recurrences (
   end_day INTEGER,
   position INTEGER NOT NULL,
   due_time INTEGER,
-  reminder INTEGER
+  reminder INTEGER,
+  sound TEXT
 )''');
     await db.execute(
       'CREATE INDEX recurrences_start_idx ON recurrences (start_day)',

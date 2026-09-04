@@ -21,8 +21,11 @@ class ThemeChoice extends Notifier<AppThemeChoice> {
   @override
   AppThemeChoice build() => ref.watch(initialThemeChoiceProvider);
 
+  /// Applies the look at once, saves it, and swaps the home screen icon to
+  /// match.
   Future<void> select(AppThemeChoice choice) async {
     state = choice;
     await ref.read(settingsStoreProvider).write(settingKey, choice.name);
+    await ref.read(deviceBridgeProvider).setAppIcon(choice);
   }
 }

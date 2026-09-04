@@ -186,7 +186,7 @@ void main() {
     });
 
     test('long date', () {
-      expect(longDate(now), 'September 3, 2026');
+      expect(longDate(now), 'Sep 3, 2026');
     });
   });
 }

@@ -131,6 +131,14 @@ class TodosController extends AsyncNotifier<List<Todo>> {
     await _reload();
   }
 
+  /// Sends a task to another day. It leaves this list at once.
+  Future<void> moveToDay(Todo todo, int toDay) async {
+    if (toDay == _day) return;
+    _show(_without(todo));
+    await _store.moveToDay(fromDay: _day, toDay: toDay, todo: todo);
+    await _syncReminders();
+  }
+
   /// Drops this showing only. A repeating task stays on its other days.
   Future<void> removeOccurrence(Todo todo) async {
     _show(_without(todo));

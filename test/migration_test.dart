@@ -109,8 +109,79 @@ CREATE TABLE settings (
 )''');
 }
 
+/// The schema as version 5 shipped it: one reminder per task, as minutes
+/// before its time, and no sound.
+Future<void> createVersionFive(Database db, int version) async {
+  await createVersionFour(db, version);
+  for (final table in ['todos', 'recurrences']) {
+    await db.execute('ALTER TABLE $table ADD COLUMN due_time INTEGER');
+    await db.execute('ALTER TABLE $table ADD COLUMN reminder INTEGER');
+  }
+  await db.execute(
+    'ALTER TABLE todos ADD COLUMN dismissed INTEGER NOT NULL DEFAULT 0',
+  );
+}
+
 void main() {
   setUpAll(sqfliteFfiInit);
+
+  test(
+    'a version 5 reminder becomes a set of them, and gains a sound',
+    () async {
+      final directory = await Directory.systemTemp.createTemp('remind_me_test');
+      addTearDown(() => directory.delete(recursive: true));
+      final path = p.join(directory.path, 'remind_me.db');
+
+      var db = await databaseFactoryFfi.openDatabase(
+        path,
+        options: OpenDatabaseOptions(version: 5, onCreate: createVersionFive),
+      );
+      Map<String, Object?> task(String title, int? reminder) =>
+          <String, Object?>{
+            'day': 20699,
+            'title': title,
+            'done': 0,
+            'position': 0,
+            'due_time': 570,
+            'reminder': reminder,
+          };
+      await db.insert('todos', task('At the time', 0));
+      await db.insert('todos', task('Quarter hour', 15));
+      await db.insert('todos', task('An hour', 60));
+      await db.insert('todos', task('No reminder', null));
+      await db.insert('recurrences', <String, Object?>{
+        'title': 'Take the pills',
+        'kind': 'daily',
+        'weekdays': 0,
+        'month_days': 0,
+        'start_day': 20699,
+        'position': 1,
+        'due_time': 600,
+        'reminder': 5,
+      });
+      await db.close();
+
+      db = await databaseFactoryFfi.openDatabase(
+        path,
+        options: OpenDatabaseOptions(
+          version: 6,
+          onCreate: AppDatabase.createSchema,
+          onUpgrade: AppDatabase.upgradeSchema,
+        ),
+      );
+      addTearDown(db.close);
+
+      final rows = await db.query('todos', orderBy: 'id');
+      expect(rows.map((row) => row['reminder']), [1, 4, 16, null]);
+      expect(rows.map((row) => row['sound']), everyElement(isNull));
+      final rule = (await db.query('recurrences')).single;
+      expect(rule['reminder'], 2);
+      expect(rule['sound'], isNull);
+
+      await db.update('todos', <String, Object?>{'sound': 'bell'});
+      expect((await db.query('todos')).first['sound'], 'bell');
+    },
+  );
 
   test('a version 4 database keeps everything and gains due times', () async {
     final directory = await Directory.systemTemp.createTemp('remind_me_test');
@@ -142,7 +213,7 @@ void main() {
     db = await databaseFactoryFfi.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 5,
+        version: 6,
         onCreate: AppDatabase.createSchema,
         onUpgrade: AppDatabase.upgradeSchema,
       ),
@@ -190,7 +261,7 @@ void main() {
     db = await databaseFactoryFfi.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 5,
+        version: 6,
         onCreate: AppDatabase.createSchema,
         onUpgrade: AppDatabase.upgradeSchema,
       ),
@@ -248,7 +319,7 @@ void main() {
     db = await databaseFactoryFfi.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 5,
+        version: 6,
         onCreate: AppDatabase.createSchema,
         onUpgrade: AppDatabase.upgradeSchema,
       ),
@@ -302,7 +373,7 @@ void main() {
     db = await databaseFactoryFfi.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 5,
+        version: 6,
         onCreate: AppDatabase.createSchema,
         onUpgrade: AppDatabase.upgradeSchema,
       ),
@@ -361,7 +432,7 @@ void main() {
     final fresh = await databaseFactoryFfi.openDatabase(
       p.join(directory.path, 'fresh.db'),
       options: OpenDatabaseOptions(
-        version: 5,
+        version: 6,
         onCreate: AppDatabase.createSchema,
       ),
     );
@@ -373,6 +444,7 @@ void main() {
       2: createVersionTwo,
       3: createVersionThree,
       4: createVersionFour,
+      5: createVersionFive,
     };
     for (final MapEntry(key: version, value: create) in shipped.entries) {
       final upgradedPath = p.join(directory.path, 'upgraded_$version.db');
@@ -384,7 +456,7 @@ void main() {
       upgraded = await databaseFactoryFfi.openDatabase(
         upgradedPath,
         options: OpenDatabaseOptions(
-          version: 5,
+          version: 6,
           onCreate: AppDatabase.createSchema,
           onUpgrade: AppDatabase.upgradeSchema,
         ),

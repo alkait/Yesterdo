@@ -1,11 +1,24 @@
+import 'package:remind_me/data/reminder_sound.dart';
 import 'package:remind_me/reminders/planned_reminder.dart';
 import 'package:remind_me/reminders/reminder_scheduler.dart';
 
 /// Test double for [ReminderScheduler]. Keeps the last batch handed over so a
-/// test can see what the system would have been asked to show.
+/// test can see what the system would have been asked to show, and answers
+/// about permission however the test sets it.
 class MemoryReminderScheduler implements ReminderScheduler {
+  MemoryReminderScheduler({this.status = ReminderPermission.notAsked});
+
   List<PlannedReminder> pending = const <PlannedReminder>[];
+  ReminderPermission status;
   int permissionAsks = 0;
+  int settingsOpened = 0;
+  final List<(DateTime, ReminderSound)> tests = <(DateTime, ReminderSound)>[];
+
+  @override
+  Future<void> sendTest({required DateTime at, required ReminderSound sound}) {
+    tests.add((at, sound));
+    return Future.value();
+  }
 
   @override
   Future<void> replaceAll(List<PlannedReminder> reminders) {
@@ -14,8 +27,19 @@ class MemoryReminderScheduler implements ReminderScheduler {
   }
 
   @override
+  Future<ReminderPermission> permission() => Future.value(status);
+
+  /// Asking is granted, the way a tester says yes to the prompt.
+  @override
   Future<bool> requestPermission() {
     permissionAsks++;
+    status = ReminderPermission.granted;
     return Future.value(true);
+  }
+
+  @override
+  Future<void> openSettings() {
+    settingsOpened++;
+    return Future.value();
   }
 }

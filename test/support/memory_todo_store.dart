@@ -98,6 +98,23 @@ class MemoryTodoStore implements TodoStore {
   }
 
   @override
+  Future<void> moveToDay({
+    required int fromDay,
+    required int toDay,
+    required Todo todo,
+  }) async {
+    if (todo.repeats) {
+      await remove(day: fromDay, todo: todo);
+      await insert(day: toDay, title: todo.title, due: todo.due);
+      return;
+    }
+    _dayOf(fromDay).removeWhere((each) => each.id == todo.id);
+    _dayOf(
+      toDay,
+    ).add(todo.repositioned(_nextPosition(toDay)).copyWith(dismissed: false));
+  }
+
+  @override
   Future<void> removeSeries(int recurrenceId) {
     for (final items in _byDay.values) {
       items.removeWhere((each) => each.recurrenceId == recurrenceId);

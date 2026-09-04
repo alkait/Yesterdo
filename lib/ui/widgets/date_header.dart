@@ -7,13 +7,15 @@ import '../branded/branded.dart';
 import 'month_picker_sheet.dart';
 
 /// Top bar: the day, centred, with a step arrow either side. Tapping the
-/// date opens the month grid.
+/// date opens the month grid. Told which day it is for, so that while a day
+/// slides out it keeps showing its own date rather than the new one.
 class DateHeader extends ConsumerWidget {
-  const DateHeader({super.key});
+  const DateHeader({super.key, required this.date});
+
+  final DateTime date;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final date = ref.watch(selectedDayProvider);
     final day = ref.read(selectedDayProvider.notifier);
 
     return BrandedAppBar(
@@ -28,32 +30,23 @@ class DateHeader extends ConsumerWidget {
         onTap: () => day.shift(1),
       ),
       onTapCenter: () => showMonthPickerSheet(context, ref),
-      center: AnimatedSwitcher(
-        duration: Brand.swap,
-        child: Column(
-          key: ValueKey(date.epochDayKey),
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            BrandedText(
-              dayHeadline(date),
-              role: BrandedTextRole.display,
-              align: TextAlign.center,
-            ),
-            const SizedBox(height: 2),
-            BrandedText(
-              longDate(date),
-              role: BrandedTextRole.caption,
-              tone: BrandedTone.muted,
-              align: TextAlign.center,
-            ),
-          ],
-        ),
+      center: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          BrandedText(
+            dayHeadline(date),
+            role: BrandedTextRole.display,
+            align: TextAlign.center,
+          ),
+          const SizedBox(height: 2),
+          BrandedText(
+            longDate(date),
+            role: BrandedTextRole.caption,
+            tone: BrandedTone.muted,
+            align: TextAlign.center,
+          ),
+        ],
       ),
     );
   }
-}
-
-extension on DateTime {
-  /// Cheap identity for the switcher: changes only when the day changes.
-  int get epochDayKey => year * 10000 + month * 100 + day;
 }

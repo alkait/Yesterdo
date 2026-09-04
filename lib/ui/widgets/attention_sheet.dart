@@ -62,6 +62,12 @@ Future<void> showAttentionSheet(
         ),
         const BrandedDivider(),
         BrandedOptionRow(
+          label: 'Not today',
+          icon: Icons.event_rounded,
+          onTap: () => choose(() => moveTask(context, ref, todo)),
+        ),
+        const BrandedDivider(),
+        BrandedOptionRow(
           label: 'Dismiss',
           icon: Icons.notifications_off_outlined,
           onTap: () => choose(() => todos.dismiss(todo)),

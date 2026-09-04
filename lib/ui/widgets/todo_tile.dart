@@ -7,9 +7,9 @@ import '../branded/branded.dart';
 import 'attention_sheet.dart';
 import 'task_actions.dart';
 
-/// One task, on its own bordered card, always a single line. Swipe either way
-/// for buttons, press and hold to reorder. A calling card is the one card
-/// that takes a tap, which puts up the attention sheet.
+/// One task, on its own bordered card, always a single line of words. Swipe
+/// either way for buttons, press and hold to reorder. A calling card is the
+/// one card that takes a tap, which puts up the attention sheet.
 class TodoTile extends ConsumerWidget {
   const TodoTile({
     super.key,
@@ -35,21 +35,21 @@ class TodoTile extends ConsumerWidget {
       recessed: todo.done,
       calling: calling,
       onTap: calling ? () => showAttentionSheet(context, ref, todo) : null,
-      leading: todo.repeats
-          ? const BrandedIcon(
-              Icons.repeat_rounded,
-              size: BrandedIconSize.small,
-              tone: BrandedTone.muted,
-            )
-          : null,
-      trailing: todo.due == null
-          ? null
-          : _DueMark(todo: todo, calling: calling),
-      child: BrandedText(
-        todo.firstLine,
-        struck: todo.done,
-        tone: todo.done ? BrandedTone.muted : BrandedTone.primary,
-        maxLines: 1,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          BrandedText(
+            todo.firstLine,
+            struck: todo.done,
+            tone: todo.done ? BrandedTone.muted : BrandedTone.primary,
+            maxLines: 1,
+          ),
+          // The words get the whole width. Anything else about the task
+          // goes in small print underneath.
+          if (todo.repeats || todo.due != null)
+            _SmallPrint(todo: todo, calling: calling),
+        ],
       ),
     );
 
@@ -69,6 +69,13 @@ class TodoTile extends ConsumerWidget {
         ),
       ],
       trailing: [
+        // Only an open task has anywhere to go.
+        if (!todo.done)
+          BrandedSwipeAction.words(
+            ('NOT', 'TODAY'),
+            label: 'Not today',
+            onTap: () => moveTask(context, ref, todo),
+          ),
         BrandedSwipeAction(
           icon: Icons.delete_outline_rounded,
           label: 'Delete',
@@ -86,10 +93,11 @@ class TodoTile extends ConsumerWidget {
   }
 }
 
-/// The time in small print at the card's trailing end, with a bell when a
-/// reminder is set. Both take the accent while the card is calling.
-class _DueMark extends StatelessWidget {
-  const _DueMark({required this.todo, required this.calling});
+/// The line under the words: a repeat glyph for a repeating task, a bell
+/// when a reminder is set, and the time. All take the accent while the card
+/// is calling.
+class _SmallPrint extends StatelessWidget {
+  const _SmallPrint({required this.todo, required this.calling});
 
   final Todo todo;
   final bool calling;
@@ -97,25 +105,38 @@ class _DueMark extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tone = calling ? BrandedTone.accent : BrandedTone.muted;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (todo.due!.hasReminder) ...[
-          BrandedIcon(
-            Icons.notifications_none_rounded,
-            size: BrandedIconSize.small,
-            tone: tone,
-          ),
-          const SizedBox(width: 4),
+    final due = todo.due;
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        children: [
+          if (todo.repeats) ...[
+            BrandedIcon(
+              Icons.repeat_rounded,
+              size: BrandedIconSize.small,
+              tone: tone,
+            ),
+            const SizedBox(width: 6),
+          ],
+          if (due != null) ...[
+            if (due.hasReminder) ...[
+              BrandedIcon(
+                Icons.notifications_none_rounded,
+                size: BrandedIconSize.small,
+                tone: tone,
+              ),
+              const SizedBox(width: 4),
+            ],
+            BrandedText(
+              due.label(
+                twentyFourHour: MediaQuery.alwaysUse24HourFormatOf(context),
+              ),
+              role: BrandedTextRole.caption,
+              tone: tone,
+            ),
+          ],
         ],
-        BrandedText(
-          todo.due!.label(
-            twentyFourHour: MediaQuery.alwaysUse24HourFormatOf(context),
-          ),
-          role: BrandedTextRole.caption,
-          tone: tone,
-        ),
-      ],
+      ),
     );
   }
 }

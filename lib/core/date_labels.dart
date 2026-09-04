@@ -57,9 +57,9 @@ String dayHeadline(DateTime date, {DateTime? now}) {
   };
 }
 
-/// The supporting line: `September 3, 2026`.
+/// The supporting line: `Sep 3, 2026`.
 String longDate(DateTime date) =>
-    '${_monthNames[date.month - 1]} ${date.day}, ${date.year}';
+    '${_monthNames[date.month - 1].substring(0, 3)} ${date.day}, ${date.year}';
 
 String monthAndYear(DateTime date) =>
     '${_monthNames[date.month - 1]} ${date.year}';

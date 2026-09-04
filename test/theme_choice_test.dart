@@ -11,18 +11,12 @@ void main() {
     expect(await ThemeChoice.load(store), AppThemeChoice.forest);
   });
 
-  test(
-    'nothing saved, or a name no longer known, falls back to Blossom',
-    () async {
-      expect(
-        await ThemeChoice.load(MemorySettingsStore()),
-        AppThemeChoice.blossom,
-      );
-      final stale = MemorySettingsStore({ThemeChoice.settingKey: 'lavender'});
-      expect(await ThemeChoice.load(stale), AppThemeChoice.blossom);
-      expect(AppThemeChoice.fallback, AppThemeChoice.blossom);
-    },
-  );
+  test('nothing saved, or a name no longer known, falls back to Ink', () async {
+    expect(await ThemeChoice.load(MemorySettingsStore()), AppThemeChoice.ink);
+    final stale = MemorySettingsStore({ThemeChoice.settingKey: 'lavender'});
+    expect(await ThemeChoice.load(stale), AppThemeChoice.ink);
+    expect(AppThemeChoice.fallback, AppThemeChoice.ink);
+  });
 
   test('every look has a light and a dark palette', () {
     for (final choice in AppThemeChoice.values) {

@@ -2,19 +2,32 @@ import 'package:flutter/material.dart';
 
 import 'brand.dart';
 import 'branded_icon.dart';
+import 'branded_text.dart';
 
-/// One button revealed by a swipe.
+/// One button revealed by a swipe: an icon, or two short words stacked
+/// where the icon would be, for a meaning no icon carries.
 class BrandedSwipeAction {
   const BrandedSwipeAction({
     required this.icon,
     required this.label,
     required this.onTap,
     this.tone = BrandedTone.primary,
-  });
+  }) : words = null;
 
-  final IconData icon;
+  const BrandedSwipeAction.words(
+    this.words, {
+    required this.label,
+    required this.onTap,
+    this.tone = BrandedTone.primary,
+  }) : icon = null;
 
-  /// Read aloud by VoiceOver. The icon alone says nothing.
+  final IconData? icon;
+
+  /// Drawn one above the other in place of an icon, such as `('NOT',
+  /// 'TODAY')`.
+  final (String, String)? words;
+
+  /// Read aloud by VoiceOver. The button alone says nothing.
   final String label;
 
   final VoidCallback onTap;
@@ -231,7 +244,20 @@ class _ActionButton extends StatelessWidget {
           color: Theme.of(context).colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(Brand.cardRadius),
         ),
-        child: BrandedIcon(action.icon, tone: action.tone),
+        child: switch (action.words) {
+          null => BrandedIcon(action.icon!, tone: action.tone),
+          (final top, final bottom) => Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              BrandedText(top, role: BrandedTextRole.glyph, tone: action.tone),
+              BrandedText(
+                bottom,
+                role: BrandedTextRole.glyph,
+                tone: action.tone,
+              ),
+            ],
+          ),
+        },
       ),
     ),
   );

@@ -6,8 +6,10 @@ import 'app.dart';
 import 'data/app_database.dart';
 import 'data/sqlite_settings_store.dart';
 import 'data/sqlite_todo_store.dart';
+import 'platform/device_bridge.dart';
 import 'reminders/local_reminder_scheduler.dart';
 import 'state/providers.dart';
+import 'state/last_sound.dart';
 import 'state/theme_choice.dart';
 
 Future<void> main() async {
@@ -18,15 +20,19 @@ Future<void> main() async {
   final settings = SqliteSettingsStore(database);
   // Read before the first frame too, so the saved look is the first one seen.
   final theme = await ThemeChoice.load(settings);
+  final sound = await LastSound.load(settings);
 
   final notifications = FlutterLocalNotificationsPlugin();
+  const device = MethodChannelDeviceBridge();
   final container = ProviderContainer(
     overrides: [
       todoStoreProvider.overrideWithValue(SqliteTodoStore(database)),
       settingsStoreProvider.overrideWithValue(settings),
       initialThemeChoiceProvider.overrideWithValue(theme),
+      initialSoundProvider.overrideWithValue(sound),
+      deviceBridgeProvider.overrideWithValue(device),
       reminderSchedulerProvider.overrideWithValue(
-        LocalReminderScheduler(notifications),
+        LocalReminderScheduler(notifications, device),
       ),
     ],
   );
@@ -34,13 +40,7 @@ Future<void> main() async {
   // Permission is not asked for here. It is asked the first time a reminder
   // is chosen, when the reason for it is in view.
   await notifications.initialize(
-    settings: const InitializationSettings(
-      iOS: DarwinInitializationSettings(
-        requestAlertPermission: false,
-        requestBadgePermission: false,
-        requestSoundPermission: false,
-      ),
-    ),
+    settings: LocalReminderScheduler.initializationSettings,
     onDidReceiveNotificationResponse: (response) => container
         .read(attentionRequestProvider.notifier)
         .raiseFromPayload(response.payload),

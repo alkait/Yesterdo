@@ -112,6 +112,31 @@ class SqliteTodoStore implements TodoStore {
   }
 
   @override
+  Future<void> moveToDay({
+    required int fromDay,
+    required int toDay,
+    required Todo todo,
+  }) async {
+    if (todo.repeats) {
+      await remove(day: fromDay, todo: todo);
+      await insert(day: toDay, title: todo.title, due: todo.due);
+      return;
+    }
+    // A new day is a new call, so a wave-away from the old one no longer
+    // holds.
+    await _db.update(
+      _todos,
+      <String, Object?>{
+        'day': toDay,
+        'position': await _nextPosition(toDay),
+        'dismissed': 0,
+      },
+      where: 'id = ?',
+      whereArgs: [todo.id],
+    );
+  }
+
+  @override
   Future<void> removeSeries(int recurrenceId) async {
     await _db.delete(
       _todos,

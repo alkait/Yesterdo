@@ -32,7 +32,16 @@ TextDirection brandedTextDirection(String text) {
 
 /// The jobs text does in this app. Sizes and weights live here and nowhere
 /// else.
-enum BrandedTextRole { display, title, body, action, label, caption, wheel }
+enum BrandedTextRole {
+  display,
+  title,
+  body,
+  action,
+  label,
+  caption,
+  wheel,
+  glyph,
+}
 
 /// The only way to put text on screen.
 class BrandedText extends StatelessWidget {
@@ -113,6 +122,13 @@ class BrandedText extends StatelessWidget {
     BrandedTextRole.wheel => const TextStyle(
       fontSize: 21,
       fontWeight: FontWeight.w400,
+    ),
+    // A word standing in for an icon: small, heavy, spaced.
+    BrandedTextRole.glyph => const TextStyle(
+      fontSize: 10,
+      fontWeight: FontWeight.w700,
+      letterSpacing: 0.6,
+      height: 1.2,
     ),
   };
 }

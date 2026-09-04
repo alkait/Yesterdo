@@ -33,9 +33,17 @@ abstract final class Brand {
   static const maxContentWidth = 620.0;
   static const maxSheetWidth = 420.0;
 
+  /// How fast a sideways flick has to be to count as one, in points a second,
+  /// and how far a slow pull has to go instead.
+  static const flingVelocity = 250.0;
+  static const swipeDistance = 72.0;
+
   // Motion
   static const quick = Duration(milliseconds: 180);
   static const swap = Duration(milliseconds: 140);
+
+  /// One day sliding out and the next sliding in.
+  static const turn = Duration(milliseconds: 260);
   static const curve = Curves.easeOut;
 
   /// One in-and-out of a calling card's pulse.

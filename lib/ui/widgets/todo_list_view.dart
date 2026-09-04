@@ -2,13 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/day.dart';
+import '../../data/todo.dart';
 import '../../state/providers.dart';
 import '../branded/branded.dart';
 import 'todo_tile.dart';
 
 /// The day's tasks. Open first and draggable, checked ones settled below.
+///
+/// Built for one day. While that day slides out and the list has already
+/// turned to the next, it keeps showing what it last showed, so the page on
+/// its way out does not flash the new day's tasks.
 class TodoListView extends ConsumerStatefulWidget {
-  const TodoListView({super.key});
+  const TodoListView({super.key, required this.day});
+
+  final int day;
 
   @override
   ConsumerState<TodoListView> createState() => _TodoListViewState();
@@ -18,6 +25,8 @@ class _TodoListViewState extends ConsumerState<TodoListView> {
   /// Keeps at most one row swiped open at a time.
   final _swipeGroup = BrandedSwipeGroup();
 
+  List<Todo>? _shown;
+
   @override
   void dispose() {
     _swipeGroup.dispose();
@@ -26,8 +35,10 @@ class _TodoListViewState extends ConsumerState<TodoListView> {
 
   @override
   Widget build(BuildContext context) {
-    final todos = ref.watch(todosProvider).value;
-    final day = ref.watch(selectedDayProvider).epochDay;
+    final current = ref.watch(selectedDayProvider).epochDay;
+    final live = ref.watch(todosProvider).value;
+    if (current == widget.day && live != null) _shown = live;
+    final todos = _shown;
     // Judged once per build, so every card agrees on the moment.
     final now = ref.watch(clockProvider)();
 
@@ -48,7 +59,7 @@ class _TodoListViewState extends ConsumerState<TodoListView> {
           todo: todo,
           index: index,
           swipeGroup: _swipeGroup,
-          calling: todo.isCallingOn(day: day, now: now),
+          calling: todo.isCallingOn(day: widget.day, now: now),
         );
       },
     );

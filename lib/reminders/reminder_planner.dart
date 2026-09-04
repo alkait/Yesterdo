@@ -22,20 +22,28 @@ class ReminderPlanner {
     final today = now.epochDay;
     final planned = <PlannedReminder>[];
 
+    // A day-ahead reminder for tomorrow fires today, so the window starts a
+    // day early and the past is filtered out below.
     for (var day = today; day <= today + daysAhead; day++) {
       for (final todo in await _store.todosOn(day)) {
         if (todo.done || todo.dismissed) continue;
-        final fireAt = todo.due?.reminderInstantOn(day);
-        if (fireAt == null || !fireAt.isAfter(now)) continue;
-        planned.add(
-          PlannedReminder(
-            day: day,
-            key: todo.key,
-            title: todo.firstLine,
-            dueLabel: 'Due ${todo.due!.label()}',
-            fireAt: fireAt,
-          ),
-        );
+        final due = todo.due;
+        if (due == null) continue;
+        for (final before in due.reminders) {
+          final fireAt = due.instantOn(day).subtract(Duration(minutes: before));
+          if (!fireAt.isAfter(now)) continue;
+          planned.add(
+            PlannedReminder(
+              day: day,
+              key: todo.key,
+              title: todo.firstLine,
+              dueLabel: 'Due ${due.label()}',
+              fireAt: fireAt,
+              before: before,
+              sound: due.sound,
+            ),
+          );
+        }
       }
     }
 

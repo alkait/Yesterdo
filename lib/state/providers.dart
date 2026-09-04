@@ -1,13 +1,16 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/app_theme.dart';
+import '../data/reminder_sound.dart';
 import '../data/settings_store.dart';
 import '../data/todo.dart';
 import '../data/todo_store.dart';
+import '../platform/device_bridge.dart';
 import '../reminders/reminder_planner.dart';
 import '../reminders/reminder_scheduler.dart';
 import '../reminders/reminder_sync.dart';
 import 'attention_request.dart';
+import 'last_sound.dart';
 import 'selected_day.dart';
 import 'theme_choice.dart';
 import 'todos_controller.dart';
@@ -62,3 +65,24 @@ final attentionRequestProvider =
     NotifierProvider<AttentionRequests, AttentionRequest?>(
       AttentionRequests.new,
     );
+
+/// Bound to the device in `main`; tests bind a recorder.
+final deviceBridgeProvider = Provider<DeviceBridge>(
+  (ref) => throw StateError('deviceBridgeProvider must be overridden'),
+);
+
+/// Whether the system lets the app notify. Read afresh whenever the app
+/// comes back to the front, since the answer can change in Settings.
+final reminderPermissionProvider = FutureProvider<ReminderPermission>(
+  (ref) => ref.watch(reminderSchedulerProvider).permission(),
+);
+
+/// The sound saved from last time, bound in `main` before the first frame.
+final initialSoundProvider = Provider<ReminderSound>(
+  (ref) => ReminderSound.system,
+);
+
+/// The sound a new reminder starts from: whatever was chosen last.
+final lastSoundProvider = NotifierProvider<LastSound, ReminderSound>(
+  LastSound.new,
+);

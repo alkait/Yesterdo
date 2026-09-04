@@ -19,6 +19,7 @@ export 'branded_route.dart';
 export 'branded_scaffold.dart';
 export 'branded_selection_circle.dart';
 export 'branded_sheet.dart';
+export 'branded_slide_switcher.dart';
 export 'branded_text.dart';
 export 'branded_text_field.dart';
 export 'branded_theme_swatch.dart';

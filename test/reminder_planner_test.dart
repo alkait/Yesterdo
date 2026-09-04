@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:remind_me/core/day.dart';
 import 'package:remind_me/data/due.dart';
+import 'package:remind_me/data/reminder_sound.dart';
 import 'package:remind_me/data/repeat_rule.dart';
 import 'package:remind_me/reminders/reminder_planner.dart';
 import 'package:remind_me/reminders/reminder_sync.dart';
@@ -23,7 +24,7 @@ void main() {
     await store.insert(
       day: today,
       title: 'Call Sam\nabout the invoice',
-      due: const Due(minute: 14 * 60 + 30, reminder: 15),
+      due: const Due(minute: 14 * 60 + 30, reminders: {15}),
     );
     final plan = await planner.plan(now: nine);
     expect(plan, hasLength(1));
@@ -32,6 +33,41 @@ void main() {
     expect(plan.single.dueLabel, 'Due 2:30 PM');
     expect(plan.single.day, today);
     expect(plan.single.key, 't1');
+    expect(plan.single.before, 15);
+    expect(plan.single.sound, ReminderSound.system);
+  });
+
+  test(
+    'several reminders on one task each get their own notification',
+    () async {
+      await store.insert(
+        day: today,
+        title: 'Call Sam',
+        due: const Due(
+          minute: 14 * 60,
+          reminders: {0, 30, Due.minutesPerDay},
+          sound: ReminderSound.chime,
+        ),
+      );
+      final plan = await planner.plan(now: nine);
+      expect(plan.map((p) => p.fireAt), [
+        DateTime(2026, 9, 4, 13, 30),
+        DateTime(2026, 9, 4, 14, 0),
+      ], reason: 'the day-ahead one was yesterday, so it is gone');
+      expect(plan.map((p) => p.id).toSet(), hasLength(2));
+      expect(plan.map((p) => p.sound).toSet(), {ReminderSound.chime});
+    },
+  );
+
+  test('a day-ahead reminder for tomorrow fires today', () async {
+    await store.insert(
+      day: today + 1,
+      title: 'Dentist',
+      due: const Due(minute: 10 * 60, reminders: {Due.minutesPerDay}),
+    );
+    final plan = await planner.plan(now: nine);
+    expect(plan.single.fireAt, DateTime(2026, 9, 4, 10, 0));
+    expect(plan.single.day, today + 1, reason: 'but it points at tomorrow');
   });
 
   test('a time without a reminder plans nothing', () async {
@@ -47,19 +83,19 @@ void main() {
     final done = await store.insert(
       day: today,
       title: 'Done',
-      due: const Due(minute: 14 * 60, reminder: 0),
+      due: const Due(minute: 14 * 60, reminders: {0}),
     );
     await store.save(done.toggled(1));
     final waved = await store.insert(
       day: today,
       title: 'Waved away',
-      due: const Due(minute: 15 * 60, reminder: 0),
+      due: const Due(minute: 15 * 60, reminders: {0}),
     );
     await store.save(waved.dismiss());
     await store.insert(
       day: today,
       title: 'Gone by',
-      due: const Due(minute: 8 * 60, reminder: 0),
+      due: const Due(minute: 8 * 60, reminders: {0}),
     );
     expect(await planner.plan(now: nine), isEmpty);
   });
@@ -69,7 +105,7 @@ void main() {
       day: today,
       title: 'Take the pills',
       rule: RepeatRule.daily(today),
-      due: const Due(minute: 20 * 60, reminder: 5),
+      due: const Due(minute: 20 * 60, reminders: {5}),
     );
     final plan = await planner.plan(now: nine);
     expect(plan, hasLength(ReminderPlanner.daysAhead + 1));
@@ -84,7 +120,7 @@ void main() {
         day: today,
         title: 'Rule $each',
         rule: RepeatRule.daily(today),
-        due: Due(minute: 20 * 60 - each, reminder: 0),
+        due: Due(minute: 20 * 60 - each, reminders: {0}),
       );
     }
     final plan = await planner.plan(now: nine);
@@ -100,7 +136,7 @@ void main() {
     final todo = await store.insert(
       day: today,
       title: 'Call Sam',
-      due: const Due(minute: 14 * 60, reminder: 0),
+      due: const Due(minute: 14 * 60, reminders: {0}),
     );
     await sync.refresh(now: nine);
     expect(scheduler.pending, hasLength(1));

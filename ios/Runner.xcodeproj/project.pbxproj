@@ -16,6 +16,15 @@
 		97C146FC1CF9000F007C117D /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FA1CF9000F007C117D /* Main.storyboard */; };
 		97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
+		9A14236AB13840259A04C6A6 /* chime.caf in Resources */ = {isa = PBXBuildFile; fileRef = AEEF1DF8C9B345D083EB288A /* chime.caf */; };
+		97FF99BF86F64C5284DF604C /* bell.caf in Resources */ = {isa = PBXBuildFile; fileRef = 375C8A153D6540DA9B043B5B /* bell.caf */; };
+		DA07B6E0A53F42DB90B9D821 /* pulse.caf in Resources */ = {isa = PBXBuildFile; fileRef = 6F2BF550C88242F7BCA6ECDE /* pulse.caf */; };
+		D5A752C59B124DA9A42A8AA3 /* glass.caf in Resources */ = {isa = PBXBuildFile; fileRef = 6A79AB2D405A447CB1A204ED /* glass.caf */; };
+		41698A453FAB4F408A084094 /* marimba.caf in Resources */ = {isa = PBXBuildFile; fileRef = BA7379D1A08C4E6898A297D9 /* marimba.caf */; };
+		0D573881A63241C983FE2BB6 /* harp.caf in Resources */ = {isa = PBXBuildFile; fileRef = 67E6C7AE612F4C119478A14C /* harp.caf */; };
+		C3D488CA3AF940ED9090D6FD /* alert.caf in Resources */ = {isa = PBXBuildFile; fileRef = 772D2A78757A44F583522499 /* alert.caf */; };
+		A837DDAD01CA477E806E5C19 /* drop.caf in Resources */ = {isa = PBXBuildFile; fileRef = 2E33F14436B84AE6AE878CBA /* drop.caf */; };
+		77D5E5442D0D48FAA84072CD /* ripple.caf in Resources */ = {isa = PBXBuildFile; fileRef = 8C8175EEF77F4370948F019F /* ripple.caf */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -59,6 +68,15 @@
 		97C146FD1CF9000F007C117D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		97C147001CF9000F007C117D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		97C147021CF9000F007C117D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		AEEF1DF8C9B345D083EB288A /* chime.caf */ = {isa = PBXFileReference; lastKnownFileType = file; name = chime.caf; path = Sounds/chime.caf; sourceTree = "<group>"; };
+		375C8A153D6540DA9B043B5B /* bell.caf */ = {isa = PBXFileReference; lastKnownFileType = file; name = bell.caf; path = Sounds/bell.caf; sourceTree = "<group>"; };
+		6F2BF550C88242F7BCA6ECDE /* pulse.caf */ = {isa = PBXFileReference; lastKnownFileType = file; name = pulse.caf; path = Sounds/pulse.caf; sourceTree = "<group>"; };
+		6A79AB2D405A447CB1A204ED /* glass.caf */ = {isa = PBXFileReference; lastKnownFileType = file; name = glass.caf; path = Sounds/glass.caf; sourceTree = "<group>"; };
+		BA7379D1A08C4E6898A297D9 /* marimba.caf */ = {isa = PBXFileReference; lastKnownFileType = file; name = marimba.caf; path = Sounds/marimba.caf; sourceTree = "<group>"; };
+		67E6C7AE612F4C119478A14C /* harp.caf */ = {isa = PBXFileReference; lastKnownFileType = file; name = harp.caf; path = Sounds/harp.caf; sourceTree = "<group>"; };
+		772D2A78757A44F583522499 /* alert.caf */ = {isa = PBXFileReference; lastKnownFileType = file; name = alert.caf; path = Sounds/alert.caf; sourceTree = "<group>"; };
+		2E33F14436B84AE6AE878CBA /* drop.caf */ = {isa = PBXFileReference; lastKnownFileType = file; name = drop.caf; path = Sounds/drop.caf; sourceTree = "<group>"; };
+		8C8175EEF77F4370948F019F /* ripple.caf */ = {isa = PBXFileReference; lastKnownFileType = file; name = ripple.caf; path = Sounds/ripple.caf; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -119,6 +137,15 @@
 				97C146FD1CF9000F007C117D /* Assets.xcassets */,
 				97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */,
 				97C147021CF9000F007C117D /* Info.plist */,
+				6A79AB2D405A447CB1A204ED /* glass.caf */,
+				BA7379D1A08C4E6898A297D9 /* marimba.caf */,
+				67E6C7AE612F4C119478A14C /* harp.caf */,
+				772D2A78757A44F583522499 /* alert.caf */,
+				2E33F14436B84AE6AE878CBA /* drop.caf */,
+				8C8175EEF77F4370948F019F /* ripple.caf */,
+				AEEF1DF8C9B345D083EB288A /* chime.caf */,
+				375C8A153D6540DA9B043B5B /* bell.caf */,
+				6F2BF550C88242F7BCA6ECDE /* pulse.caf */,
 				1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */,
 				1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */,
 				74858FAE1ED2DC5600515810 /* AppDelegate.swift */,
@@ -228,6 +255,15 @@
 				97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */,
 				3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */,
 				97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */,
+				D5A752C59B124DA9A42A8AA3 /* glass.caf in Resources */,
+				41698A453FAB4F408A084094 /* marimba.caf in Resources */,
+				0D573881A63241C983FE2BB6 /* harp.caf in Resources */,
+				C3D488CA3AF940ED9090D6FD /* alert.caf in Resources */,
+				A837DDAD01CA477E806E5C19 /* drop.caf in Resources */,
+				77D5E5442D0D48FAA84072CD /* ripple.caf in Resources */,
+				9A14236AB13840259A04C6A6 /* chime.caf in Resources */,
+				97FF99BF86F64C5284DF604C /* bell.caf in Resources */,
+				DA07B6E0A53F42DB90B9D821 /* pulse.caf in Resources */,
 				97C146FC1CF9000F007C117D /* Main.storyboard in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -375,6 +411,7 @@
 			baseConfigurationReference = 7AFA3C8E1D35360C0083082E /* Release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "AppIcon-blossom AppIcon-ocean AppIcon-forest";
 				CLANG_ENABLE_MODULES = YES;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				ENABLE_BITCODE = NO;
@@ -558,6 +595,7 @@
 			baseConfigurationReference = 9740EEB21CF90195004384FC /* Debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "AppIcon-blossom AppIcon-ocean AppIcon-forest";
 				CLANG_ENABLE_MODULES = YES;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				ENABLE_BITCODE = NO;
@@ -582,6 +620,7 @@
 			baseConfigurationReference = 7AFA3C8E1D35360C0083082E /* Release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "AppIcon-blossom AppIcon-ocean AppIcon-forest";
 				CLANG_ENABLE_MODULES = YES;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				ENABLE_BITCODE = NO;

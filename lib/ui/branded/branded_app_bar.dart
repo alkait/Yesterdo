@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'branded_divider.dart';
 
 /// The top chrome: something either side, something in the middle, and a
-/// hairline underneath. Flat, with no Material elevation.
+/// hairline underneath. Flat, with no Material elevation. The sides are
+/// given equal room, so the middle sits on the screen's centre line whatever
+/// is or is not beside it.
 class BrandedAppBar extends StatelessWidget {
   const BrandedAppBar({
     super.key,
@@ -27,15 +29,23 @@ class BrandedAppBar extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
           child: Row(
             children: [
-              leading ?? const SizedBox.shrink(),
               Expanded(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: onTapCenter,
-                  child: center,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: leading ?? const SizedBox.shrink(),
                 ),
               ),
-              trailing ?? const SizedBox.shrink(),
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: onTapCenter,
+                child: center,
+              ),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: trailing ?? const SizedBox.shrink(),
+                ),
+              ),
             ],
           ),
         ),

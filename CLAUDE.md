@@ -76,10 +76,19 @@ A day-at-a-time todo list for iPhone and iPad. Offline, local, no account, no sy
 
 ## Due times and reminders
 
-- A due time is a `Due`: minutes after midnight, plus an optional reminder in
-  minutes before it. It sits in `due_time` and `reminder` on both `todos` and
-  `recurrences`. A projected occurrence carries its rule's time; a written-down
-  one carries its own copy, like the words, so a snooze is for that day alone.
+- A due time is a `Due`: minutes after midnight, a set of reminders in minutes
+  before it, and a `ReminderSound`. It sits in `due_time`, `reminder` and
+  `sound` on both `todos` and `recurrences`. The reminder set is a bitmask, one
+  bit per entry of `Due.reminderChoices`, in that order; add a choice at the end
+  or every saved set shifts. A projected occurrence carries its rule's time; a
+  written-down one carries its own copy, like the words, so a snooze is for that
+  day alone.
+- The sounds are short CAF files under `ios/Runner/Sounds`, listed as resources
+  in the Xcode project so they land at the bundle root, which is where the
+  system looks. A new sound is a new file there and a new `ReminderSound` case.
+- Nothing is shown while the app is in front. The plugin's presentation
+  options are all off in `LocalReminderScheduler.initializationSettings` and on
+  every notification; the card calls on screen instead.
 - The time belongs to the series. Editing a repeating task's time changes every
   day it appears on and clears every wave-away, because a new time is a new call.
 - A task is calling when its moment has passed on the day being looked at, it is
@@ -96,7 +105,11 @@ A day-at-a-time todo list for iPhone and iPad. Offline, local, no account, no sy
   reminder to fire at the new time. Dismiss sets `dismissed` and keeps the time
   on the card. Done, snooze and dismiss are per day.
 - Reminders are local notifications through `flutter_local_notifications`, the
-  one plugin the app carries. Nothing else may be added for it.
+  one plugin the app carries. Nothing else may be added for it. What only the
+  device can do, the app icon, playing a sound out loud, and whether permission
+  was ever asked, goes through `DeviceBridge`, a method channel handled in
+  `AppDelegate`. The app binds `MethodChannelDeviceBridge`, tests bind
+  `MemoryDeviceBridge`.
 - The system is never told about a change directly. `ReminderPlanner` derives the
   whole plan from the store, today through fourteen days ahead, capped under the
   system's limit, and `ReminderSync` hands it over with `replaceAll`. It runs
@@ -105,7 +118,9 @@ A day-at-a-time todo list for iPhone and iPad. Offline, local, no account, no sy
   `LocalReminderScheduler`, tests bind `MemoryReminderScheduler` and read what
   was handed over.
 - Permission is asked for the first time a reminder is chosen, from the editor,
-  never at launch.
+  never at launch. The settings screen shows where it stands through
+  `reminderPermissionProvider`, which is invalidated whenever the app comes back
+  to the front: not asked yet asks, refused or allowed opens the system's page.
 - `AppDelegate` sets itself as the notification centre's delegate before
   handing off to Flutter. Without that line a tapped notification opens the app
   and nothing else; the plugin never hears of it and Dart is never told.
@@ -146,7 +161,7 @@ in one place and shows up everywhere.
 - Colours are defined only in `AppTheme.schemeFor`, keyed by `AppThemeChoice` and
   brightness. Every look needs a light and a dark palette; the system still picks
   which of the two is showing.
-- The app ships in Blossom, `AppThemeChoice.fallback`, which is also what an
+- The app ships in Ink, `AppThemeChoice.fallback`, which is also what an
   unknown saved name falls back to.
 - The look in force is `themeChoiceProvider`. `BrandedApp` is the only widget that
   reads it to build a theme; everything else gets its colours through the
@@ -164,9 +179,16 @@ in one place and shows up everywhere.
 - Writing a task never happens inline. Both adding and editing push
   `TaskEditorPage` as a full screen, which returns the text through the navigator.
   Save is greyed and inert until there are words; Cancel is never greyed.
+- The editor asks for the keyboard only once its slide-in has finished, by
+  listening to the route's animation. Raised during the transition it fights the
+  slide and the whole thing judders. No `autofocus` on that field.
+- A reminder at the time itself is named by the time, `At 8:00 AM`, never "at
+  the time". The label needs the minute, so it lives on `Due`, not as a static.
 - The editor's Due row sits above Repeat and opens a sheet: a time wheel, the
-  reminder choices, Clear and Done. It hands back a `DuePick`, so backing out can
-  be told from clearing. The row reads the time with the reminder as small print.
+  reminder choices, any number of which can be ticked, a Sound row that opens its
+  own sheet and plays each sound as it is tapped, then Clear and Done. It hands
+  back a `DuePick`, so backing out can be told from clearing. The row reads the
+  time with the reminders summed up as small print.
 - A task row carries no checkbox and, unless it is calling, no tap of its own.
   Done, edit and delete live on the swipe buttons and nowhere else; there is no
   action sheet.
@@ -177,8 +199,9 @@ in one place and shows up everywhere.
   the accent and back, without end, until answered. Under reduce motion it holds
   the leaning colour still. Widget tests that show a calling card must call
   `holdStill`, or `pumpAndSettle` never settles.
-- The time sits in small print at the card's trailing end, with a bell when a
-  reminder is set. Both take the accent while the card is calling.
+- The words get the card's whole width. Everything else about a task, the repeat
+  glyph, a bell when a reminder is set and the time, sits in small print on a
+  second line underneath, and takes the accent while the card is calling.
 - Each task is a bordered card, not a row with a rule between. Completed cards are
   recessed onto the raised surface colour.
 - A card shows one line and one line only. Anything past the first break comes off
@@ -190,6 +213,25 @@ in one place and shows up everywhere.
 - Direction comes from the first strong letter, not the first character. Digits,
   punctuation and emoji carry no direction and are skipped, so `"1. مرحبا"` reads
   right to left. `brandedTextDirection` is the one place that decides.
+- A sideways flick across the day, above the bottom bar, turns the page a day
+  at a time through `DaySwiper`. On a card the card's own swipe wins, as the
+  nearer gesture. The arrows and the month grid remain.
+- A change of day slides: the old page out, the new one in from the side the
+  change came from, through `BrandedSlideSwitcher` keyed on the day. Forwards
+  in time comes from the right. The header and the list are told which day they
+  are for, and the list keeps showing what it last showed while its day slides
+  out, so the outgoing page never flashes the new day's tasks.
+- Swiping left uncovers Not Today, a stacked NOT / TODAY glyph, then Delete.
+  Not Today is only there on an open task. It opens the month grid through
+  `showDayPicker`, which greys the past and the day itself and offers no
+  shortcut to today; picking a day moves the task there, to the end of that
+  day's open group, through `TodoStore.moveToDay`. Backing out moves nothing.
+- A rule cannot have one showing moved. Not Today on a repeating task hides
+  today's showing and writes a one-off copy of the words and time on the chosen
+  day. The copy has left the series: it repeats never and later edits to the
+  series do not reach it. This is never asked about.
+- The attention sheet offers Not Today too, between Snooze and Dismiss, with the
+  same grid and the same move.
 - A card carries no drag grip. Pressing and holding anywhere on it lifts it, through
   `BrandedDragLift`, and the whole width is left to the words.
 - Only open tasks can be lifted. Completed ones are ranked by when they were
@@ -200,12 +242,12 @@ in one place and shows up everywhere.
   free for the row's buttons.
 - A swipe never acts on its own. It uncovers buttons and nothing happens until one
   is tapped, so a swipe can always be taken back. Swiping right uncovers done and
-  edit, swiping left uncovers delete.
+  edit, swiping left uncovers not today and delete.
 - The card squeezes to make room rather than sliding off the screen edge, so it
   keeps both of its rounded ends.
 - One row is open at a time. The list owns a `BrandedSwipeGroup` and hands it to
   every row, which closes the last one when another opens.
-- The three task actions are named once in `task_actions.dart`, so their icons and
+- The task actions are named once in `task_actions.dart`, so their icons and
   labels cannot drift.
 - Deleting a repeating task asks first, with up to four scopes: this one, this and
   earlier ones, this and later ones, or every one. It and the attention sheet are
@@ -218,7 +260,8 @@ in one place and shows up everywhere.
 - Drop a range only when its own side is empty, and ask nothing at all when a task
   is down to a single showing. `RepeatRule.hasOccurrenceBefore` and
   `hasOccurrenceAfter` answer this; do not reason about it in a widget.
-- A repeating card carries a repeat glyph in the card's leading slot.
+- A repeating card carries a repeat glyph in its small print, never beside the
+  words.
 - A `late` field initialiser runs on first use, not at construction. Never let one
   read mutable state, or it will evaluate against a value the user has since
   changed.
@@ -231,7 +274,23 @@ in one place and shows up everywhere.
 - The settings screen is `SettingsPage`, opened from the gear at the right end of
   the bottom bar. The gear sits in the bar's `trailing` slot, outside the add tap
   target, so it can never open the editor.
-- A theme choice applies the moment it is tapped. There is no save step.
+- A "Send a test reminder" row puts one notification out ten seconds later,
+  asking permission first if it was never asked. It is the one notification
+  shown while the app is in front, since that is where the person asking is.
+- The sound chosen last is saved under `sound` and is what a new reminder
+  starts from, through `lastSoundProvider`; `main` reads it before the first
+  frame like the look. The test reminder speaks in it too.
+- The looks are offered on a sheet from the Theme row. A choice applies the
+  moment it is tapped, and the sheet stays up so the change is seen behind it.
+  There is no save step.
+- Each look has its own app icon, drawn flat in the look's colour with a white
+  check. Ink is the primary `AppIcon`; the others are alternate icon sets
+  named `AppIcon-<look>`, listed in the project's alternate icon names setting.
+  Choosing a look swaps the icon through `DeviceBridge`. The system puts up its
+  own alert when it does; that cannot be avoided.
+- `BrandedAppBar` gives its two sides equal room, so the title sits on the
+  screen's centre line whether or not anything stands beside it. The date under
+  the day headline uses the short month name.
 
 ## Tests
 

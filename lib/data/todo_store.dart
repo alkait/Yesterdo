@@ -38,6 +38,16 @@ abstract class TodoStore {
   /// Removes a one-off outright, or hides a single occurrence of a rule.
   Future<void> remove({required int day, required Todo todo});
 
+  /// Puts a task on another day, at the end of that day's open group. A
+  /// one-off simply changes day. A rule cannot have one showing moved, so
+  /// its showing on [fromDay] is hidden and a one-off copy of the words and
+  /// time is written on [toDay]; the copy is no longer part of the series.
+  Future<void> moveToDay({
+    required int fromDay,
+    required int toDay,
+    required Todo todo,
+  });
+
   Future<void> removeSeries(int recurrenceId);
 
   /// Stops a repeating task from [day] onwards, keeping the days before it.
