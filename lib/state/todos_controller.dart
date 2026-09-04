@@ -22,13 +22,19 @@ class TodosController extends AsyncNotifier<List<Todo>> {
 
   Future<void> add(TaskDraft draft) async {
     if (draft.title.isEmpty) return;
-    final todo = draft.repeat == null
-        ? await _store.insert(day: _day, title: draft.title)
-        : await _store.insertSeries(
-            day: _day,
-            title: draft.title,
-            rule: draft.repeat!,
-          );
+
+    if (draft.repeat != null) {
+      await _store.insertSeries(
+        day: _day,
+        title: draft.title,
+        rule: draft.repeat!,
+      );
+      // A weekly rule may not fire on the day it was written on, so the day is
+      // read afresh rather than guessed at.
+      return _reload();
+    }
+
+    final todo = await _store.insert(day: _day, title: draft.title);
     if (!ref.mounted) return;
     state = AsyncData(<Todo>[..._items, todo]..sort(compareTodos));
   }

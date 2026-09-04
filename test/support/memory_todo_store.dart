@@ -38,19 +38,20 @@ class MemoryTodoStore implements TodoStore {
   }
 
   @override
-  Future<Todo> insertSeries({
+  Future<void> insertSeries({
     required int day,
     required String title,
     required RepeatRule rule,
   }) {
-    final recurrence = Recurrence(
-      id: _nextRecurrenceId++,
-      title: title,
-      rule: rule,
-      position: _nextPosition(day),
+    _recurrences.add(
+      Recurrence(
+        id: _nextRecurrenceId++,
+        title: title,
+        rule: rule,
+        position: _nextPosition(day),
+      ),
     );
-    _recurrences.add(recurrence);
-    return Future.value(Todo.projected(recurrence));
+    return Future.value();
   }
 
   @override

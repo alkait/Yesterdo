@@ -29,12 +29,12 @@ void main() {
   tearDown(() => db.close());
 
   Future<int> startDaily() async {
-    final todo = await store.insertSeries(
+    await store.insertSeries(
       day: day,
       title: 'Take the pills',
       rule: RepeatRule.daily(day),
     );
-    return todo.recurrenceId!;
+    return (await store.todosOn(day)).single.recurrenceId!;
   }
 
   Future<List<String>> titlesOn(int on) async =>

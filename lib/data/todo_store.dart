@@ -15,8 +15,11 @@ abstract class TodoStore {
 
   Future<Todo> insert({required int day, required String title});
 
-  /// Starts a repeating task and returns its showing on [day].
-  Future<Todo> insertSeries({
+  /// Starts a repeating task, positioned as of [day].
+  ///
+  /// Returns nothing on purpose: a rule need not fire on the day it was made,
+  /// so what the day holds afterwards is [mergeDay]'s to say, not this call's.
+  Future<void> insertSeries({
     required int day,
     required String title,
     required RepeatRule rule,

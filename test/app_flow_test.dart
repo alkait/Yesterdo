@@ -538,6 +538,49 @@ void main() {
       expect(find.text('Monthly on the ${ordinal(today)}'), findsOneWidget);
     });
 
+    testWidgets('a weekly task skipping today leaves today at once', (
+      tester,
+    ) async {
+      await tester.pumpWidget(bootApp());
+      await tester.pumpAndSettle();
+
+      final today = DateTime.now().weekday;
+      final tomorrow = today % 7 + 1;
+
+      await tester.tap(find.text('Add a task'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'Team sync');
+      await tester.tap(find.text('Repeat'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Every week').last);
+      await tester.pumpAndSettle();
+
+      // Turn tomorrow on before turning today off; the picker will not let a
+      // weekly rule end up with no weekday at all.
+      await tester.tap(find.byKey(ValueKey('repeat-weekday-$tomorrow')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(ValueKey('repeat-weekday-$today')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Done'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      // The rule does not fire today, so the list must say so straight away
+      // rather than only after stepping off the day and back.
+      expect(find.text('Nothing planned'), findsOneWidget);
+
+      await stepDay(tester, 1);
+      expect(visibleTitles(tester), ['Team sync']);
+
+      await stepDay(tester, -1);
+      expect(
+        find.text('Nothing planned'),
+        findsOneWidget,
+        reason: 'and it stays gone on the way back',
+      );
+    });
+
     testWidgets('a repeating card is marked as one', (tester) async {
       await tester.pumpWidget(bootApp());
       await tester.pumpAndSettle();

@@ -38,18 +38,15 @@ class SqliteTodoStore implements TodoStore {
   }
 
   @override
-  Future<Todo> insertSeries({
+  Future<void> insertSeries({
     required int day,
     required String title,
     required RepeatRule rule,
   }) async {
     final position = await _nextPosition(day);
-    final id = await _db.insert(
+    await _db.insert(
       _recurrences,
       Recurrence.rowFor(title: title, rule: rule, position: position),
-    );
-    return Todo.projected(
-      Recurrence(id: id, title: title, rule: rule, position: position),
     );
   }
 

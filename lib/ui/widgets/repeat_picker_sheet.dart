@@ -116,6 +116,7 @@ class _WeekdayToggles extends StatelessWidget {
         // stored the way DateTime counts it, with Monday as one.
         for (var column = 0; column < 7; column++)
           _WeekdayDot(
+            key: ValueKey('repeat-weekday-${column == 0 ? 7 : column}'),
             weekday: column == 0 ? 7 : column,
             initial: weekdayInitials[column],
             selected:
@@ -129,6 +130,7 @@ class _WeekdayToggles extends StatelessWidget {
 
 class _WeekdayDot extends StatelessWidget {
   const _WeekdayDot({
+    super.key,
     required this.weekday,
     required this.initial,
     required this.selected,
