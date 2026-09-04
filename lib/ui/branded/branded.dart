@@ -20,6 +20,7 @@ export 'branded_rich_controller.dart';
 export 'branded_rich_field.dart';
 export 'branded_rich_text.dart';
 export 'branded_icon.dart';
+export 'branded_image.dart';
 export 'branded_route.dart';
 export 'branded_scaffold.dart';
 export 'branded_selection_circle.dart';

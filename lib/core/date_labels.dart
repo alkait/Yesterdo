@@ -61,6 +61,10 @@ String dayHeadline(DateTime date, {DateTime? now}) {
 String longDate(DateTime date) =>
     '${_monthNames[date.month - 1].substring(0, 3)} ${date.day}, ${date.year}';
 
+/// `Sep 6`.
+String shortDate(DateTime date) =>
+    '${_monthNames[date.month - 1].substring(0, 3)} ${date.day}';
+
 String monthAndYear(DateTime date) =>
     '${_monthNames[date.month - 1]} ${date.year}';
 

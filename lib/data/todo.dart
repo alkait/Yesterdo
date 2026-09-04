@@ -88,11 +88,12 @@ class Todo {
   /// the same key when it goes from projected to stored, so nothing jumps.
   String get key => repeats ? 'r$recurrenceId' : 't$id';
 
-  /// The one line a list shows. A task may hold more, written on the editor
-  /// screen, but only the opening line is ever displayed.
+  /// The opening line of words, which is what a notification says. A task
+  /// that is pictures alone has none, and says so.
   String get firstLine {
     final wrap = title.indexOf('\n');
-    return wrap == -1 ? title : title.substring(0, wrap);
+    final line = wrap == -1 ? title : title.substring(0, wrap);
+    return line.isEmpty && body.images.isNotEmpty ? 'Picture' : line;
   }
 
   /// Whether the task is calling for attention on [day] at [now]: its time
@@ -123,6 +124,10 @@ class Todo {
   /// Pushed on a few minutes from [nowMinute], to call again then.
   Todo snoozed({int? nowMinute}) =>
       copyWith(due: due?.snoozed(from: nowMinute), dismissed: false);
+
+  /// Put off until a minute of the day, to call again then.
+  Todo snoozedUntil(int minute) =>
+      copyWith(due: due?.snoozedUntil(minute), dismissed: false);
 
   /// Waved away for the day. The time stays on the card.
   Todo dismiss() => copyWith(dismissed: true);

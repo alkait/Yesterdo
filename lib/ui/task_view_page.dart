@@ -5,6 +5,7 @@ import '../data/rich/task_body.dart';
 import '../data/todo.dart';
 import '../state/providers.dart';
 import 'branded/branded.dart';
+import 'image_view_page.dart';
 import 'widgets/task_actions.dart';
 
 /// A task read in full: its words with their styles, its checklist with
@@ -56,16 +57,31 @@ class TaskViewPage extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 for (final (index, block) in todo.body.blocks.indexed)
-                  _BlockView(
-                    block: block,
-                    struck: todo.done,
-                    onTick: block.isCheck
-                        ? () => ref
-                              .read(todosProvider.notifier)
-                              .setBody(todo, todo.body.toggled(index))
-                        : null,
-                    onLink: ref.read(deviceBridgeProvider).openUrl,
-                  ),
+                  if (block.image case final image?)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: BrandedImage(
+                        key: ValueKey('picture-$image'),
+                        path: '${ref.watch(imagesDirectoryProvider)}/$image',
+                        onTap: () => openBrandedPage<void>(
+                          context,
+                          (_) => ImageViewPage(
+                            path: '${ref.read(imagesDirectoryProvider)}/$image',
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    _BlockView(
+                      block: block,
+                      struck: todo.done,
+                      onTick: block.isCheck
+                          ? () => ref
+                                .read(todosProvider.notifier)
+                                .setBody(todo, todo.body.toggled(index))
+                          : null,
+                      onLink: ref.read(deviceBridgeProvider).openUrl,
+                    ),
               ],
             ),
           ),

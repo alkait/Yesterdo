@@ -22,6 +22,7 @@ Future<DuePick?> showDuePicker(BuildContext context, {required Due? current}) =>
     showBrandedSheet<DuePick>(
       context,
       (sheetContext) => _DuePicker(current: current),
+      dismissible: false,
     );
 
 class _DuePicker extends ConsumerStatefulWidget {

@@ -17,10 +17,10 @@ abstract class ReminderScheduler {
   /// the whole plan, so nothing stale can linger.
   Future<void> replaceAll(List<PlannedReminder> reminders);
 
-  /// TEMPORARY. Shows one reminder as it would really be shown, a few
-  /// seconds from now, so the notification path can be tried without
-  /// waiting for a real time to come round. Shown even with the app in
-  /// front. Take out with the rehearsal button on the card.
+  /// Shows one reminder as it would really be shown, a few seconds from
+  /// now, so the notification path can be tried without waiting for a real
+  /// time to come round. Shown even with the app in front. A developer's
+  /// tool, reached only in developer mode.
   Future<void> rehearse(PlannedReminder reminder);
 
   Future<ReminderPermission> permission();

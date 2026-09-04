@@ -36,6 +36,9 @@ A day-at-a-time todo list for iPhone and iPad. Offline, local, no account, no sy
   `MemoryTodoStore`.
 - A day is an integer count of days since the Unix epoch. Do not key anything on a
   formatted date string.
+- A new task goes on top: `insert` and `insertSeries` take the position above
+  everything on the day, rows and rules alike, so positions may go negative.
+  Only their order means anything. A task sent to another day joins the end.
 - Ordering lives only in `compareTodos`. Open tasks keep their position order,
   completed ones sit below them, and the one just checked heads that struck group.
   Ties break on id so a list never reshuffles between rebuilds. Do not re-sort ad
@@ -62,10 +65,21 @@ A day-at-a-time todo list for iPhone and iPad. Offline, local, no account, no sy
   sort ties on `Todo.key`, never on the id. The key survives materialisation.
 - Words and rule both belong to the series, so editing a repeating task changes
   every day it appears on. Only done, not done and delete-this-one are per day.
+- Giving a one-off a repeat, or taking a repeat off, keeps the task's place:
+  the new row or rule is written at the old position.
 - A monthly rule is a set of days, stored as a bitmask in `month_days`: bit 0 is
   the 1st, up to the 28th, plus `RepeatRule.lastDayOfMonthBit` for the last day of
   every month. The 29th, 30th and 31st cannot be chosen, so no rule ever has to
   clamp. Their dots are drawn greyed in the chooser and ignore the finger.
+- A custom rule, `RepeatKind.custom`, fires on exact days and nothing else,
+  kept sorted and comma-joined in `days`. Its run is its first day to its last,
+  so the cuts that delete earlier or later showings work on it unchanged, and
+  `chosenDays` is what is left inside the run. The Custom row on the repeat
+  sheet opens `CustomDaysPage`, a month grid where any number of days from the
+  day being looked at are tapped on and off; Done stays greyed with none.
+- The month grid is one widget, `MonthGrid`, with the month bar and weekday
+  strip beside it, shared by the day jump, the move and the custom repeat.
+  Which days are marked and which may be tapped is the caller's to say.
 - The repeat sheet's row always says "Every month". Tapping it opens
   `MonthDaysPage` as its own screen, which hands the set back through the
   navigator; the sheet and the editor then show the days as small print. The
@@ -100,9 +114,10 @@ A day-at-a-time todo list for iPhone and iPad. Offline, local, no account, no sy
   so the card rises at the minute without a rebuild being provoked.
 - Every reading of the clock goes through `clockProvider`. Tests bind a clock
   they turn by hand; `DateTime.now()` in a widget or a controller is a bug.
-- Snooze pushes the time on ten minutes from now on the current day, or from its
-  own time on any other day, never past the end of the day, and sets the
-  reminder to fire at the new time. Dismiss sets `dismissed` and keeps the time
+- Snooze asks how long: ten minutes, half an hour, an hour, or "Later today",
+  which is a time of one's own on the wheel and must still be to come. The
+  minute is counted from now on the day being looked at, never past the end of
+  the day, and the reminder is set to fire at the new time. Dismiss sets `dismissed` and keeps the time
   on the card. Done, snooze and dismiss are per day.
 - Reminders are local notifications through `flutter_local_notifications`, the
   one plugin the app carries. Nothing else may be added for it. What only the
@@ -155,7 +170,7 @@ A day-at-a-time todo list for iPhone and iPad. Offline, local, no account, no sy
   blocks and undo is per block.
 - The format bar, `BrandedFormatBar`, sits over the keyboard on the editor and
   drives the block with the caret: bold, italic, underline, highlight (yellow,
-  green, blue, off, in turn), link and checklist. It is dark until a block has
+  green, blue, off, in turn), link, checklist and picture. It is dark until a block has
   the caret. A link is asked for on a sheet; with nothing selected the address
   is typed in as the link.
 - Highlight colours are the same three in every look, deeper in the dark, in
@@ -169,6 +184,23 @@ A day-at-a-time todo list for iPhone and iPad. Offline, local, no account, no sy
   leads on. A tick is a thing of the day, like done: a showing of a rule is
   written down and keeps its ticks, and the series is not touched.
 
+- A picture is a block of its own, `Block.image`, holding the file name of a
+  JPEG in the images folder under the app's documents. The device takes,
+  chooses and pastes pictures itself, through `DeviceBridge` and `ImageBridge`
+  in Swift, sizing each down and keeping it; Dart only ever sees file names.
+  `imagesDirectoryProvider` says where they are, read in `main` before the
+  first frame. No picker plugin.
+- The bar's picture key asks where the picture comes from on a sheet: camera,
+  photos or paste. It lands after the block with the caret, with a paragraph
+  after it to carry on writing in. Backspace against a picture takes it out.
+- Taking a picture out never deletes its file, since Cancel may put it back,
+  and a rule and its written-down showings share files. `ImageSweep` clears
+  every file no task or rule refers to, once, after the first frame of each
+  launch, through `TodoStore.allImages`.
+- Pictures are not words: they are left out of the plain title, a task of
+  pictures alone says "Picture" where its words would be, and the card shows
+  the card carries no picture.
+
 ## UI: the Branded rule
 
 Every visual element is wrapped in a Branded widget, so a change to the look lands
@@ -181,7 +213,7 @@ in one place and shows up everywhere.
   `BrandedDragLift`, `BrandedReorderableList`, `BrandedSwipeActions`,
   `BrandedSelectionCircle`, `BrandedTextField`, `BrandedDivider`,
   `BrandedThemeSwatch`, `BrandedRichText`, `BrandedRichField`,
-  `BrandedRichController`, `BrandedFormatBar`, `BrandedCheckBox`,
+  `BrandedRichController`, `BrandedFormatBar`, `BrandedCheckBox`, `BrandedImage`,
   `BrandedSlideSwitcher`, `BrandedTimeWheel`, `BrandedApp`, `showBrandedSheet`
   and `openBrandedPage`.
 - Raw `Text`, `Icon`, `TextField`, `Scaffold`, `AppBar`, `Divider`, `Dismissible`,
@@ -228,6 +260,8 @@ in one place and shows up everywhere.
   slide and the whole thing judders. No `autofocus` on that field.
 - A reminder at the time itself is named by the time, `At 8:00 AM`, never "at
   the time". The label needs the minute, so it lives on `Due`, not as a static.
+- The due and repeat sheets come down only through their own buttons; a swipe
+  or a tap outside does nothing there. Every other sheet is dismissible.
 - The editor's Due row sits above Repeat and opens a sheet: a time wheel, the
   reminder choices, any number of which can be ticked, a Sound row that opens its
   own sheet and plays each sound as it is tapped, then Clear and Done. It hands
@@ -277,11 +311,10 @@ in one place and shows up everywhere.
   series do not reach it. This is never asked about.
 - The attention sheet offers Not Today too, between Snooze and Dismiss, with the
   same grid and the same move.
-- TEMPORARY: an alarm button between Not Today and Delete asks which sound,
-  then rings the task's own reminder in it ten seconds later, shown even in
-  front, through `ReminderScheduler.rehearse`. It exists so the notification path can be tried
-  without waiting for a real time. Remove the button, `rehearseReminder`,
-  `rehearse` and their test together when it has served.
+- In developer mode an alarm button sits between Not Today and Delete. It asks
+  which sound, then rings the task's own reminder in it ten seconds later,
+  shown even in front, through `ReminderScheduler.rehearse`, so the
+  notification path can be tried without waiting for a real time.
 - A card carries no drag grip. Pressing and holding anywhere on it lifts it, through
   `BrandedDragLift`, and the whole width is left to the words.
 - Only open tasks can be lifted. Completed ones are ranked by when they were
@@ -324,6 +357,11 @@ in one place and shows up everywhere.
 - The settings screen is `SettingsPage`, opened from the gear at the right end of
   the bottom bar. The gear sits in the bar's `trailing` slot, outside the add tap
   target, so it can never open the editor.
+- Settings ends with an About section showing the version, `appVersion` in
+  `lib/core/app_version.dart`, kept by hand beside `pubspec.yaml`. Ten taps on
+  it turn developer mode on, saved under `developer` through
+  `developerModeProvider`; a Developer section then appears with a row that
+  turns it off. Developer mode only ever adds tools, never changes behaviour.
 - The sound chosen last is saved under `sound` and is what a new reminder
   starts from, through `lastSoundProvider`; `main` reads it before the first
   frame like the look.

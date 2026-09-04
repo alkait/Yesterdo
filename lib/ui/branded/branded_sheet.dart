@@ -2,14 +2,21 @@ import 'package:flutter/material.dart';
 
 import 'brand.dart';
 
-/// Opens the app's one kind of modal surface.
-Future<T?> showBrandedSheet<T>(BuildContext context, WidgetBuilder builder) =>
-    showModalBottomSheet<T>(
-      context: context,
-      isScrollControlled: true,
-      barrierColor: Colors.black.withValues(alpha: 0.28),
-      builder: (sheetContext) => _BrandedSheet(child: builder(sheetContext)),
-    );
+/// Opens the app's one kind of modal surface. A sheet that is not
+/// [dismissible] comes down only through its own buttons: a swipe or a tap
+/// outside does nothing.
+Future<T?> showBrandedSheet<T>(
+  BuildContext context,
+  WidgetBuilder builder, {
+  bool dismissible = true,
+}) => showModalBottomSheet<T>(
+  context: context,
+  isScrollControlled: true,
+  isDismissible: dismissible,
+  enableDrag: dismissible,
+  barrierColor: Colors.black.withValues(alpha: 0.28),
+  builder: (sheetContext) => _BrandedSheet(child: builder(sheetContext)),
+);
 
 class _BrandedSheet extends StatelessWidget {
   const _BrandedSheet({required this.child});

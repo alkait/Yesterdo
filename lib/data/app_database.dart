@@ -4,7 +4,7 @@ import 'package:sqflite/sqflite.dart';
 /// Owns the on-device SQLite file. Nothing leaves the device.
 abstract final class AppDatabase {
   static const _fileName = 'remind_me.db';
-  static const _version = 7;
+  static const _version = 8;
 
   static Future<Database> open() async {
     final path = p.join(await getDatabasesPath(), _fileName);
@@ -43,7 +43,7 @@ CREATE TABLE todos (
   /// Version 1 knew nothing of repeating tasks. Version 2 had nowhere to keep
   /// a setting. Version 3 held one day of the month per rule. Version 4 had
   /// no due times. Version 5 held one reminder per task and no sound.
-  /// Version 6 held plain words only.
+  /// Version 6 held plain words only. Version 7 had no custom repeats.
   static Future<void> upgradeSchema(Database db, int from, int to) async {
     if (from < 2) {
       await db.execute('ALTER TABLE todos ADD COLUMN recurrence_id INTEGER');
@@ -63,9 +63,13 @@ CREATE TABLE todos (
     if (from == 5) await _widenReminders(db);
     // As above: a `recurrences` table made afresh already has its body.
     if (from < 7) await _addBodies(db, recurrencesToo: from >= 4);
+    // Version 7 knew no custom repeats. Same caveat about a fresh table.
+    if (from < 8 && from >= 4) {
+      await db.execute('ALTER TABLE recurrences ADD COLUMN days TEXT');
+    }
   }
 
-  /// Version 6 held plain words only. The body column holds them styled;
+  /// Version 6 held plain words only. Version 7 had no custom repeats. The body column holds them styled;
   /// a row without one is read as its plain title, so nothing is rewritten.
   static Future<void> _addBodies(
     Database db, {
@@ -146,7 +150,8 @@ CREATE TABLE recurrences (
   due_time INTEGER,
   reminder INTEGER,
   sound TEXT,
-  body TEXT
+  body TEXT,
+  days TEXT
 )''');
     await db.execute(
       'CREATE INDEX recurrences_start_idx ON recurrences (start_day)',

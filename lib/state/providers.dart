@@ -10,6 +10,7 @@ import '../reminders/reminder_planner.dart';
 import '../reminders/reminder_scheduler.dart';
 import '../reminders/reminder_sync.dart';
 import 'attention_request.dart';
+import 'developer_mode.dart';
 import 'last_sound.dart';
 import 'selected_day.dart';
 import 'theme_choice.dart';
@@ -85,4 +86,18 @@ final initialSoundProvider = Provider<ReminderSound>(
 /// The sound a new reminder starts from: whatever was chosen last.
 final lastSoundProvider = NotifierProvider<LastSound, ReminderSound>(
   LastSound.new,
+);
+
+/// Where pictures are kept, read from the device in `main` before the
+/// first frame; tests bind a folder of their own.
+final imagesDirectoryProvider = Provider<String>(
+  (ref) => throw StateError('imagesDirectoryProvider must be overridden'),
+);
+
+/// Whether developer mode was on last time, bound in `main` before the
+/// first frame.
+final initialDeveloperModeProvider = Provider<bool>((ref) => false);
+
+final developerModeProvider = NotifierProvider<DeveloperMode, bool>(
+  DeveloperMode.new,
 );

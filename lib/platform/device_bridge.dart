@@ -18,7 +18,23 @@ abstract class DeviceBridge {
 
   /// Hands a web address to the system to open.
   Future<void> openUrl(String url);
+
+  /// The folder pictures are kept in, under the app's own documents.
+  Future<String> imagesDirectory();
+
+  /// Lets a picture be taken or chosen, sized down and saved into the
+  /// images folder. Returns its file name, or null if none was picked.
+  Future<String?> pickImage(ImageSource source);
+
+  /// Saves whatever picture is on the pasteboard the same way. Null when
+  /// there is none.
+  Future<String?> pasteImage();
+
+  Future<void> deleteImage(String image);
 }
+
+/// Where a picture comes from.
+enum ImageSource { camera, library }
 
 /// The shipping bridge: a method channel into `AppDelegate`.
 class MethodChannelDeviceBridge implements DeviceBridge {
@@ -39,6 +55,21 @@ class MethodChannelDeviceBridge implements DeviceBridge {
 
   @override
   Future<void> openUrl(String url) => _channel.invokeMethod('openUrl', url);
+
+  @override
+  Future<String> imagesDirectory() async =>
+      (await _channel.invokeMethod<String>('imagesDirectory'))!;
+
+  @override
+  Future<String?> pickImage(ImageSource source) =>
+      _channel.invokeMethod<String>('pickImage', source.name);
+
+  @override
+  Future<String?> pasteImage() => _channel.invokeMethod<String>('pasteImage');
+
+  @override
+  Future<void> deleteImage(String image) =>
+      _channel.invokeMethod('deleteImage', image);
 
   @override
   Future<ReminderPermission> notificationPermission() async {

@@ -8,6 +8,8 @@ import UserNotifications
   /// Kept while a preview plays; a released player falls silent at once.
   private var previewPlayer: AVAudioPlayer?
 
+  private let images = ImageBridge()
+
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
@@ -31,6 +33,15 @@ import UserNotifications
         self?.setAppIcon(named: call.arguments as? String, result: result)
       case "previewSound":
         self?.previewSound(file: call.arguments as? String, result: result)
+      case "imagesDirectory":
+        result(ImageBridge.directory.path)
+      case "pickImage":
+        self?.images.pick(call.arguments as? String ?? "library") { name in result(name) }
+      case "pasteImage":
+        result(ImageBridge.paste())
+      case "deleteImage":
+        if let name = call.arguments as? String { ImageBridge.delete(name) }
+        result(nil)
       case "openUrl":
         if let raw = call.arguments as? String, let url = URL(string: raw) {
           UIApplication.shared.open(url)

@@ -89,6 +89,16 @@ class TodosController extends AsyncNotifier<List<Todo>> {
     await _syncReminders();
   }
 
+  /// Puts a calling task off until [minute] of the day.
+  Future<void> snoozeUntil(Todo todo, int minute) async {
+    final written = await _write(todo);
+    final updated = written.snoozedUntil(minute);
+    await _store.save(updated);
+    if (!ref.mounted) return;
+    _show(_sorted(_replacing(updated)));
+    await _syncReminders();
+  }
+
   /// Waves a calling task away for the day. It keeps its time, but stops
   /// asking.
   Future<void> dismiss(Todo todo) async {
@@ -113,17 +123,24 @@ class TodosController extends AsyncNotifier<List<Todo>> {
         due: draft.due,
       );
     } else if (todo.repeats) {
-      // Repeating no more: the series goes, and this day keeps a one-off.
+      // Repeating no more: the series goes, and this day keeps a one-off,
+      // where the task was.
       await _store.removeSeries(todo.recurrenceId!);
-      await _store.insert(day: _day, body: draft.body, due: draft.due);
+      await _store.insert(
+        day: _day,
+        body: draft.body,
+        due: draft.due,
+        position: todo.position,
+      );
     } else if (draft.repeat != null) {
-      // A one-off becomes a series starting on this day.
+      // A one-off becomes a series starting on this day, where it was.
       await _store.remove(day: _day, todo: todo);
       await _store.insertSeries(
         day: _day,
         body: draft.body,
         rule: draft.repeat!,
         due: draft.due,
+        position: todo.position,
       );
     } else {
       await _store.save(todo.withBody(draft.body).withDue(draft.due));

@@ -9,6 +9,7 @@ import '../state/task_draft.dart';
 import 'branded/branded.dart';
 import 'widgets/body_editor.dart';
 import 'widgets/due_picker_sheet.dart';
+import 'widgets/image_source_sheet.dart';
 import 'widgets/link_sheet.dart';
 import 'widgets/repeat_picker_sheet.dart';
 
@@ -115,6 +116,14 @@ class _TaskEditorPageState extends ConsumerState<TaskEditorPage> {
     setState(() => _repeat = chosen);
   }
 
+  Future<void> _pickImage() async {
+    final origin = await showImageSourceSheet(context);
+    if (!mounted || origin == null) return;
+    final image = await fetchImage(ref.read(deviceBridgeProvider), origin);
+    if (!mounted || image == null) return;
+    _editor.currentState?.insertImage(image);
+  }
+
   Future<void> _pickLink() async {
     final editor = _editor.currentState;
     if (editor == null) return;
@@ -153,6 +162,7 @@ class _TaskEditorPageState extends ConsumerState<TaskEditorPage> {
                 BodyEditor(
                   key: _editor,
                   initial: _body,
+                  imagesDirectory: ref.watch(imagesDirectoryProvider),
                   hint: 'What needs doing?',
                   onChanged: _onBodyChanged,
                 ),
@@ -195,6 +205,7 @@ class _TaskEditorPageState extends ConsumerState<TaskEditorPage> {
           onHighlight: () => editor?.cycleHighlight(),
           onLink: _pickLink,
           onChecklist: () => editor?.toggleChecklist(),
+          onImage: _pickImage,
         ),
       ],
     );

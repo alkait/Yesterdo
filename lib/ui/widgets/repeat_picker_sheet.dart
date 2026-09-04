@@ -4,6 +4,7 @@ import '../../core/date_labels.dart';
 import '../../core/day.dart';
 import '../../data/repeat_rule.dart';
 import '../branded/branded.dart';
+import '../custom_days_page.dart';
 import '../month_days_page.dart';
 
 /// Asks how often a task should come back. Returns the chosen rule, or null
@@ -15,6 +16,7 @@ Future<RepeatRule?> showRepeatPicker(
 }) => showBrandedSheet<RepeatRule?>(
   context,
   (sheetContext) => _RepeatPicker(anchorDay: anchorDay, current: current),
+  dismissible: false,
 );
 
 class _RepeatPicker extends StatefulWidget {
@@ -51,12 +53,34 @@ class _RepeatPickerState extends State<_RepeatPicker> {
       ? RepeatRule.monthDayBit(day)
       : RepeatRule.lastDayOfMonthBit;
 
+  late Set<int> _days = widget.current?.kind == RepeatKind.custom
+      ? widget.current!.days
+      : const <int>{};
+
   RepeatRule? get _rule => switch (_kind) {
     null => null,
     RepeatKind.daily => RepeatRule.daily(_start),
     RepeatKind.weekly => RepeatRule.weekly(_start, _weekdays),
     RepeatKind.monthly => RepeatRule.monthly(_start, _monthDays),
+    RepeatKind.custom => RepeatRule.custom(_days),
   };
+
+  /// Opens the day chooser on its own screen. Coming back with days makes
+  /// the rule custom; backing out leaves things as they were.
+  Future<void> _chooseCustomDays() async {
+    final chosen = await openBrandedPage<Set<int>>(
+      context,
+      (_) => CustomDaysPage(
+        initialDays: _days,
+        notBefore: dateFromEpochDay(widget.anchorDay),
+      ),
+    );
+    if (!mounted || chosen == null) return;
+    setState(() {
+      _kind = RepeatKind.custom;
+      _days = chosen;
+    });
+  }
 
   /// Opens the day chooser on its own screen. Coming back with a choice makes
   /// the rule monthly; backing out leaves things as they were.
@@ -114,6 +138,15 @@ class _RepeatPickerState extends State<_RepeatPicker> {
             : null,
         selected: _kind == RepeatKind.monthly,
         onTap: _chooseMonthDays,
+      ),
+      const BrandedDivider(),
+      BrandedOptionRow(
+        label: 'Custom',
+        detail: _kind == RepeatKind.custom
+            ? RepeatRule.customDaysLabel(_days.toList()..sort())
+            : 'Exact days, chosen on a calendar',
+        selected: _kind == RepeatKind.custom,
+        onTap: _chooseCustomDays,
       ),
       const SizedBox(height: 8),
       BrandedTextButton(

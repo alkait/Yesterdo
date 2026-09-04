@@ -15,16 +15,18 @@ abstract class TodoStore {
   /// is [mergeDay]'s job.
   Future<List<Recurrence>> recurrencesFor(int day);
 
-  /// Writes a new one-off. Words come as a [body], or as plain [title]
-  /// words for short.
+  /// Writes a new one-off, at the top of the day unless a [position] is
+  /// given. Words come as a [body], or as plain [title] words for short.
   Future<Todo> insert({
     required int day,
     String? title,
     TaskBody? body,
     Due? due,
+    int? position,
   });
 
-  /// Starts a repeating task, positioned as of [day].
+  /// Starts a repeating task, at the top of [day] unless a [position] is
+  /// given.
   ///
   /// Returns nothing on purpose: a rule need not fire on the day it was made,
   /// so what the day holds afterwards is [mergeDay]'s to say, not this call's.
@@ -34,6 +36,7 @@ abstract class TodoStore {
     TaskBody? body,
     required RepeatRule rule,
     Due? due,
+    int? position,
   });
 
   /// Writes down a projected occurrence so it can carry state of its own.
@@ -76,6 +79,10 @@ abstract class TodoStore {
     required RepeatRule rule,
     Due? due,
   });
+
+  /// Every picture any task or rule refers to, for the sweep that clears
+  /// the rest out.
+  Future<Set<String>> allImages();
 
   /// The body meant by a pair of shorthand arguments.
   static TaskBody bodyOf(String? title, TaskBody? body) =>

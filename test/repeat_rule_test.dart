@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:remind_me/core/date_labels.dart';
 import 'package:remind_me/core/day.dart';
 import 'package:remind_me/data/repeat_rule.dart';
+import 'package:remind_me/data/rich/task_body.dart';
 import 'package:remind_me/data/todo.dart';
 
 int dayOf(int year, int month, int day) => DateTime(year, month, day).epochDay;
@@ -285,6 +286,59 @@ void main() {
         recurrenceId: 1,
       );
       expect(projected.stored(9).key, projected.key);
+    });
+  });
+
+  group('a custom rule', () {
+    final rule = RepeatRule.custom({20705, 20700, 20710});
+
+    test('runs from its first day to its last and fires on them alone', () {
+      expect(rule.startDay, 20700);
+      expect(rule.endDay, 20710);
+      expect(rule.fallsOn(20700), isTrue);
+      expect(rule.fallsOn(20705), isTrue);
+      expect(rule.fallsOn(20701), isFalse);
+      expect(rule.fallsOn(20711), isFalse);
+    });
+
+    test('knows its showings either side, however far apart', () {
+      expect(rule.hasOccurrenceBefore(20700), isFalse);
+      expect(rule.hasOccurrenceBefore(20705), isTrue);
+      expect(rule.hasOccurrenceAfter(20705), isTrue);
+      expect(rule.hasOccurrenceAfter(20710), isFalse);
+      final far = RepeatRule.custom({20700, 20800});
+      expect(far.hasOccurrenceAfter(20700), isTrue, reason: 'past the gap');
+      expect(far.hasOccurrenceBefore(20800), isTrue);
+    });
+
+    test('a cut keeps the days still in its run', () {
+      final cut = rule.copyWith(endDay: 20706);
+      expect(cut.fallsOn(20710), isFalse);
+      expect(cut.chosenDays, [20700, 20705]);
+      expect(cut.hasOccurrenceAfter(20705), isFalse);
+    });
+
+    test('names its days', () {
+      expect(rule.label, 'On chosen days');
+      expect(RepeatRule.customDaysLabel([20700]), 'Sep 4');
+      expect(RepeatRule.customDaysLabel([20700, 20705]), 'Sep 4 and Sep 9');
+      expect(
+        RepeatRule.customDaysLabel([20700, 20705, 20710, 20712, 20713]),
+        'Sep 4, Sep 9, Sep 14 and 2 more',
+      );
+    });
+
+    test('keeps its days through a row', () {
+      final row = Recurrence.rowFor(
+        body: TaskBody.plain('x'),
+        rule: rule,
+        position: 0,
+      );
+      expect(row['days'], '20700,20705,20710');
+      expect(row['kind'], 'custom');
+      expect(RepeatRule.daysFromColumn('20700,20705'), {20700, 20705});
+      expect(RepeatRule.daysFromColumn(null), isEmpty);
+      expect(RepeatRule.daysFromColumn('x,'), isEmpty);
     });
   });
 }

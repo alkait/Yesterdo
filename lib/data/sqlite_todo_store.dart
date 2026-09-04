@@ -37,8 +37,9 @@ class SqliteTodoStore implements TodoStore {
     String? title,
     TaskBody? body,
     Due? due,
+    int? position,
   }) async {
-    final position = await _nextPosition(day);
+    position ??= await _topPosition(day);
     final draft = Todo(
       body: TodoStore.bodyOf(title, body),
       done: false,
@@ -56,8 +57,9 @@ class SqliteTodoStore implements TodoStore {
     TaskBody? body,
     required RepeatRule rule,
     Due? due,
+    int? position,
   }) async {
-    final position = await _nextPosition(day);
+    position ??= await _topPosition(day);
     await _db.insert(
       _recurrences,
       Recurrence.rowFor(
@@ -263,6 +265,39 @@ class SqliteTodoStore implements TodoStore {
     now: now,
   );
 
+  @override
+  Future<Set<String>> allImages() async {
+    final wanted = <String>{};
+    for (final table in [_todos, _recurrences]) {
+      final rows = await _db.query(
+        table,
+        columns: ['body'],
+        where: 'body IS NOT NULL',
+      );
+      for (final row in rows) {
+        wanted.addAll(TaskBody.decode(row['body']! as String).images);
+      }
+    }
+    return wanted;
+  }
+
+  /// Above everything on the day, rows and rules alike. Positions may go
+  /// negative; only their order means anything.
+  Future<int> _topPosition(int day) async {
+    final rows = await _db.rawQuery(
+      'SELECT MIN(position) AS top FROM $_todos WHERE day = ?',
+      [day],
+    );
+    var top = rows.first['top'] as int?;
+    for (final rule in await recurrencesFor(day)) {
+      if (rule.fallsOn(day) && (top == null || rule.position < top)) {
+        top = rule.position;
+      }
+    }
+    return (top ?? 1) - 1;
+  }
+
+  /// Below everything on the day, for a task sent here from another day.
   Future<int> _nextPosition(int day) async {
     final rows = await _db.rawQuery(
       'SELECT MAX(position) AS top FROM $_todos WHERE day = ?',

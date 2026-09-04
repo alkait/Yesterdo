@@ -1,15 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/app_version.dart';
 import '../reminders/reminder_scheduler.dart';
+import '../state/developer_mode.dart';
 import '../state/providers.dart';
 import 'branded/branded.dart';
 import 'widgets/theme_picker_sheet.dart';
 
-/// The settings screen: which look the app is drawn in, and whether the
-/// system lets it notify.
-class SettingsPage extends ConsumerWidget {
+/// The settings screen: which look the app is drawn in, whether the system
+/// lets it notify, and the version. Ten taps on the version turn developer
+/// mode on; a row then appears to turn it off again.
+class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
+
+  @override
+  ConsumerState<SettingsPage> createState() => _SettingsPageState();
+}
+
+class _SettingsPageState extends ConsumerState<SettingsPage> {
+  int _versionTaps = 0;
+
+  void _onVersionTap() {
+    if (ref.read(developerModeProvider)) return;
+    _versionTaps++;
+    if (_versionTaps < DeveloperMode.tapsToEnable) return;
+    _versionTaps = 0;
+    ref.read(developerModeProvider.notifier).set(true);
+  }
 
   /// Not yet asked: ask now. Refused: the system's settings are the only
   /// way back, so open them. Allowed: the settings page is where a sound or
@@ -28,9 +46,10 @@ class SettingsPage extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final chosen = ref.watch(themeChoiceProvider);
     final permission = ref.watch(reminderPermissionProvider).value;
+    final developer = ref.watch(developerModeProvider);
 
     return BrandedScaffold(
       children: [
@@ -89,6 +108,34 @@ class SettingsPage extends ConsumerWidget {
                       ? () {}
                       : () => _onNotificationsTap(ref, permission),
                 ),
+                const SizedBox(height: Brand.gap),
+                const BrandedText(
+                  'About',
+                  role: BrandedTextRole.caption,
+                  tone: BrandedTone.muted,
+                ),
+                BrandedFieldRow(
+                  key: const ValueKey('settings-version'),
+                  label: 'Version',
+                  value: appVersion,
+                  onTap: _onVersionTap,
+                ),
+                if (developer) ...[
+                  const SizedBox(height: Brand.gap),
+                  const BrandedText(
+                    'Developer',
+                    role: BrandedTextRole.caption,
+                    tone: BrandedTone.muted,
+                  ),
+                  BrandedFieldRow(
+                    key: const ValueKey('settings-developer'),
+                    label: 'Developer mode',
+                    value: 'On',
+                    detail: 'Swipe a task left to rehearse its reminder',
+                    onTap: () =>
+                        ref.read(developerModeProvider.notifier).set(false),
+                  ),
+                ],
               ],
             ),
           ),

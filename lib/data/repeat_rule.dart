@@ -4,7 +4,7 @@ import 'due.dart';
 import 'rich/task_body.dart';
 import 'todo.dart';
 
-enum RepeatKind { daily, weekly, monthly }
+enum RepeatKind { daily, weekly, monthly, custom }
 
 /// How often a task comes back. Holds no identity and no title, so the editor
 /// can hand one around before anything is stored.
@@ -15,7 +15,20 @@ class RepeatRule {
     this.weekdays = 0,
     this.monthDays = 0,
     this.endDay,
+    this.days = const <int>{},
   });
+
+  /// Exact days and nothing else. The rule runs from the first to the last
+  /// of them.
+  factory RepeatRule.custom(Set<int> days) {
+    assert(days.isNotEmpty, 'a custom rule has days');
+    return RepeatRule(
+      kind: RepeatKind.custom,
+      startDay: days.reduce((a, b) => a < b ? a : b),
+      endDay: days.reduce((a, b) => a > b ? a : b),
+      days: Set.unmodifiable(days),
+    );
+  }
 
   factory RepeatRule.daily(int startDay) =>
       RepeatRule(kind: RepeatKind.daily, startDay: startDay);
@@ -57,6 +70,10 @@ class RepeatRule {
 
   final int? endDay;
 
+  /// The exact epoch days a custom rule fires on. Empty for the other
+  /// kinds.
+  final Set<int> days;
+
   static int weekdayBit(int weekday) => 1 << (weekday - 1);
 
   bool includesWeekday(int weekday) => weekdays & weekdayBit(weekday) != 0;
@@ -76,6 +93,7 @@ class RepeatRule {
       RepeatKind.monthly =>
         includesMonthDay(date.day) ||
             (includesLastDayOfMonth && date.day == daysInMonth(date)),
+      RepeatKind.custom => days.contains(day),
     };
   }
 
@@ -85,6 +103,9 @@ class RepeatRule {
 
   /// Whether this rule shows up on any day before [day].
   bool hasOccurrenceBefore(int day) {
+    if (kind == RepeatKind.custom) {
+      return days.any((each) => each < day && each >= startDay);
+    }
     if (day <= startDay) return false;
     final lowest = day - _widestGap < startDay ? startDay : day - _widestGap;
     for (var each = day - 1; each >= lowest; each--) {
@@ -96,6 +117,11 @@ class RepeatRule {
 
   /// Whether this rule shows up on any day after [day].
   bool hasOccurrenceAfter(int day) {
+    if (kind == RepeatKind.custom) {
+      return days.any(
+        (each) => each > day && (endDay == null || each <= endDay!),
+      );
+    }
     final last = endDay;
     if (last != null && day >= last) return false;
     var highest = day + _widestGap;
@@ -111,12 +137,38 @@ class RepeatRule {
     RepeatKind.daily => 'Every day',
     RepeatKind.weekly => _weeklyLabel,
     RepeatKind.monthly => 'Every month',
+    RepeatKind.custom => 'On chosen days',
   };
 
   /// The small print under [label]: which days a monthly rule lands on.
   /// Empty for the other kinds, whose label already says it all.
-  String get detail =>
-      kind == RepeatKind.monthly ? monthDaysLabel(monthDays) : '';
+  String get detail => switch (kind) {
+    RepeatKind.monthly => monthDaysLabel(monthDays),
+    RepeatKind.custom => customDaysLabel(chosenDays),
+    _ => '',
+  };
+
+  /// The chosen days still within the rule's run, in order.
+  List<int> get chosenDays =>
+      days
+          .where(
+            (each) => each >= startDay && (endDay == null || each <= endDay!),
+          )
+          .toList()
+        ..sort();
+
+  /// `Sep 6, Sep 9 and Sep 14`, or `Sep 6, Sep 9, Sep 14 and 2 more`.
+  static String customDaysLabel(List<int> days) {
+    if (days.isEmpty) return '';
+    final named = [
+      for (final day in days.take(3)) shortDate(dateFromEpochDay(day)),
+    ];
+    if (days.length == 1) return named.single;
+    if (days.length <= 3) {
+      return '${named.sublist(0, named.length - 1).join(', ')} and ${named.last}';
+    }
+    return '${named.join(', ')} and ${days.length - 3} more';
+  }
 
   /// `On the 1st and 15th`, `On the last day`, `On the 3rd, 17th and last
   /// day`. Empty when no day is chosen.
@@ -148,13 +200,27 @@ class RepeatRule {
     int? weekdays,
     int? monthDays,
     int? startDay,
+    int? endDay,
+    Set<int>? days,
   }) => RepeatRule(
     kind: kind ?? this.kind,
     startDay: startDay ?? this.startDay,
     weekdays: weekdays ?? this.weekdays,
     monthDays: monthDays ?? this.monthDays,
-    endDay: endDay,
+    endDay: endDay ?? this.endDay,
+    days: days ?? this.days,
   );
+
+  /// The chosen days as they are kept: sorted, joined by commas. Null when
+  /// there are none.
+  String? get daysColumn =>
+      days.isEmpty ? null : (days.toList()..sort()).join(',');
+
+  static Set<int> daysFromColumn(String? column) => {
+    if (column != null)
+      for (final part in column.split(','))
+        if (int.tryParse(part) case final day?) day,
+  };
 }
 
 /// A repeating task: a rule, the words that go with it, and where it sits.
@@ -181,6 +247,7 @@ class Recurrence {
       weekdays: row['weekdays']! as int,
       monthDays: row['month_days']! as int,
       endDay: row['end_day'] as int?,
+      days: RepeatRule.daysFromColumn(row['days'] as String?),
     ),
   );
 
@@ -215,5 +282,6 @@ class Recurrence {
     'month_days': rule.monthDays,
     'start_day': rule.startDay,
     'end_day': rule.endDay,
+    'days': rule.daysColumn,
   };
 }

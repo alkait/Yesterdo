@@ -204,13 +204,34 @@ void main() {
     });
 
     test('brings a task whose time has come to the top', () async {
-      await store.insert(day: day, title: 'Buy milk');
       await store.insert(day: day, title: 'Call Sam', due: due);
-      expect(await titlesOn(day), ['Buy milk', 'Call Sam']);
+      await store.insert(day: day, title: 'Buy milk');
+      expect(await titlesOn(day), [
+        'Buy milk',
+        'Call Sam',
+      ], reason: 'newest on top');
       final ten = DateTime(2026, 9, 4, 10);
       final atTen = await store.todosOn(day, now: ten);
       expect(atTen.map((t) => t.title), ['Call Sam', 'Buy milk']);
     });
+  });
+
+  test('a custom rule keeps its days through the database', () async {
+    await store.insertSeries(
+      day: day,
+      title: 'Dentist',
+      rule: RepeatRule.custom({day + 2, day + 5}),
+    );
+    expect(await titlesOn(day), isEmpty);
+    expect(await titlesOn(day + 2), ['Dentist']);
+    expect(await titlesOn(day + 3), isEmpty);
+    expect(await titlesOn(day + 5), ['Dentist']);
+    final rule = (await store.recurrencesFor(day + 2)).single;
+    expect(rule.rule.days, {day + 2, day + 5});
+
+    await store.endSeriesFrom(recurrenceId: rule.id, day: day + 5);
+    expect(await titlesOn(day + 5), isEmpty);
+    expect(await titlesOn(day + 2), ['Dentist']);
   });
 
   group('not today', () {

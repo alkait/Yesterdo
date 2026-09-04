@@ -5,7 +5,8 @@ import '../../data/rich/styled_text.dart';
 import '../../data/rich/task_body.dart';
 import '../branded/branded.dart';
 
-/// The writing surface: one styled field per block, stacked. Return at the
+/// The writing surface: one styled field per block, stacked, with pictures
+/// between. Return at the
 /// end of a block starts a new one of the same kind; on an empty checklist
 /// item it ends the list instead. Backspace at the start of a block joins
 /// it onto the one above. The format bar drives whichever block has the
@@ -15,10 +16,14 @@ class BodyEditor extends StatefulWidget {
     super.key,
     required this.initial,
     required this.onChanged,
+    required this.imagesDirectory,
     this.hint = '',
   });
 
   final TaskBody initial;
+
+  /// Where the pictures are.
+  final String imagesDirectory;
 
   /// Called with the whole body after every change, and whenever the
   /// caret's styles change, so the bar can follow.
@@ -32,8 +37,12 @@ class BodyEditor extends StatefulWidget {
 }
 
 class _Entry {
-  _Entry({required this.kind, required this.checked, required this.controller})
-    : focus = FocusNode();
+  _Entry({
+    required this.kind,
+    required this.checked,
+    required this.controller,
+    this.image,
+  }) : focus = FocusNode();
 
   final Key key = UniqueKey();
   BlockKind kind;
@@ -41,11 +50,19 @@ class _Entry {
   final BrandedRichController controller;
   final FocusNode focus;
 
-  Block get block => Block(
-    kind: kind,
-    content: controller.content,
-    checked: kind == BlockKind.check && checked,
-  );
+  /// The picture, for an image block. Such a block has no words and takes
+  /// no caret.
+  final String? image;
+
+  bool get isImage => image != null;
+
+  Block get block => isImage
+      ? Block.image(image!)
+      : Block(
+          kind: kind,
+          content: controller.content,
+          checked: kind == BlockKind.check && checked,
+        );
 
   void dispose() {
     controller.dispose();
@@ -77,6 +94,7 @@ class BodyEditorState extends State<BodyEditor> {
     entry = _Entry(
       kind: block.kind,
       checked: block.checked,
+      image: block.image,
       controller: BrandedRichController(
         content: block.content,
         guarded: true,
@@ -119,14 +137,50 @@ class BodyEditorState extends State<BodyEditor> {
   /// The link at the caret, if the words there are one.
   String? get currentLink => _focused?.controller.current.link;
 
-  /// Puts the caret at the very end of the last block.
+  /// Puts the caret at the very end of the last block with words. A body
+  /// ending in a picture gets a paragraph to write in after it.
   void focusEnd() {
+    if (_entries.last.isImage) {
+      setState(() => _entries.add(_entryFor(Block.paragraph(''))));
+      WidgetsBinding.instance.addPostFrameCallback((_) => focusEnd());
+      return;
+    }
     final last = _entries.last;
     last.focus.requestFocus();
     last.controller.setContent(
       last.controller.content,
       caret: last.controller.content.length,
     );
+  }
+
+  /// Puts a picture in after the block with the caret, or at the end, and
+  /// sees that there is a paragraph after it to carry on writing in.
+  void insertImage(String image) {
+    final focused = _focused;
+    final at = focused == null
+        ? _entries.length
+        : _entries.indexOf(focused) + 1;
+    final picture = _entryFor(Block.image(image));
+    setState(() {
+      _entries.insert(at, picture);
+      if (at + 1 >= _entries.length || _entries[at + 1].isImage) {
+        _entries.insert(at + 1, _entryFor(Block.paragraph('')));
+      }
+    });
+    final next = _entries[at + 1];
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      next.focus.requestFocus();
+      next.controller.setContent(next.controller.content, caret: 0);
+    });
+    _announce();
+  }
+
+  /// Takes a picture out. The file itself is left for the sweep, since
+  /// Cancel may yet put the picture back.
+  void _removeImage(_Entry entry) {
+    setState(() => _entries.remove(entry));
+    WidgetsBinding.instance.addPostFrameCallback((_) => entry.dispose());
+    _announce();
   }
 
   void toggleBold() => _focused?.controller.toggleBold();
@@ -195,6 +249,11 @@ class BodyEditorState extends State<BodyEditor> {
       return;
     }
     final above = _entries[index - 1];
+    // Backspace against a picture takes the picture out.
+    if (above.isImage) {
+      _removeImage(above);
+      return;
+    }
     final seam = above.controller.content.length;
     final joined = above.controller.content + entry.controller.content;
     setState(() => _entries.removeAt(index));
@@ -209,13 +268,49 @@ class BodyEditorState extends State<BodyEditor> {
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       for (final (index, entry) in _entries.indexed)
-        _BlockRow(
-          key: entry.key,
-          entry: entry,
-          hint: index == 0 && _entries.length == 1 ? widget.hint : '',
-          onTick: () => _tick(entry),
-        ),
+        if (entry.isImage)
+          _ImageRow(
+            key: entry.key,
+            path: '${widget.imagesDirectory}/${entry.image}',
+            onRemove: () => _removeImage(entry),
+          )
+        else
+          _BlockRow(
+            key: entry.key,
+            entry: entry,
+            hint: index == 0 && _entries.length == 1 ? widget.hint : '',
+            onTick: () => _tick(entry),
+          ),
     ],
+  );
+}
+
+/// A picture in the editor, with a way to take it out.
+class _ImageRow extends StatelessWidget {
+  const _ImageRow({super.key, required this.path, required this.onRemove});
+
+  final String path;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 6),
+    child: Stack(
+      children: [
+        BrandedImage(path: path),
+        Positioned(
+          top: 0,
+          right: 0,
+          child: BrandedIconButton(
+            key: ValueKey('remove-image-$path'),
+            icon: Icons.close_rounded,
+            label: 'Remove picture',
+            size: BrandedIconSize.medium,
+            onTap: onRemove,
+          ),
+        ),
+      ],
+    ),
   );
 }
 

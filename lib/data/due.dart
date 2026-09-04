@@ -18,8 +18,20 @@ class Due {
 
   static const minutesPerDay = 24 * 60;
 
-  /// How far a snooze pushes the time on.
+  /// How far a snooze pushes the time on when nothing else is said.
   static const snoozeStep = 10;
+
+  /// The set stretches a snooze can be, in minutes.
+  static const snoozeStretches = <int>[10, 30, 60];
+
+  static String stretchLabel(int minutes) => switch (minutes) {
+    60 => '1 hour',
+    final m => '$m minutes',
+  };
+
+  /// A minute of the day, never past the last one.
+  static int clampMinute(int minute) =>
+      math.max(0, math.min(minute, minutesPerDay - 1));
 
   /// Every reminder a task can carry, in minutes before its time. Each one
   /// is a bit in the stored value, in this order.
@@ -50,14 +62,13 @@ class Due {
   /// Pushed on by [snoozeStep] from [from], the minute of the day it is now,
   /// or from its own time if that is later. Never runs past the end of the
   /// day, and is set to speak up again when the new time comes.
-  Due snoozed({int? from}) => Due(
-    minute: math.min(
-      math.max(minute, from ?? minute) + snoozeStep,
-      minutesPerDay - 1,
-    ),
-    reminders: const {0},
-    sound: sound,
-  );
+  Due snoozed({int? from}) =>
+      snoozedUntil(math.max(minute, from ?? minute) + snoozeStep);
+
+  /// Put off until [newMinute], never past the end of the day, and set to
+  /// speak up again when it comes.
+  Due snoozedUntil(int newMinute) =>
+      Due(minute: clampMinute(newMinute), reminders: const {0}, sound: sound);
 
   /// `9:30 AM`, or `09:30` in 24-hour form.
   String label({bool twentyFourHour = false}) =>

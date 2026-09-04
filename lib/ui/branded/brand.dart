@@ -33,6 +33,10 @@ abstract final class Brand {
   static const tileHeight = 92.0;
   static const tileGap = 10.0;
   static const wheelHeight = 200.0;
+  static const imageMaxHeight = 320.0;
+  static const imageMaxZoom = 6.0;
+  static const thumbnailSize = 44.0;
+  static const thumbnailRadius = 8.0;
   static const wheelMinuteStep = 5;
 
   /// How much of the accent a calling card's face takes at the top of a

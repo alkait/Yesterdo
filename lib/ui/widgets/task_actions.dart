@@ -58,10 +58,9 @@ Future<void> moveTask(BuildContext context, WidgetRef ref, Todo todo) async {
   await ref.read(todosProvider.notifier).moveToDay(todo, picked.epochDay);
 }
 
-/// TEMPORARY. Puts this task's reminder up ten seconds from now, exactly as
-/// the real one would come, so the notification path can be tried without
-/// waiting. Remove with the button on the card and the scheduler's
-/// `rehearse`.
+/// Puts this task's reminder up ten seconds from now, exactly as the real
+/// one would come, so the notification path can be tried without waiting.
+/// A developer's tool: the button for it shows only in developer mode.
 const Duration rehearsalDelay = Duration(seconds: 10);
 
 Future<void> rehearseReminder(

@@ -33,12 +33,13 @@ class MemoryTodoStore implements TodoStore {
     String? title,
     TaskBody? body,
     Due? due,
+    int? position,
   }) {
     final todo = Todo(
       id: _nextTodoId++,
       body: TodoStore.bodyOf(title, body),
       done: false,
-      position: _nextPosition(day),
+      position: position ?? _topPosition(day),
       due: due,
     );
     _dayOf(day).add(todo);
@@ -52,13 +53,14 @@ class MemoryTodoStore implements TodoStore {
     TaskBody? body,
     required RepeatRule rule,
     Due? due,
+    int? position,
   }) {
     _recurrences.add(
       Recurrence(
         id: _nextRecurrenceId++,
         body: TodoStore.bodyOf(title, body),
         rule: rule,
-        position: _nextPosition(day),
+        position: position ?? _topPosition(day),
         due: due,
       ),
     );
@@ -148,13 +150,7 @@ class MemoryTodoStore implements TodoStore {
       body: existing.body,
       position: existing.position,
       due: existing.due,
-      rule: RepeatRule(
-        kind: existing.rule.kind,
-        startDay: existing.rule.startDay,
-        weekdays: existing.rule.weekdays,
-        monthDays: existing.rule.monthDays,
-        endDay: day - 1,
-      ),
+      rule: existing.rule.copyWith(endDay: day - 1),
     );
     return Future.value();
   }
@@ -178,13 +174,7 @@ class MemoryTodoStore implements TodoStore {
       body: existing.body,
       position: existing.position,
       due: existing.due,
-      rule: RepeatRule(
-        kind: existing.rule.kind,
-        startDay: day + 1,
-        weekdays: existing.rule.weekdays,
-        monthDays: existing.rule.monthDays,
-        endDay: endDay,
-      ),
+      rule: existing.rule.copyWith(startDay: day + 1),
     );
     return Future.value();
   }
@@ -228,14 +218,28 @@ class MemoryTodoStore implements TodoStore {
     now: now,
   );
 
+  @override
+  Future<Set<String>> allImages() => Future.value({
+    for (final items in _byDay.values)
+      for (final todo in items) ...todo.body.images,
+    for (final each in _recurrences) ...each.body.images,
+  });
+
   List<Todo> _dayOf(int day) => _byDay.putIfAbsent(day, () => <Todo>[]);
 
+  List<int> _taken(int day) => <int>[
+    for (final todo in _dayOf(day)) todo.position,
+    for (final each in _recurrences)
+      if (each.rule.fallsOn(day)) each.position,
+  ];
+
+  int _topPosition(int day) {
+    final taken = _taken(day);
+    return taken.isEmpty ? 0 : taken.reduce((a, b) => a < b ? a : b) - 1;
+  }
+
   int _nextPosition(int day) {
-    final taken = <int>[
-      for (final todo in _dayOf(day)) todo.position,
-      for (final each in _recurrences)
-        if (each.rule.fallsOn(day)) each.position,
-    ];
+    final taken = _taken(day);
     return taken.isEmpty ? 0 : taken.reduce((a, b) => a > b ? a : b) + 1;
   }
 }

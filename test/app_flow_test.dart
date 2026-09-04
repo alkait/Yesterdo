@@ -9,6 +9,7 @@ import 'package:remind_me/core/day.dart';
 import 'package:remind_me/data/due.dart';
 import 'package:remind_me/data/reminder_sound.dart';
 import 'package:remind_me/reminders/reminder_scheduler.dart';
+import 'package:remind_me/state/developer_mode.dart';
 import 'package:remind_me/state/last_sound.dart';
 import 'package:remind_me/state/providers.dart';
 import 'package:remind_me/state/theme_choice.dart';
@@ -34,6 +35,7 @@ Widget bootApp({
   DateTime Function()? clock,
   AppThemeChoice theme = AppThemeChoice.ink,
   ReminderSound sound = ReminderSound.system,
+  bool developer = false,
 }) => ProviderScope(
   overrides: [
     todoStoreProvider.overrideWithValue(store ?? MemoryTodoStore()),
@@ -42,9 +44,11 @@ Widget bootApp({
       scheduler ?? MemoryReminderScheduler(),
     ),
     deviceBridgeProvider.overrideWithValue(device ?? MemoryDeviceBridge()),
+    imagesDirectoryProvider.overrideWithValue(device?.directory ?? ''),
     if (clock != null) clockProvider.overrideWithValue(clock),
     initialThemeChoiceProvider.overrideWithValue(theme),
     initialSoundProvider.overrideWithValue(sound),
+    initialDeveloperModeProvider.overrideWithValue(developer),
   ],
   child: const RemindMeApp(),
 );
@@ -292,16 +296,38 @@ void main() {
     expect(find.text('Nothing planned'), findsOneWidget);
   });
 
-  testWidgets('typed tasks appear in the order they were added', (
-    tester,
-  ) async {
+  testWidgets('a new task goes on top', (tester) async {
     await tester.pumpWidget(bootApp());
     await tester.pumpAndSettle();
 
     await addTask(tester, 'Buy milk');
     await addTask(tester, 'Call Sam');
 
-    expect(visibleTitles(tester), ['Buy milk', 'Call Sam']);
+    expect(visibleTitles(tester), ['Call Sam', 'Buy milk']);
+  });
+
+  testWidgets('giving a task a repeat keeps its place', (tester) async {
+    await tester.pumpWidget(bootApp());
+    await tester.pumpAndSettle();
+    await addTask(tester, 'Post letter');
+    await addTask(tester, 'Call Sam');
+    await addTask(tester, 'Buy milk');
+    expect(visibleTitles(tester), ['Buy milk', 'Call Sam', 'Post letter']);
+
+    await actOn(tester, 'Call Sam', 'Edit');
+    await chooseRepeat(tester, 'Every day');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(visibleTitles(tester), ['Buy milk', 'Call Sam', 'Post letter']);
+    expect(tileFor(tester, 'Call Sam').todo.repeats, isTrue);
+
+    // And taking the repeat off again keeps it too.
+    await actOn(tester, 'Call Sam', 'Edit');
+    await chooseRepeat(tester, 'Never');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(visibleTitles(tester), ['Buy milk', 'Call Sam', 'Post letter']);
+    expect(tileFor(tester, 'Call Sam').todo.repeats, isFalse);
   });
 
   testWidgets('tasks carry no checkbox', (tester) async {
@@ -369,9 +395,9 @@ void main() {
     await tester.pumpWidget(bootApp());
     await tester.pumpAndSettle();
 
-    await addTask(tester, 'Buy milk');
-    await addTask(tester, 'Call Sam');
     await addTask(tester, 'Post letter');
+    await addTask(tester, 'Call Sam');
+    await addTask(tester, 'Buy milk');
 
     await actOn(tester, 'Buy milk', 'Done', settle: false);
 
@@ -394,9 +420,9 @@ void main() {
     await tester.pumpWidget(bootApp());
     await tester.pumpAndSettle();
 
-    await addTask(tester, 'Buy milk');
-    await addTask(tester, 'Call Sam');
     await addTask(tester, 'Post letter');
+    await addTask(tester, 'Call Sam');
+    await addTask(tester, 'Buy milk');
 
     await actOn(tester, 'Buy milk', 'Done');
     expect(visibleTitles(tester), ['Call Sam', 'Post letter', 'Buy milk']);
@@ -411,8 +437,8 @@ void main() {
     await tester.pumpWidget(bootApp());
     await tester.pumpAndSettle();
 
-    await addTask(tester, 'Buy milk');
     await addTask(tester, 'Call Sam');
+    await addTask(tester, 'Buy milk');
 
     await actOn(tester, 'Buy milk', 'Done');
     expect(visibleTitles(tester), ['Call Sam', 'Buy milk']);
@@ -564,9 +590,9 @@ void main() {
     await tester.pumpWidget(bootApp());
     await tester.pumpAndSettle();
 
-    await addTask(tester, 'Buy milk');
-    await addTask(tester, 'Call Sam');
     await addTask(tester, 'Post letter');
+    await addTask(tester, 'Call Sam');
+    await addTask(tester, 'Buy milk');
 
     // Moving before the hold is up is a scroll, not a reorder.
     final gesture = await tester.startGesture(
@@ -587,9 +613,9 @@ void main() {
     await tester.pumpWidget(bootApp());
     await tester.pumpAndSettle();
 
-    await addTask(tester, 'Buy milk');
-    await addTask(tester, 'Call Sam');
     await addTask(tester, 'Post letter');
+    await addTask(tester, 'Call Sam');
+    await addTask(tester, 'Buy milk');
 
     await dragCardDown(tester, from: 'Buy milk', over: 'Post letter');
 
@@ -611,9 +637,9 @@ void main() {
     await tester.pumpWidget(bootApp());
     await tester.pumpAndSettle();
 
-    await addTask(tester, 'Buy milk');
-    await addTask(tester, 'Call Sam');
     await addTask(tester, 'Post letter');
+    await addTask(tester, 'Call Sam');
+    await addTask(tester, 'Buy milk');
 
     await actOn(tester, 'Call Sam', 'Done');
     expect(visibleTitles(tester), ['Buy milk', 'Post letter', 'Call Sam']);
@@ -628,8 +654,8 @@ void main() {
     await tester.pumpWidget(bootApp());
     await tester.pumpAndSettle();
 
-    await addTask(tester, 'Buy milk');
     await addTask(tester, 'Call Sam');
+    await addTask(tester, 'Buy milk');
 
     await swipe(tester, 'Buy milk', const Offset(-160, 0));
     expect(visibleTitles(tester), ['Buy milk', 'Call Sam']);
@@ -751,10 +777,10 @@ void main() {
       await tester.pumpWidget(bootApp());
       await tester.pumpAndSettle();
 
-      await addTask(tester, 'Draft the summary');
-      await addTask(tester, 'Take the pills', repeat: 'Every day');
-      await addTask(tester, 'Team sync', repeat: 'Every week');
       await addTask(tester, 'Pay the rent', repeat: 'Every day');
+      await addTask(tester, 'Team sync', repeat: 'Every week');
+      await addTask(tester, 'Take the pills', repeat: 'Every day');
+      await addTask(tester, 'Draft the summary');
 
       // Projected occurrences carry no row id. Keying tiles on that id gave
       // them all the same key and the list showed only the last.
@@ -982,6 +1008,70 @@ void main() {
         findsOneWidget,
         reason: 'and it stays gone on the way back',
       );
+    });
+
+    testWidgets('a custom repeat comes back on the chosen days alone', (
+      tester,
+    ) async {
+      await tester.pumpWidget(bootApp());
+      await tester.pumpAndSettle();
+      final today = todayDate().epochDay;
+
+      await tester.tap(find.text('Add a task'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'Dentist');
+      await tester.tap(find.text('Repeat'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Custom'));
+      await tester.pumpAndSettle();
+      expect(find.text('Chosen days'), findsOneWidget);
+      expect(
+        tester
+            .widget<BrandedTextButton>(
+              find.byKey(const ValueKey('custom-days-done')),
+            )
+            .enabled,
+        isFalse,
+        reason: 'nothing chosen yet',
+      );
+      // Two days this month, or next if the month is nearly over.
+      final first = today + 1;
+      final third = today + 3;
+      for (final day in [first, third]) {
+        final cell = find.byKey(ValueKey('pick-day-$day'));
+        if (cell.evaluate().isEmpty) {
+          await tester.tap(find.byIcon(Icons.chevron_right_rounded).last);
+          await tester.pumpAndSettle();
+        }
+        await tester.tap(find.byKey(ValueKey('pick-day-$day')));
+        await tester.pump();
+      }
+      expect(find.text('2 days chosen'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('custom-days-done')));
+      await tester.pumpAndSettle();
+      expect(find.text('On chosen days'), findsNothing, reason: 'sheet row');
+      await tester.tap(find.text('Done'));
+      await tester.pumpAndSettle();
+      expect(find.text('On chosen days'), findsOneWidget, reason: 'editor');
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Nothing planned'), findsOneWidget, reason: 'not today');
+      await stepDay(tester, 1);
+      expect(visibleTitles(tester), ['Dentist']);
+      expect(tileFor(tester, 'Dentist').todo.repeats, isTrue);
+      await stepDay(tester, 1);
+      expect(find.text('Nothing planned'), findsOneWidget);
+      await stepDay(tester, 1);
+      expect(visibleTitles(tester), ['Dentist']);
+      await stepDay(tester, 1);
+      expect(find.text('Nothing planned'), findsOneWidget);
+
+      // Deleting the middle... the last showing asks about the earlier one.
+      await stepDay(tester, -1);
+      await actOn(tester, 'Dentist', 'Delete');
+      expect(find.text('Delete this and earlier ones'), findsOneWidget);
+      expect(find.text('Delete this and later ones'), findsNothing);
     });
 
     testWidgets('a repeating card is marked as one', (tester) async {
@@ -1303,9 +1393,9 @@ void main() {
       await tester.pumpWidget(bootApp());
       await tester.pumpAndSettle();
 
-      await addTask(tester, 'Take the pills', repeat: 'Every day');
-      await addTask(tester, 'Buy milk');
       await addTask(tester, 'Call Sam');
+      await addTask(tester, 'Buy milk');
+      await addTask(tester, 'Take the pills', repeat: 'Every day');
 
       await dragCardDown(tester, from: 'Take the pills', over: 'Call Sam');
 
@@ -1389,13 +1479,13 @@ void main() {
   });
 
   testWidgets(
-    'TEMPORARY: the rehearsal button rings the reminder in ten seconds',
+    'in developer mode the rehearsal button rings the reminder in ten seconds',
     (tester) async {
       final scheduler = MemoryReminderScheduler(
         status: ReminderPermission.granted,
       );
       await tester.pumpWidget(
-        bootApp(scheduler: scheduler, clock: () => at(9, 0)),
+        bootApp(scheduler: scheduler, clock: () => at(9, 0), developer: true),
       );
       await tester.pumpAndSettle();
       await addTask(
@@ -1427,6 +1517,85 @@ void main() {
       expect(rehearsal.payload, '${todayDate().epochDay}:t1');
     },
   );
+
+  testWidgets('without developer mode there is no rehearsal button', (
+    tester,
+  ) async {
+    await tester.pumpWidget(bootApp(clock: () => at(9, 0)));
+    await tester.pumpAndSettle();
+    await addTask(tester, 'Call Sam');
+    await swipe(tester, 'Call Sam', const Offset(-260, 0));
+    expect(find.byIcon(Icons.alarm_on_rounded), findsNothing);
+    expect(find.byIcon(Icons.delete_outline_rounded), findsOneWidget);
+  });
+
+  testWidgets('ten taps on the version turn developer mode on, and it sticks', (
+    tester,
+  ) async {
+    final settings = MemorySettingsStore();
+    await tester.pumpWidget(bootApp(settings: settings));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.settings_outlined));
+    await tester.pumpAndSettle();
+    expect(find.text('Version'), findsOneWidget);
+    expect(find.text('Developer mode'), findsNothing);
+
+    for (var tap = 0; tap < DeveloperMode.tapsToEnable - 1; tap++) {
+      await tester.tap(find.text('Version'));
+      await tester.pump();
+    }
+    expect(
+      find.text('Developer mode'),
+      findsNothing,
+      reason: 'nine is not ten',
+    );
+    await tester.tap(find.text('Version'));
+    await tester.pumpAndSettle();
+    expect(find.text('Developer mode'), findsOneWidget);
+    expect(settings.values[DeveloperMode.settingKey], 'on');
+
+    // The row turns it off again.
+    await tester.tap(find.text('Developer mode'));
+    await tester.pumpAndSettle();
+    expect(find.text('Developer mode'), findsNothing);
+    expect(settings.values[DeveloperMode.settingKey], 'off');
+    expect(await DeveloperMode.load(settings), isFalse);
+    expect(
+      await DeveloperMode.load(
+        MemorySettingsStore({DeveloperMode.settingKey: 'on'}),
+      ),
+      isTrue,
+    );
+  });
+
+  testWidgets('the due and repeat sheets come down only by their buttons', (
+    tester,
+  ) async {
+    await tester.pumpWidget(bootApp(clock: () => at(9, 0)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Add a task'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Due'));
+    await tester.pumpAndSettle();
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
+    expect(find.byType(CupertinoDatePicker), findsOneWidget, reason: 'stays');
+    await tester.drag(find.byType(CupertinoDatePicker), const Offset(0, 400));
+    await tester.pumpAndSettle();
+    expect(find.byType(CupertinoDatePicker), findsOneWidget);
+    await finishDueSheet(tester);
+    expect(find.byType(CupertinoDatePicker), findsNothing);
+
+    await tester.tap(find.text('Repeat'));
+    await tester.pumpAndSettle();
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
+    expect(find.text('Every week'), findsOneWidget, reason: 'stays');
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+    expect(find.text('Every week'), findsNothing);
+  });
 
   group('not today', () {
     final today = todayDate().epochDay;
@@ -2053,8 +2222,8 @@ void main() {
       var now = at(9, 0);
       await tester.pumpWidget(bootApp(clock: () => now));
       await tester.pumpAndSettle();
-      await addTask(tester, 'Buy milk');
       await addTask(tester, 'Call Sam', due: Due(minute: minuteOf(9, 30)));
+      await addTask(tester, 'Buy milk');
       expect(visibleTitles(tester), ['Buy milk', 'Call Sam']);
       expect(tileFor(tester, 'Call Sam').calling, isFalse);
 
@@ -2070,12 +2239,12 @@ void main() {
       holdStill(tester);
       var now = at(9, 0);
       final store = MemoryTodoStore();
-      await store.insert(day: today, title: 'Buy milk');
       await store.insert(
         day: today,
         title: 'Call Sam',
         due: Due(minute: minuteOf(9, 30)),
       );
+      await store.insert(day: today, title: 'Buy milk');
       await tester.pumpWidget(bootApp(store: store, clock: () => now));
       await tester.pumpAndSettle();
       expect(visibleTitles(tester), ['Buy milk', 'Call Sam']);
@@ -2137,9 +2306,10 @@ void main() {
       expect(
         find.descendant(
           of: find.byKey(const ValueKey('attention-title')),
-          matching: find.text('Call Sam\nabout the invoice'),
+          matching: find.text('Call Sam'),
         ),
         findsOneWidget,
+        reason: 'the first line only',
       );
       expect(find.text('Due 8:30 AM'), findsOneWidget);
       expect(find.text('Done'), findsOneWidget);
@@ -2174,12 +2344,18 @@ void main() {
       final scheduler = MemoryReminderScheduler();
       await tester.pumpWidget(bootApp(scheduler: scheduler, clock: () => now));
       await tester.pumpAndSettle();
-      await addTask(tester, 'Buy milk');
       await addTask(tester, 'Call Sam', due: Due(minute: minuteOf(8, 30)));
+      await addTask(tester, 'Buy milk');
 
       await tester.tap(find.text('Call Sam'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Snooze'));
+      await tester.pumpAndSettle();
+      // The stretches say when each would call again.
+      expect(find.text('9:10 AM'), findsOneWidget);
+      expect(find.text('9:30 AM'), findsOneWidget);
+      expect(find.text('10:00 AM'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('snooze-10')));
       await tester.pumpAndSettle();
 
       expect(visibleTitles(tester), ['Buy milk', 'Call Sam']);
@@ -2195,14 +2371,64 @@ void main() {
       expect(tileFor(tester, 'Call Sam').calling, isTrue);
     });
 
+    testWidgets('snooze can be an hour, or a time picked for later today', (
+      tester,
+    ) async {
+      holdStill(tester);
+      await tester.pumpWidget(bootApp(clock: () => at(9, 0)));
+      await tester.pumpAndSettle();
+      await addTask(tester, 'Call Sam', due: Due(minute: minuteOf(8, 30)));
+
+      await tester.tap(find.text('Call Sam'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Snooze'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('snooze-60')));
+      await tester.pumpAndSettle();
+      expect(find.text('10:00 AM'), findsOneWidget);
+      expect(tileFor(tester, 'Call Sam').todo.due!.minute, minuteOf(10, 0));
+
+      // Later today: a time of one's own, which must still be to come.
+      await addTask(tester, 'Post letter', due: Due(minute: minuteOf(8, 0)));
+      await tester.tap(find.text('Post letter'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Snooze'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('snooze-later')));
+      await tester.pumpAndSettle();
+      final wheel = find.byType(CupertinoDatePicker);
+      expect(wheel, findsOneWidget);
+      tester
+          .widget<CupertinoDatePicker>(wheel)
+          .onDateTimeChanged(DateTime(2000, 1, 1, 8, 45));
+      await tester.pump();
+      expect(
+        tester
+            .widget<BrandedTextButton>(
+              find.byKey(const ValueKey('later-today-done')),
+            )
+            .enabled,
+        isFalse,
+        reason: 'gone by',
+      );
+      tester
+          .widget<CupertinoDatePicker>(wheel)
+          .onDateTimeChanged(DateTime(2000, 1, 1, 15, 15));
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('later-today-done')));
+      await tester.pumpAndSettle();
+      expect(find.text('3:15 PM'), findsOneWidget);
+      expect(tileFor(tester, 'Post letter').calling, isFalse);
+    });
+
     testWidgets('dismiss quiets it for the day but keeps its time', (
       tester,
     ) async {
       holdStill(tester);
       await tester.pumpWidget(bootApp(clock: () => at(9, 0)));
       await tester.pumpAndSettle();
-      await addTask(tester, 'Buy milk');
       await addTask(tester, 'Call Sam', due: Due(minute: minuteOf(8, 30)));
+      await addTask(tester, 'Buy milk');
 
       await tester.tap(find.text('Call Sam'));
       await tester.pumpAndSettle();
@@ -2248,9 +2474,9 @@ void main() {
       holdStill(tester);
       await tester.pumpWidget(bootApp(clock: () => at(9, 0)));
       await tester.pumpAndSettle();
-      await addTask(tester, 'Buy milk');
-      await addTask(tester, 'Post letter');
       await addTask(tester, 'Call Sam', due: Due(minute: minuteOf(8, 30)));
+      await addTask(tester, 'Post letter');
+      await addTask(tester, 'Buy milk');
       expect(visibleTitles(tester), ['Call Sam', 'Buy milk', 'Post letter']);
 
       await dragCardDown(tester, from: 'Call Sam', over: 'Post letter');
@@ -2360,7 +2586,7 @@ void main() {
         expect(
           find.descendant(
             of: find.byKey(const ValueKey('attention-title')),
-            matching: find.text('Call Sam\nabout the invoice'),
+            matching: find.text('Call Sam'),
           ),
           findsOneWidget,
         );
@@ -2437,6 +2663,7 @@ void main() {
           reminderSchedulerProvider.overrideWithValue(
             MemoryReminderScheduler(),
           ),
+          imagesDirectoryProvider.overrideWithValue(''),
           clockProvider.overrideWithValue(() => at(9, 0)),
         ],
       );

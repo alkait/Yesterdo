@@ -6,7 +6,7 @@ import 'branded_divider.dart';
 import 'branded_icon.dart';
 
 /// The strip over the keyboard on the editor: bold, italic, underline,
-/// highlight, link, checklist. Lit where the style is in force at the
+/// highlight, link, checklist, picture. Lit where the style is in force at the
 /// caret. Disabled as a whole while no block has the keyboard.
 class BrandedFormatBar extends StatelessWidget {
   const BrandedFormatBar({
@@ -18,6 +18,7 @@ class BrandedFormatBar extends StatelessWidget {
     required this.onHighlight,
     required this.onLink,
     required this.onChecklist,
+    required this.onImage,
     this.checklist = false,
   });
 
@@ -33,6 +34,7 @@ class BrandedFormatBar extends StatelessWidget {
   final VoidCallback onHighlight;
   final VoidCallback onLink;
   final VoidCallback onChecklist;
+  final VoidCallback onImage;
 
   @override
   Widget build(BuildContext context) {
@@ -93,6 +95,14 @@ class BrandedFormatBar extends StatelessWidget {
             lit: checklist,
             enabled: enabled,
             onTap: onChecklist,
+          ),
+          _Key(
+            key: const ValueKey('format-image'),
+            icon: Icons.image_outlined,
+            label: 'Picture',
+            lit: false,
+            enabled: enabled,
+            onTap: onImage,
           ),
         ],
       ),

@@ -32,6 +32,7 @@ class TodoTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final first = todo.body.firstText;
     final card = BrandedCard(
       recessed: todo.done,
       calling: calling,
@@ -43,23 +44,33 @@ class TodoTile extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // The first block, styles and all. A checklist item shows its box.
+          // The first block of words, styles and all. A checklist item
+          // shows its box.
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (todo.body.first.isCheck)
+              if (first?.isCheck ?? false)
                 Padding(
                   padding: const EdgeInsets.only(top: 2, right: 8),
-                  child: BrandedCheckBox(checked: todo.body.first.checked),
+                  child: BrandedCheckBox(checked: first!.checked),
                 ),
               Expanded(
-                child: BrandedRichText(
-                  todo.body.first.content,
-                  role: BrandedTextRole.card,
-                  struck: todo.done || todo.body.first.checked,
-                  tone: todo.done ? BrandedTone.muted : BrandedTone.primary,
-                  maxLines: Brand.cardLines,
-                ),
+                child: first == null
+                    ? BrandedText(
+                        'Picture',
+                        role: BrandedTextRole.card,
+                        tone: BrandedTone.muted,
+                        maxLines: 1,
+                      )
+                    : BrandedRichText(
+                        first.content,
+                        role: BrandedTextRole.card,
+                        struck: todo.done || first.checked,
+                        tone: todo.done
+                            ? BrandedTone.muted
+                            : BrandedTone.primary,
+                        maxLines: Brand.cardLines,
+                      ),
               ),
             ],
           ),
@@ -96,12 +107,13 @@ class TodoTile extends ConsumerWidget {
             label: 'Not today',
             onTap: () => moveTask(context, ref, todo),
           ),
-        // TEMPORARY: rings this task's reminder ten seconds from now.
-        BrandedSwipeAction(
-          icon: Icons.alarm_on_rounded,
-          label: 'Rehearse reminder',
-          onTap: () => rehearseReminder(context, ref, todo),
-        ),
+        // For developers: rings this task's reminder ten seconds from now.
+        if (ref.watch(developerModeProvider))
+          BrandedSwipeAction(
+            icon: Icons.alarm_on_rounded,
+            label: 'Rehearse reminder',
+            onTap: () => rehearseReminder(context, ref, todo),
+          ),
         BrandedSwipeAction(
           icon: Icons.delete_outline_rounded,
           label: 'Delete',
