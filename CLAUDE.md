@@ -77,8 +77,8 @@ in one place and shows up everywhere.
   `BrandedFieldRow`, `BrandedOptionRow`,
   `BrandedAppBar`, `BrandedBottomBar`, `BrandedScaffold`, `BrandedCard`,
   `BrandedDragHandle`, `BrandedReorderableList`, `BrandedSwipeActions`,
-  `BrandedSelectionCircle`, `BrandedTextField`, `BrandedDivider`, `BrandedApp`,
-  `showBrandedSheet` and `openBrandedPage`.
+  `BrandedSelectionCircle`, `BrandedTextField`, `BrandedDivider`,
+  `BrandedThemeSwatch`, `BrandedApp`, `showBrandedSheet` and `openBrandedPage`.
 - Raw `Text`, `Icon`, `TextField`, `Scaffold`, `AppBar`, `Divider`, `Dismissible`,
   `MaterialApp`, `MaterialPageRoute`, `ListView.`, `ReorderableListView`,
   `ReorderableDragStartListener` and `showModalBottomSheet` are banned outside
@@ -152,6 +152,16 @@ in one place and shows up everywhere.
 - A `late` field initialiser runs on first use, not at construction. Never let one
   read mutable state, or it will evaluate against a value the user has since
   changed.
+
+## Settings
+
+- A setting is a named string in the `settings` table, read and written through
+  the `SettingsStore` interface. The app binds `SqliteSettingsStore`, tests bind
+  `MemorySettingsStore`.
+- The settings screen is `SettingsPage`, opened from the gear at the right end of
+  the bottom bar. The gear sits in the bar's `trailing` slot, outside the add tap
+  target, so it can never open the editor.
+- A theme choice applies the moment it is tapped. There is no save step.
 
 ## Tests
 

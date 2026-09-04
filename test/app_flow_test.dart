@@ -2,18 +2,34 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:remind_me/app.dart';
+import 'package:remind_me/core/app_theme.dart';
 import 'package:remind_me/core/date_labels.dart';
 import 'package:remind_me/state/providers.dart';
+import 'package:remind_me/state/theme_choice.dart';
 import 'package:remind_me/state/todos_controller.dart';
 import 'package:remind_me/ui/branded/branded.dart';
+import 'package:remind_me/ui/home_page.dart';
 import 'package:remind_me/ui/widgets/todo_tile.dart';
 
+import 'support/memory_settings_store.dart';
 import 'support/memory_todo_store.dart';
 
-Widget bootApp() => ProviderScope(
-  overrides: [todoStoreProvider.overrideWithValue(MemoryTodoStore())],
+Widget bootApp({
+  MemorySettingsStore? settings,
+  AppThemeChoice theme = AppThemeChoice.ink,
+}) => ProviderScope(
+  overrides: [
+    todoStoreProvider.overrideWithValue(MemoryTodoStore()),
+    settingsStoreProvider.overrideWithValue(settings ?? MemorySettingsStore()),
+    initialThemeChoiceProvider.overrideWithValue(theme),
+  ],
   child: const RemindMeApp(),
 );
+
+/// The colours the home screen is currently drawn in.
+ColorScheme homeScheme(WidgetTester tester) =>
+    Theme.of(tester.element(find.byType(HomePage, skipOffstage: false)))
+        .colorScheme;
 
 /// Titles in the order they are painted.
 List<String> visibleTitles(WidgetTester tester) => tester
@@ -986,6 +1002,86 @@ void main() {
       findsOneWidget,
       reason: 'header should now show the picked date',
     );
+  });
+
+  group('settings', () {
+    testWidgets('the gear at the bottom right opens the settings screen', (
+      tester,
+    ) async {
+      await tester.pumpWidget(bootApp());
+      await tester.pumpAndSettle();
+
+      final gear = find.byIcon(Icons.settings_outlined);
+      expect(gear, findsOneWidget);
+      final bar = tester.getRect(find.byType(BrandedBottomBar));
+      final at = tester.getCenter(gear);
+      expect(at.dx, greaterThan(bar.center.dx), reason: 'on the right');
+      expect(at.dy, greaterThan(bar.top));
+      expect(at.dy, lessThan(bar.bottom));
+
+      await tester.tap(gear);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Settings'), findsOneWidget);
+      expect(find.text('Theme'), findsOneWidget);
+      for (final choice in AppThemeChoice.values) {
+        expect(find.text(choice.label), findsOneWidget);
+      }
+
+      await tester.tap(find.text('Done'));
+      await tester.pumpAndSettle();
+      expect(find.text('Add a task'), findsOneWidget);
+    });
+
+    testWidgets('the gear does not open the editor', (tester) async {
+      await tester.pumpWidget(bootApp());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.settings_outlined));
+      await tester.pumpAndSettle();
+
+      expect(find.text('New task'), findsNothing);
+      expect(find.byType(TextField), findsNothing);
+    });
+
+    testWidgets('picking a look recolours the whole app and is saved', (
+      tester,
+    ) async {
+      final settings = MemorySettingsStore();
+      await tester.pumpWidget(bootApp(settings: settings));
+      await tester.pumpAndSettle();
+
+      final ink = AppTheme.schemeFor(AppThemeChoice.ink, Brightness.light);
+      expect(homeScheme(tester).primary, ink.primary);
+
+      await tester.tap(find.byIcon(Icons.settings_outlined));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Ocean'));
+      await tester.pumpAndSettle();
+
+      final ocean = AppTheme.schemeFor(AppThemeChoice.ocean, Brightness.light);
+      expect(homeScheme(tester).primary, ocean.primary);
+      expect(homeScheme(tester).surface, ocean.surface);
+      expect(settings.values[ThemeChoice.settingKey], 'ocean');
+
+      // The tick moved to the new choice.
+      final ticked = tester
+          .widgetList<BrandedOptionRow>(find.byType(BrandedOptionRow))
+          .where((row) => row.selected)
+          .map((row) => row.label);
+      expect(ticked, ['Ocean']);
+    });
+
+    testWidgets('the app comes up in the look it was left in', (tester) async {
+      await tester.pumpWidget(bootApp(theme: AppThemeChoice.forest));
+      await tester.pumpAndSettle();
+
+      final forest = AppTheme.schemeFor(
+        AppThemeChoice.forest,
+        Brightness.light,
+      );
+      expect(homeScheme(tester).primary, forest.primary);
+    });
   });
 
   testWidgets('content is capped so it stays readable on a large screen', (

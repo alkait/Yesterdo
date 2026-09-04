@@ -11,9 +11,10 @@ class BrandedOptionRow extends StatelessWidget {
     required this.label,
     required this.onTap,
     this.icon,
+    this.leading,
     this.selected = false,
     this.tone = BrandedTone.primary,
-  });
+  }) : assert(icon == null || leading == null, 'pick an icon or a leading');
 
   final String label;
   final VoidCallback onTap;
@@ -21,35 +22,44 @@ class BrandedOptionRow extends StatelessWidget {
   /// Shown ahead of the label, in the row's own tone.
   final IconData? icon;
 
+  /// Shown ahead of the label instead of an icon, for something that is not
+  /// one, such as a swatch.
+  final Widget? leading;
+
   final bool selected;
   final BrandedTone tone;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    button: true,
-    selected: selected,
-    child: GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Container(
-        constraints: const BoxConstraints(minHeight: Brand.rowMinHeight),
-        padding: const EdgeInsets.symmetric(vertical: Brand.rowPadding),
-        child: Row(
-          children: [
-            if (icon != null) ...[
-              BrandedIcon(icon!, size: BrandedIconSize.medium, tone: tone),
-              const SizedBox(width: Brand.gap),
+  Widget build(BuildContext context) {
+    final ahead =
+        leading ??
+        (icon == null
+            ? null
+            : BrandedIcon(icon!, size: BrandedIconSize.medium, tone: tone));
+
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: Brand.rowMinHeight),
+          padding: const EdgeInsets.symmetric(vertical: Brand.rowPadding),
+          child: Row(
+            children: [
+              if (ahead != null) ...[ahead, const SizedBox(width: Brand.gap)],
+              Expanded(child: BrandedText(label, tone: tone, maxLines: 1)),
+              if (selected)
+                const BrandedIcon(
+                  Icons.check_rounded,
+                  size: BrandedIconSize.medium,
+                  tone: BrandedTone.primary,
+                ),
             ],
-            Expanded(child: BrandedText(label, tone: tone, maxLines: 1)),
-            if (selected)
-              const BrandedIcon(
-                Icons.check_rounded,
-                size: BrandedIconSize.medium,
-                tone: BrandedTone.primary,
-              ),
-          ],
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }

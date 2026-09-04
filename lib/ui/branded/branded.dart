@@ -23,3 +23,4 @@ export 'branded_selection_circle.dart';
 export 'branded_sheet.dart';
 export 'branded_text.dart';
 export 'branded_text_field.dart';
+export 'branded_theme_swatch.dart';

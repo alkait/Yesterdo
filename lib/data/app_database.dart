@@ -4,7 +4,7 @@ import 'package:sqflite/sqflite.dart';
 /// Owns the on-device SQLite file. Nothing leaves the device.
 abstract final class AppDatabase {
   static const _fileName = 'remind_me.db';
-  static const _version = 2;
+  static const _version = 3;
 
   static Future<Database> open() async {
     final path = p.join(await getDatabasesPath(), _fileName);
@@ -31,9 +31,11 @@ CREATE TABLE todos (
 )''');
     await db.execute('CREATE INDEX todos_day_idx ON todos (day)');
     await _createRecurrences(db);
+    await _createSettings(db);
   }
 
-  /// Version 1 knew nothing of repeating tasks.
+  /// Version 1 knew nothing of repeating tasks. Version 2 had nowhere to keep
+  /// a setting.
   static Future<void> upgradeSchema(Database db, int from, int to) async {
     if (from < 2) {
       await db.execute('ALTER TABLE todos ADD COLUMN recurrence_id INTEGER');
@@ -42,7 +44,14 @@ CREATE TABLE todos (
       );
       await _createRecurrences(db);
     }
+    if (from < 3) await _createSettings(db);
   }
+
+  static Future<void> _createSettings(Database db) => db.execute('''
+CREATE TABLE settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+)''');
 
   static Future<void> _createRecurrences(Database db) async {
     await db.execute('''

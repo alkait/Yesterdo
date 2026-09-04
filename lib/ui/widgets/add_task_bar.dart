@@ -6,15 +6,18 @@ import '../../state/providers.dart';
 import '../../state/task_draft.dart';
 import '../branded/branded.dart';
 import '../task_editor_page.dart';
+import 'settings_button.dart';
 
 /// The bar pinned to the bottom. It opens the editor rather than taking text
-/// inline, so writing a task always happens on its own screen.
+/// inline, so writing a task always happens on its own screen. The settings
+/// gear sits at its right end, outside the add tap target.
 class AddTaskBar extends ConsumerWidget {
   const AddTaskBar({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) => BrandedBottomBar(
     onTap: () => _add(context, ref),
+    trailing: const SettingsButton(),
     child: const Row(
       children: [
         BrandedIcon(Icons.add_rounded),
