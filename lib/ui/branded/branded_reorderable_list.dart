@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'brand.dart';
 
 /// A list whose items can be dragged into a new order. Dragging is started by
-/// a [BrandedDragHandle], never by pressing the item itself.
+/// holding a [BrandedDragLift], never by a plain press on the item.
 class BrandedReorderableList extends StatelessWidget {
   const BrandedReorderableList({
     super.key,
@@ -24,6 +25,8 @@ class BrandedReorderableList extends StatelessWidget {
     itemCount: itemCount,
     itemBuilder: itemBuilder,
     onReorderItem: onReorder,
+    // With no grip to see, the lift is felt instead.
+    onReorderStart: (_) => HapticFeedback.selectionClick(),
     // The default lifts the item on a Material shadow. Flat design instead
     // nudges its scale so the card reads as picked up.
     proxyDecorator: (child, index, animation) => AnimatedBuilder(

@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -99,25 +100,17 @@ Future<void> actOn(
   }
 }
 
-/// Picks a card up by its grip and drags it down over another one.
+/// Holds a card until it lifts, then drags it down over another one.
 Future<void> dragCardDown(
   WidgetTester tester, {
   required String from,
   required String over,
 }) async {
-  final row = find.ancestor(
-    of: find.text(from),
-    matching: find.byType(TodoTile),
-  );
-  final grip = find.descendant(
-    of: row,
-    matching: find.byType(BrandedDragHandle),
-  );
-  final start = tester.getCenter(grip);
+  final start = tester.getCenter(find.text(from));
   final target = tester.getCenter(find.text(over));
 
   final gesture = await tester.startGesture(start);
-  await tester.pump(const Duration(milliseconds: 100));
+  await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
   await gesture.moveTo(target);
   await tester.pumpAndSettle();
   await gesture.up();
@@ -331,7 +324,7 @@ void main() {
     expect(titleTextOf(tester, 'Buy bread').textDirection, TextDirection.ltr);
   });
 
-  testWidgets('open tasks carry a drag handle, completed ones do not', (
+  testWidgets('open tasks can be lifted, completed ones cannot', (
     tester,
   ) async {
     await tester.pumpWidget(bootApp());
@@ -339,10 +332,36 @@ void main() {
 
     await addTask(tester, 'Buy milk');
     await addTask(tester, 'Call Sam');
-    expect(find.byType(BrandedDragHandle), findsNWidgets(2));
+    expect(find.byType(BrandedDragLift), findsNWidgets(2));
+    expect(
+      find.byIcon(Icons.drag_indicator_rounded),
+      findsNothing,
+      reason: 'no grip takes room from the words',
+    );
 
     await actOn(tester, 'Buy milk', 'Done');
-    expect(find.byType(BrandedDragHandle), findsOneWidget);
+    expect(find.byType(BrandedDragLift), findsOneWidget);
+  });
+
+  testWidgets('a quick press does not lift the card', (tester) async {
+    await tester.pumpWidget(bootApp());
+    await tester.pumpAndSettle();
+
+    await addTask(tester, 'Buy milk');
+    await addTask(tester, 'Call Sam');
+    await addTask(tester, 'Post letter');
+
+    // Moving before the hold is up is a scroll, not a reorder.
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('Buy milk')),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+    await gesture.moveTo(tester.getCenter(find.text('Post letter')));
+    await tester.pumpAndSettle();
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(visibleTitles(tester), ['Buy milk', 'Call Sam', 'Post letter']);
   });
 
   testWidgets('dragging the handle reorders open tasks and it sticks', (

@@ -11,7 +11,7 @@ export 'branded_bottom_bar.dart';
 export 'branded_card.dart';
 export 'branded_button.dart';
 export 'branded_divider.dart';
-export 'branded_drag_handle.dart';
+export 'branded_drag_lift.dart';
 export 'branded_field_row.dart';
 export 'branded_option_row.dart';
 export 'branded_swipe_actions.dart';

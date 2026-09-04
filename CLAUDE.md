@@ -76,7 +76,7 @@ in one place and shows up everywhere.
   `BrandedTextButton`, `BrandedActionButton`, `BrandedActionGrid`,
   `BrandedFieldRow`, `BrandedOptionRow`,
   `BrandedAppBar`, `BrandedBottomBar`, `BrandedScaffold`, `BrandedCard`,
-  `BrandedDragHandle`, `BrandedReorderableList`, `BrandedSwipeActions`,
+  `BrandedDragLift`, `BrandedReorderableList`, `BrandedSwipeActions`,
   `BrandedSelectionCircle`, `BrandedTextField`, `BrandedDivider`,
   `BrandedThemeSwatch`, `BrandedApp`, `showBrandedSheet` and `openBrandedPage`.
 - Raw `Text`, `Icon`, `TextField`, `Scaffold`, `AppBar`, `Divider`, `Dismissible`,
@@ -122,13 +122,13 @@ in one place and shows up everywhere.
 - Direction comes from the first strong letter, not the first character. Digits,
   punctuation and emoji carry no direction and are skipped, so `"1. مرحبا"` reads
   right to left. `brandedTextDirection` is the one place that decides.
-- The drag grip stays on the right whatever the text direction. Flipping it per card
-  would make the grips jump sides in a mixed list.
-- Only open tasks carry a drag handle. Completed ones are ranked by when they were
-  finished, so a handle there would promise a move the list cannot keep. A drag that
+- A card carries no drag grip. Pressing and holding anywhere on it lifts it, through
+  `BrandedDragLift`, and the whole width is left to the words.
+- Only open tasks can be lifted. Completed ones are ranked by when they were
+  finished, so lifting one would promise a move the list cannot keep. A drag that
   lands among them is clamped back into the open group.
-- Reordering starts from the handle only, which leaves a plain sideways swipe free
-  for the row's buttons.
+- The lift waits for the long-press timeout, which leaves a plain sideways swipe
+  free for the row's buttons and a double tap free for the sheet.
 - A swipe never acts on its own. It uncovers buttons and nothing happens until one
   is tapped, so a swipe can always be taken back. Swiping right uncovers done and
   edit, swiping left uncovers delete.

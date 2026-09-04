@@ -7,7 +7,7 @@ import '../branded/branded.dart';
 import 'task_actions.dart';
 
 /// One task, on its own bordered card, always a single line. Swipe either way
-/// for buttons, double tap for all of them, drag the grip to reorder.
+/// for buttons, double tap for all of them, press and hold to reorder.
 class TodoTile extends ConsumerWidget {
   const TodoTile({
     super.key,
@@ -18,36 +18,14 @@ class TodoTile extends ConsumerWidget {
 
   final Todo todo;
 
-  /// Position in the list, which the drag handle needs.
+  /// Position in the list, which the lift needs.
   final int index;
 
   final BrandedSwipeGroup swipeGroup;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) => BrandedSwipeActions(
-    group: swipeGroup,
-    id: todo.key,
-    leading: [
-      BrandedSwipeAction(
-        icon: doneIconFor(todo),
-        label: doneLabelFor(todo),
-        onTap: () => ref.read(todosProvider.notifier).toggle(todo),
-      ),
-      BrandedSwipeAction(
-        icon: Icons.edit_outlined,
-        label: 'Edit',
-        onTap: () => editTask(context, ref, todo),
-      ),
-    ],
-    trailing: [
-      BrandedSwipeAction(
-        icon: Icons.delete_outline_rounded,
-        label: 'Delete',
-        tone: BrandedTone.danger,
-        onTap: () => deleteTask(context, ref, todo),
-      ),
-    ],
-    child: BrandedCard(
+  Widget build(BuildContext context, WidgetRef ref) {
+    final card = BrandedCard(
       recessed: todo.done,
       leading: todo.repeats
           ? const BrandedIcon(
@@ -57,15 +35,40 @@ class TodoTile extends ConsumerWidget {
             )
           : null,
       onDoubleTap: () => showTaskActions(context, ref, todo),
-      // Only open tasks can move; completed ones are ranked by when they were
-      // finished, so a handle there would promise something it cannot do.
-      trailing: todo.done ? null : BrandedDragHandle(index: index),
       child: BrandedText(
         todo.firstLine,
         struck: todo.done,
         tone: todo.done ? BrandedTone.muted : BrandedTone.primary,
         maxLines: 1,
       ),
-    ),
-  );
+    );
+
+    return BrandedSwipeActions(
+      group: swipeGroup,
+      id: todo.key,
+      leading: [
+        BrandedSwipeAction(
+          icon: doneIconFor(todo),
+          label: doneLabelFor(todo),
+          onTap: () => ref.read(todosProvider.notifier).toggle(todo),
+        ),
+        BrandedSwipeAction(
+          icon: Icons.edit_outlined,
+          label: 'Edit',
+          onTap: () => editTask(context, ref, todo),
+        ),
+      ],
+      trailing: [
+        BrandedSwipeAction(
+          icon: Icons.delete_outline_rounded,
+          label: 'Delete',
+          tone: BrandedTone.danger,
+          onTap: () => deleteTask(context, ref, todo),
+        ),
+      ],
+      // Only open tasks can move; completed ones are ranked by when they were
+      // finished, so lifting one would promise something it cannot do.
+      child: todo.done ? card : BrandedDragLift(index: index, child: card),
+    );
+  }
 }
