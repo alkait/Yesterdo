@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:remind_me/app.dart';
+import 'package:remind_me/core/date_labels.dart';
 import 'package:remind_me/state/providers.dart';
 import 'package:remind_me/state/todos_controller.dart';
 import 'package:remind_me/ui/branded/branded.dart';
@@ -21,12 +22,40 @@ List<String> visibleTitles(WidgetTester tester) => tester
     .toList();
 
 /// Writes a task the way a person does: on the editor screen.
-Future<void> addTask(WidgetTester tester, String title) async {
+///
+/// Pass [repeat] to also work the repeat picker, naming the option to choose.
+Future<void> addTask(
+  WidgetTester tester,
+  String title, {
+  String? repeat,
+}) async {
   await tester.tap(find.text('Add a task'));
   await tester.pumpAndSettle();
   await tester.enterText(find.byType(TextField), title);
+  if (repeat != null) await chooseRepeat(tester, repeat);
   await tester.tap(find.text('Save'));
   await tester.pumpAndSettle();
+}
+
+/// Opens the repeat picker from the editor and settles on one option.
+Future<void> chooseRepeat(WidgetTester tester, String option) async {
+  await tester.tap(find.text('Repeat'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(option).last);
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Done'));
+  await tester.pumpAndSettle();
+}
+
+/// Steps the day header forward or back.
+Future<void> stepDay(WidgetTester tester, int days) async {
+  final arrow = days > 0
+      ? Icons.chevron_right_rounded
+      : Icons.chevron_left_rounded;
+  for (var step = 0; step < days.abs(); step++) {
+    await tester.tap(find.byIcon(arrow).first);
+    await tester.pumpAndSettle();
+  }
 }
 
 Future<void> openActions(WidgetTester tester, String title) async {
@@ -80,8 +109,12 @@ Future<void> dragCardDown(
 }
 
 /// Drags a row sideways to uncover its buttons, then lets go.
+///
+/// An already open row is covered by its own tap absorber, so the drag lands
+/// there rather than on the text. It still reaches the row, which is why the
+/// hit-test warning is turned off.
 Future<void> swipe(WidgetTester tester, String title, Offset by) async {
-  await tester.drag(find.text(title), by);
+  await tester.drag(find.text(title), by, warnIfMissed: false);
   await tester.pumpAndSettle();
 }
 
@@ -424,6 +457,445 @@ void main() {
 
     await swipe(tester, 'Call Sam', const Offset(-160, 0));
     expect(find.byIcon(Icons.delete_outline_rounded), findsOneWidget);
+  });
+
+  group('repeating tasks', () {
+    testWidgets('a daily task comes back tomorrow but not yesterday', (
+      tester,
+    ) async {
+      await tester.pumpWidget(bootApp());
+      await tester.pumpAndSettle();
+
+      await addTask(tester, 'Take the pills', repeat: 'Every day');
+      expect(visibleTitles(tester), ['Take the pills']);
+
+      await stepDay(tester, 1);
+      expect(visibleTitles(tester), ['Take the pills']);
+
+      // The rule starts on the day it was made, so earlier days are untouched.
+      await stepDay(tester, -2);
+      expect(find.text('Nothing planned'), findsOneWidget);
+    });
+
+    testWidgets('a weekly task comes back in seven days, not tomorrow', (
+      tester,
+    ) async {
+      await tester.pumpWidget(bootApp());
+      await tester.pumpAndSettle();
+
+      await addTask(tester, 'Team sync', repeat: 'Every week');
+
+      await stepDay(tester, 1);
+      expect(find.text('Nothing planned'), findsOneWidget);
+
+      await stepDay(tester, 6);
+      expect(visibleTitles(tester), ['Team sync']);
+    });
+
+    testWidgets('several repeating tasks all show, each keyed apart', (
+      tester,
+    ) async {
+      await tester.pumpWidget(bootApp());
+      await tester.pumpAndSettle();
+
+      await addTask(tester, 'Draft the summary');
+      await addTask(tester, 'Take the pills', repeat: 'Every day');
+      await addTask(tester, 'Team sync', repeat: 'Every week');
+      await addTask(tester, 'Pay the rent', repeat: 'Every day');
+
+      // Projected occurrences carry no row id. Keying tiles on that id gave
+      // them all the same key and the list showed only the last.
+      expect(visibleTitles(tester), [
+        'Draft the summary',
+        'Take the pills',
+        'Team sync',
+        'Pay the rent',
+      ]);
+
+      final keys = tester
+          .widgetList<TodoTile>(find.byType(TodoTile))
+          .map((tile) => tile.key)
+          .toSet();
+      expect(keys, hasLength(4), reason: 'every tile needs its own key');
+    });
+
+    testWidgets('the picker offers this day, not a leftover from the rule', (
+      tester,
+    ) async {
+      await tester.pumpWidget(bootApp());
+      await tester.pumpAndSettle();
+
+      // A weekly rule carries no meaningful day of the month, so the monthly
+      // option must fall back to the day being looked at.
+      final today = DateTime.now().day;
+      await addTask(tester, 'Team sync', repeat: 'Every week');
+      await openActions(tester, 'Team sync');
+      await tester.tap(find.text('Edit'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Repeat'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Monthly on the ${ordinal(today)}'), findsOneWidget);
+    });
+
+    testWidgets('a repeating card is marked as one', (tester) async {
+      await tester.pumpWidget(bootApp());
+      await tester.pumpAndSettle();
+
+      await addTask(tester, 'Buy milk');
+      expect(find.byIcon(Icons.repeat_rounded), findsNothing);
+
+      await addTask(tester, 'Take the pills', repeat: 'Every day');
+      expect(find.byIcon(Icons.repeat_rounded), findsOneWidget);
+    });
+
+    testWidgets('completing one day leaves the next day open', (tester) async {
+      await tester.pumpWidget(bootApp());
+      await tester.pumpAndSettle();
+
+      await addTask(tester, 'Take the pills', repeat: 'Every day');
+      await actOn(tester, 'Take the pills', 'Done');
+
+      final struck = tester.widgetList<TodoTile>(find.byType(TodoTile)).single;
+      expect(struck.todo.done, isTrue);
+
+      await stepDay(tester, 1);
+      final tomorrow = tester
+          .widgetList<TodoTile>(find.byType(TodoTile))
+          .single;
+      expect(tomorrow.todo.done, isFalse);
+    });
+
+    testWidgets('deleting asks, and this one leaves the others alone', (
+      tester,
+    ) async {
+      await tester.pumpWidget(bootApp());
+      await tester.pumpAndSettle();
+
+      await addTask(tester, 'Take the pills', repeat: 'Every day');
+      await openActions(tester, 'Take the pills');
+      await tester.tap(find.text('Delete'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('This task repeats'), findsOneWidget);
+      await tester.tap(find.text('Delete this one'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Nothing planned'), findsOneWidget);
+
+      await stepDay(tester, 1);
+      expect(visibleTitles(tester), ['Take the pills']);
+    });
+
+    testWidgets('deleting this and later keeps the days before it', (
+      tester,
+    ) async {
+      await tester.pumpWidget(bootApp());
+      await tester.pumpAndSettle();
+
+      await addTask(tester, 'Take the pills', repeat: 'Every day');
+
+      // Cut the series two days out, not on the day it began.
+      await stepDay(tester, 2);
+      await openActions(tester, 'Take the pills');
+      await tester.tap(find.text('Delete'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete this and later ones'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Nothing planned'), findsOneWidget);
+
+      await stepDay(tester, 1);
+      expect(find.text('Nothing planned'), findsOneWidget, reason: 'later');
+
+      await stepDay(tester, -2);
+      expect(visibleTitles(tester), [
+        'Take the pills',
+      ], reason: 'the day before');
+
+      await stepDay(tester, -1);
+      expect(visibleTitles(tester), [
+        'Take the pills',
+      ], reason: 'the first day');
+    });
+
+    testWidgets('the first day still offers the later ones', (tester) async {
+      await tester.pumpWidget(bootApp());
+      await tester.pumpAndSettle();
+
+      await addTask(tester, 'Take the pills', repeat: 'Every day');
+      await openActions(tester, 'Take the pills');
+      await tester.tap(find.text('Delete'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Delete this one'), findsOneWidget);
+      expect(
+        find.text('Delete this and later ones'),
+        findsOneWidget,
+        reason: 'tomorrow is already there, written down or not',
+      );
+      expect(find.text('Delete every one'), findsOneWidget);
+      expect(
+        find.text('Delete this and earlier ones'),
+        findsNothing,
+        reason: 'there is no earlier',
+      );
+    });
+
+    testWidgets('the last day offers the earlier ones but not later', (
+      tester,
+    ) async {
+      await tester.pumpWidget(bootApp());
+      await tester.pumpAndSettle();
+
+      await addTask(tester, 'Take the pills', repeat: 'Every day');
+
+      // End the run two days out, then stand on its final day.
+      await stepDay(tester, 2);
+      await openActions(tester, 'Take the pills');
+      await tester.tap(find.text('Delete'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete this and later ones'));
+      await tester.pumpAndSettle();
+
+      await stepDay(tester, -1);
+      await openActions(tester, 'Take the pills');
+      await tester.tap(find.text('Delete'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Delete this one'), findsOneWidget);
+      expect(find.text('Delete this and earlier ones'), findsOneWidget);
+      expect(find.text('Delete every one'), findsOneWidget);
+      expect(find.text('Delete this and later ones'), findsNothing);
+    });
+
+    testWidgets('a task down to one showing deletes without asking', (
+      tester,
+    ) async {
+      await tester.pumpWidget(bootApp());
+      await tester.pumpAndSettle();
+
+      await addTask(tester, 'Take the pills', repeat: 'Every day');
+
+      // Cut the future off tomorrow, leaving today as the only showing.
+      await stepDay(tester, 1);
+      await openActions(tester, 'Take the pills');
+      await tester.tap(find.text('Delete'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete this and later ones'));
+      await tester.pumpAndSettle();
+
+      await stepDay(tester, -1);
+      await openActions(tester, 'Take the pills');
+      await tester.tap(find.text('Delete'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('This task repeats'), findsNothing);
+      expect(find.text('Nothing planned'), findsOneWidget);
+    });
+
+    testWidgets('a day with showings either side offers all four', (
+      tester,
+    ) async {
+      await tester.pumpWidget(bootApp());
+      await tester.pumpAndSettle();
+
+      await addTask(tester, 'Take the pills', repeat: 'Every day');
+      await stepDay(tester, 2);
+      await openActions(tester, 'Take the pills');
+      await tester.tap(find.text('Delete'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Delete this one'), findsOneWidget);
+      expect(find.text('Delete this and earlier ones'), findsOneWidget);
+      expect(find.text('Delete this and later ones'), findsOneWidget);
+      expect(find.text('Delete every one'), findsOneWidget);
+
+      // Each scope carries its own icon, and the two ranges mirror each other.
+      expect(find.byIcon(Icons.event_busy_rounded), findsOneWidget);
+      expect(
+        find.byIcon(Icons.keyboard_double_arrow_left_rounded),
+        findsOneWidget,
+      );
+      expect(
+        find.byIcon(Icons.keyboard_double_arrow_right_rounded),
+        findsOneWidget,
+      );
+      expect(find.byIcon(Icons.delete_sweep_rounded), findsOneWidget);
+    });
+
+    testWidgets('deleting this and earlier keeps the days after it', (
+      tester,
+    ) async {
+      await tester.pumpWidget(bootApp());
+      await tester.pumpAndSettle();
+
+      await addTask(tester, 'Take the pills', repeat: 'Every day');
+
+      // Cut two days out, so there are days on both sides of the cut.
+      await stepDay(tester, 2);
+      await openActions(tester, 'Take the pills');
+      await tester.tap(find.text('Delete'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete this and earlier ones'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Nothing planned'), findsOneWidget);
+
+      await stepDay(tester, -1);
+      expect(find.text('Nothing planned'), findsOneWidget, reason: 'earlier');
+
+      await stepDay(tester, -1);
+      expect(
+        find.text('Nothing planned'),
+        findsOneWidget,
+        reason: 'the first day',
+      );
+
+      await stepDay(tester, 3);
+      expect(visibleTitles(tester), [
+        'Take the pills',
+      ], reason: 'the day after');
+    });
+
+    testWidgets('the two halves meet without overlapping', (tester) async {
+      await tester.pumpWidget(bootApp());
+      await tester.pumpAndSettle();
+
+      await addTask(tester, 'Take the pills', repeat: 'Every day');
+
+      // Cut the future off at day three, then the past off at day one.
+      await stepDay(tester, 3);
+      await openActions(tester, 'Take the pills');
+      await tester.tap(find.text('Delete'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete this and later ones'));
+      await tester.pumpAndSettle();
+
+      await stepDay(tester, -2);
+      await openActions(tester, 'Take the pills');
+      await tester.tap(find.text('Delete'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete this and earlier ones'));
+      await tester.pumpAndSettle();
+
+      // Only day two is left standing.
+      expect(find.text('Nothing planned'), findsOneWidget);
+      await stepDay(tester, 1);
+      expect(visibleTitles(tester), ['Take the pills']);
+      await stepDay(tester, 1);
+      expect(find.text('Nothing planned'), findsOneWidget);
+    });
+
+    testWidgets('a one-off still deletes without being asked', (tester) async {
+      await tester.pumpWidget(bootApp());
+      await tester.pumpAndSettle();
+
+      await addTask(tester, 'Buy milk');
+      await openActions(tester, 'Buy milk');
+      await tester.tap(find.text('Delete'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('This task repeats'), findsNothing);
+      expect(find.text('Nothing planned'), findsOneWidget);
+    });
+
+    testWidgets('deleting every one clears it from other days too', (
+      tester,
+    ) async {
+      await tester.pumpWidget(bootApp());
+      await tester.pumpAndSettle();
+
+      await addTask(tester, 'Take the pills', repeat: 'Every day');
+      await openActions(tester, 'Take the pills');
+      await tester.tap(find.text('Delete'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete every one'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Nothing planned'), findsOneWidget);
+
+      await stepDay(tester, 1);
+      expect(find.text('Nothing planned'), findsOneWidget);
+    });
+
+    testWidgets('editing a repeating task changes it on every day', (
+      tester,
+    ) async {
+      await tester.pumpWidget(bootApp());
+      await tester.pumpAndSettle();
+
+      await addTask(tester, 'Take the pills', repeat: 'Every day');
+      await openActions(tester, 'Take the pills');
+      await tester.tap(find.text('Edit'));
+      await tester.pumpAndSettle();
+
+      // The editor opens on the rule already in force.
+      expect(find.text('Every day'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), 'Take the vitamins');
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      expect(visibleTitles(tester), ['Take the vitamins']);
+      await stepDay(tester, 1);
+      expect(visibleTitles(tester), ['Take the vitamins']);
+    });
+
+    testWidgets('turning off repeat leaves the task on this day only', (
+      tester,
+    ) async {
+      await tester.pumpWidget(bootApp());
+      await tester.pumpAndSettle();
+
+      await addTask(tester, 'Take the pills', repeat: 'Every day');
+      await openActions(tester, 'Take the pills');
+      await tester.tap(find.text('Edit'));
+      await tester.pumpAndSettle();
+      await chooseRepeat(tester, 'Never');
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      expect(visibleTitles(tester), ['Take the pills']);
+      expect(find.byIcon(Icons.repeat_rounded), findsNothing);
+
+      await stepDay(tester, 1);
+      expect(find.text('Nothing planned'), findsOneWidget);
+    });
+
+    testWidgets('a one-off can be turned into a repeating task', (
+      tester,
+    ) async {
+      await tester.pumpWidget(bootApp());
+      await tester.pumpAndSettle();
+
+      await addTask(tester, 'Take the pills');
+      await openActions(tester, 'Take the pills');
+      await tester.tap(find.text('Edit'));
+      await tester.pumpAndSettle();
+      await chooseRepeat(tester, 'Every day');
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(Icons.repeat_rounded), findsOneWidget);
+      await stepDay(tester, 1);
+      expect(visibleTitles(tester), ['Take the pills']);
+    });
+
+    testWidgets('a repeating task can be dragged into a new order', (
+      tester,
+    ) async {
+      await tester.pumpWidget(bootApp());
+      await tester.pumpAndSettle();
+
+      await addTask(tester, 'Take the pills', repeat: 'Every day');
+      await addTask(tester, 'Buy milk');
+      await addTask(tester, 'Call Sam');
+
+      await dragCardDown(tester, from: 'Take the pills', over: 'Call Sam');
+
+      expect(visibleTitles(tester), ['Buy milk', 'Take the pills', 'Call Sam']);
+    });
   });
 
   testWidgets('arrows move a day at a time and each day keeps its own list', (

@@ -39,6 +39,12 @@ tasks have a grip on the right for dragging them into a new order, which is
 written back as positions. Writing a task always happens on its own full screen,
 never inline.
 
+A task can repeat daily, weekly on any set of weekdays, or monthly. Repeats are
+stored as rules rather than as a row per day, so any day past or future can be
+opened at once and nothing is written until you act on an occurrence. Deleting
+one asks whether you mean this day, this day and earlier, this day and later, or
+the whole thing.
+
 ```
 lib/
   core/     dates, labels, theme

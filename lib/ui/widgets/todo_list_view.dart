@@ -36,8 +36,11 @@ class _TodoListViewState extends ConsumerState<TodoListView> {
       onReorder: ref.read(todosProvider.notifier).reorder,
       itemBuilder: (context, index) {
         final todo = todos[index];
+        // The key must be the stable one. A projected occurrence has no row
+        // id, so keying on that gave every one of them the same null key and
+        // the list kept only the last.
         return TodoTile(
-          key: ValueKey(todo.id),
+          key: ValueKey(todo.key),
           todo: todo,
           index: index,
           swipeGroup: _swipeGroup,

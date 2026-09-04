@@ -7,6 +7,7 @@ abstract final class Brand {
   static const gutter = 20.0;
   static const gap = 14.0;
   static const rowMinHeight = 52.0;
+  static const rowPadding = 12.0;
   static const cardRadius = 12.0;
   static const cardGap = 8.0;
   static const cardPaddingH = 16.0;

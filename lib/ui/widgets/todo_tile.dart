@@ -26,7 +26,7 @@ class TodoTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) => BrandedSwipeActions(
     group: swipeGroup,
-    id: todo.id,
+    id: todo.key,
     leading: [
       BrandedSwipeAction(
         icon: doneIconFor(todo),
@@ -44,11 +44,18 @@ class TodoTile extends ConsumerWidget {
         icon: Icons.delete_outline_rounded,
         label: 'Delete',
         tone: BrandedTone.danger,
-        onTap: () => ref.read(todosProvider.notifier).remove(todo),
+        onTap: () => deleteTask(context, ref, todo),
       ),
     ],
     child: BrandedCard(
       recessed: todo.done,
+      leading: todo.repeats
+          ? const BrandedIcon(
+              Icons.repeat_rounded,
+              size: BrandedIconSize.small,
+              tone: BrandedTone.muted,
+            )
+          : null,
       onDoubleTap: () => showTaskActions(context, ref, todo),
       // Only open tasks can move; completed ones are ranked by when they were
       // finished, so a handle there would promise something it cannot do.

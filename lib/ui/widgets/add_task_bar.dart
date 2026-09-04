@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/day.dart';
 import '../../state/providers.dart';
+import '../../state/task_draft.dart';
 import '../branded/branded.dart';
 import '../task_editor_page.dart';
 
@@ -23,10 +25,13 @@ class AddTaskBar extends ConsumerWidget {
   );
 
   Future<void> _add(BuildContext context, WidgetRef ref) async {
-    final title = await openBrandedPage<String>(
+    final draft = await openBrandedPage<TaskDraft>(
       context,
-      (_) => const TaskEditorPage(heading: 'New task'),
+      (_) => TaskEditorPage(
+        heading: 'New task',
+        anchorDay: ref.read(selectedDayProvider).epochDay,
+      ),
     );
-    if (title != null) await ref.read(todosProvider.notifier).add(title);
+    if (draft != null) await ref.read(todosProvider.notifier).add(draft);
   }
 }

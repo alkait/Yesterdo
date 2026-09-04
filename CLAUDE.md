@@ -43,6 +43,30 @@ A day-at-a-time todo list for iPhone and iPad. Offline, local, no account, no sy
 - Dragging renumbers positions 0, 1, 2 and writes them through `TodoStore.reorder`
   in one batch. Do not write positions one row at a time.
 
+## Repeating tasks
+
+- A repeat is stored as a rule in `recurrences`, never as a row per day. A day is
+  read as its own rows plus every rule that fires on it, composed once in
+  `mergeDay` so both stores answer alike.
+- A rule always has a `start_day`. Without one it would reach back over every past
+  day the user walks to.
+- Nothing is written until someone acts. Completing, renaming, deleting or dragging
+  a projected occurrence materialises it first, through `TodoStore.materialize`.
+- Deleting one occurrence writes a hidden row. A rule cannot be unwritten for a
+  single day.
+- Deleting this and later ones sets the rule's `end_day` to the day before and
+  drops written-down occurrences from that day on. Deleting this and earlier ones
+  is its mirror: `start_day` moves to the day after and occurrences up to it go. A
+  cut that would leave the rule with no days at all removes it outright.
+- `Todo.id` is null while a task is only projected. Key widgets, swipe state and
+  sort ties on `Todo.key`, never on the id. The key survives materialisation.
+- Words and rule both belong to the series, so editing a repeating task changes
+  every day it appears on. Only done, not done and delete-this-one are per day.
+- Monthly on the 31st clamps to the last day of shorter months.
+- The schema is versioned. Add an `onUpgrade` branch and cover it in
+  `test/migration_test.dart`, which runs against real SQLite. The fake-clock hang
+  only affects widget tests, so a plain test with the ffi driver is fine.
+
 ## UI: the Branded rule
 
 Every visual element is wrapped in a Branded widget, so a change to the look lands
@@ -50,6 +74,7 @@ in one place and shows up everywhere.
 
 - Screens compose `BrandedText`, `BrandedIcon`, `BrandedIconButton`,
   `BrandedTextButton`, `BrandedActionButton`, `BrandedActionGrid`,
+  `BrandedFieldRow`, `BrandedOptionRow`,
   `BrandedAppBar`, `BrandedBottomBar`, `BrandedScaffold`, `BrandedCard`,
   `BrandedDragHandle`, `BrandedReorderableList`, `BrandedSwipeActions`,
   `BrandedSelectionCircle`, `BrandedTextField`, `BrandedDivider`, `BrandedApp`,
@@ -113,6 +138,20 @@ in one place and shows up everywhere.
   every row, which closes the last one when another opens.
 - The three task actions are named once in `task_actions.dart`. The swipe buttons
   and the sheet both read from there so their icons and labels cannot drift.
+- Deleting a repeating task asks first, with up to four scopes: this one, this and
+  earlier ones, this and later ones, or every one. It is the only place a choice is
+  put to the user. A one-off deletes without being asked.
+- Offer a range whenever the rule has showings on that side, judged from the rule
+  and not from whether any of them have been written down. To the person looking at
+  it, tomorrow's showing is already there. The two ranges are decided
+  independently: a rule's first day still offers "this and later ones".
+- Drop a range only when its own side is empty, and ask nothing at all when a task
+  is down to a single showing. `RepeatRule.hasOccurrenceBefore` and
+  `hasOccurrenceAfter` answer this; do not reason about it in a widget.
+- A repeating card carries a repeat glyph in the card's leading slot.
+- A `late` field initialiser runs on first use, not at construction. Never let one
+  read mutable state, or it will evaluate against a value the user has since
+  changed.
 
 ## Tests
 
