@@ -12,6 +12,8 @@ abstract final class Brand {
   static const cardPaddingH = 16.0;
   static const cardPaddingV = 14.0;
   static const borderWidth = 1.0;
+  static const swipeActionWidth = 56.0;
+  static const swipeActionGap = 6.0;
   static const tapTarget = 48.0;
   static const checkSize = 22.0;
   static const daySize = 36.0;

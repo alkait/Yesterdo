@@ -6,11 +6,25 @@ import '../branded/branded.dart';
 import 'todo_tile.dart';
 
 /// The day's tasks. Open first and draggable, checked ones settled below.
-class TodoListView extends ConsumerWidget {
+class TodoListView extends ConsumerStatefulWidget {
   const TodoListView({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TodoListView> createState() => _TodoListViewState();
+}
+
+class _TodoListViewState extends ConsumerState<TodoListView> {
+  /// Keeps at most one row swiped open at a time.
+  final _swipeGroup = BrandedSwipeGroup();
+
+  @override
+  void dispose() {
+    _swipeGroup.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final todos = ref.watch(todosProvider).value;
 
     // Null only on the very first read of a day, which lasts a frame or two.
@@ -22,7 +36,12 @@ class TodoListView extends ConsumerWidget {
       onReorder: ref.read(todosProvider.notifier).reorder,
       itemBuilder: (context, index) {
         final todo = todos[index];
-        return TodoTile(key: ValueKey(todo.id), todo: todo, index: index);
+        return TodoTile(
+          key: ValueKey(todo.id),
+          todo: todo,
+          index: index,
+          swipeGroup: _swipeGroup,
+        );
       },
     );
   }

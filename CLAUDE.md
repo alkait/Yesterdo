@@ -2,6 +2,12 @@
 
 A day-at-a-time todo list for iPhone and iPad. Offline, local, no account, no sync.
 
+## Git
+
+- Always work on `main`. Never create a branch.
+- Never open a pull request. Commit straight to `main`.
+- Commit when asked to, not on your own.
+
 ## Toolchain
 
 - Prefix every Flutter and Dart command with `fvm`. A bare `flutter` resolves to the
@@ -45,8 +51,8 @@ in one place and shows up everywhere.
 - Screens compose `BrandedText`, `BrandedIcon`, `BrandedIconButton`,
   `BrandedTextButton`, `BrandedActionButton`, `BrandedActionGrid`,
   `BrandedAppBar`, `BrandedBottomBar`, `BrandedScaffold`, `BrandedCard`,
-  `BrandedDragHandle`, `BrandedReorderableList`, `BrandedSelectionCircle`,
-  `BrandedTextField`, `BrandedDivider`, `BrandedDismissible`, `BrandedApp`,
+  `BrandedDragHandle`, `BrandedReorderableList`, `BrandedSwipeActions`,
+  `BrandedSelectionCircle`, `BrandedTextField`, `BrandedDivider`, `BrandedApp`,
   `showBrandedSheet` and `openBrandedPage`.
 - Raw `Text`, `Icon`, `TextField`, `Scaffold`, `AppBar`, `Divider`, `Dismissible`,
   `MaterialApp`, `MaterialPageRoute`, `ListView.`, `ReorderableListView`,
@@ -97,7 +103,16 @@ in one place and shows up everywhere.
   finished, so a handle there would promise a move the list cannot keep. A drag that
   lands among them is clamped back into the open group.
 - Reordering starts from the handle only, which leaves a plain sideways swipe free
-  to mean delete.
+  for the row's buttons.
+- A swipe never acts on its own. It uncovers buttons and nothing happens until one
+  is tapped, so a swipe can always be taken back. Swiping right uncovers done and
+  edit, swiping left uncovers delete.
+- The card squeezes to make room rather than sliding off the screen edge, so it
+  keeps both of its rounded ends.
+- One row is open at a time. The list owns a `BrandedSwipeGroup` and hands it to
+  every row, which closes the last one when another opens.
+- The three task actions are named once in `task_actions.dart`. The swipe buttons
+  and the sheet both read from there so their icons and labels cannot drift.
 
 ## Tests
 

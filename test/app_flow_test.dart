@@ -79,6 +79,12 @@ Future<void> dragCardDown(
   await tester.pumpAndSettle();
 }
 
+/// Drags a row sideways to uncover its buttons, then lets go.
+Future<void> swipe(WidgetTester tester, String title, Offset by) async {
+  await tester.drag(find.text(title), by);
+  await tester.pumpAndSettle();
+}
+
 void main() {
   testWidgets('opens straight onto today with an empty list', (tester) async {
     await tester.pumpWidget(bootApp());
@@ -331,17 +337,93 @@ void main() {
     expect(visibleTitles(tester), ['Buy milk', 'Call Sam', 'Post letter']);
   });
 
-  testWidgets('swiping a task away removes it', (tester) async {
+  testWidgets('swiping alone changes nothing until a button is tapped', (
+    tester,
+  ) async {
     await tester.pumpWidget(bootApp());
     await tester.pumpAndSettle();
 
     await addTask(tester, 'Buy milk');
     await addTask(tester, 'Call Sam');
 
-    await tester.drag(find.text('Buy milk'), const Offset(-500, 0));
+    await swipe(tester, 'Buy milk', const Offset(-160, 0));
+    expect(visibleTitles(tester), ['Buy milk', 'Call Sam']);
+    expect(find.byIcon(Icons.delete_outline_rounded), findsOneWidget);
+
+    // Swiping back puts it away without doing anything.
+    await swipe(tester, 'Buy milk', const Offset(160, 0));
+    expect(find.byIcon(Icons.delete_outline_rounded), findsNothing);
+    expect(visibleTitles(tester), ['Buy milk', 'Call Sam']);
+  });
+
+  testWidgets('the delete button on the trailing side removes the task', (
+    tester,
+  ) async {
+    await tester.pumpWidget(bootApp());
+    await tester.pumpAndSettle();
+
+    await addTask(tester, 'Buy milk');
+    await addTask(tester, 'Call Sam');
+
+    await swipe(tester, 'Buy milk', const Offset(-160, 0));
+    await tester.tap(find.byIcon(Icons.delete_outline_rounded));
     await tester.pumpAndSettle();
 
     expect(visibleTitles(tester), ['Call Sam']);
+  });
+
+  testWidgets('the leading side offers done and edit', (tester) async {
+    await tester.pumpWidget(bootApp());
+    await tester.pumpAndSettle();
+
+    await addTask(tester, 'Buy milk');
+    await addTask(tester, 'Call Sam');
+
+    await swipe(tester, 'Buy milk', const Offset(200, 0));
+    expect(find.byIcon(Icons.check_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.check_rounded));
+    await tester.pump(reorderDelay);
+    await tester.pumpAndSettle();
+
+    expect(visibleTitles(tester), ['Call Sam', 'Buy milk']);
+
+    // Now the same button offers to undo it.
+    await swipe(tester, 'Buy milk', const Offset(200, 0));
+    expect(find.byIcon(Icons.remove_done_rounded), findsOneWidget);
+  });
+
+  testWidgets('the edit button opens the editor screen', (tester) async {
+    await tester.pumpWidget(bootApp());
+    await tester.pumpAndSettle();
+    await addTask(tester, 'Buy milk');
+
+    await swipe(tester, 'Buy milk', const Offset(200, 0));
+    await tester.tap(find.byIcon(Icons.edit_outlined));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Edit task'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), 'Buy oat milk');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    expect(visibleTitles(tester), ['Buy oat milk']);
+  });
+
+  testWidgets('opening one row puts the last one away', (tester) async {
+    await tester.pumpWidget(bootApp());
+    await tester.pumpAndSettle();
+
+    await addTask(tester, 'Buy milk');
+    await addTask(tester, 'Call Sam');
+
+    await swipe(tester, 'Buy milk', const Offset(-160, 0));
+    expect(find.byIcon(Icons.delete_outline_rounded), findsOneWidget);
+
+    await swipe(tester, 'Call Sam', const Offset(-160, 0));
+    expect(find.byIcon(Icons.delete_outline_rounded), findsOneWidget);
   });
 
   testWidgets('arrows move a day at a time and each day keeps its own list', (

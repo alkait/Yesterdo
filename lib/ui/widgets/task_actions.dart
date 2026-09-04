@@ -3,9 +3,23 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/todo.dart';
 import '../../state/providers.dart';
-import '../../state/todos_controller.dart';
 import '../branded/branded.dart';
 import '../task_editor_page.dart';
+
+/// The three things you can do to a task, named in one place so the swipe
+/// buttons and the sheet can never drift apart.
+IconData doneIconFor(Todo todo) =>
+    todo.done ? Icons.remove_done_rounded : Icons.check_rounded;
+
+String doneLabelFor(Todo todo) => todo.done ? 'Not done' : 'Done';
+
+Future<void> editTask(BuildContext context, WidgetRef ref, Todo todo) async {
+  final title = await openBrandedPage<String>(
+    context,
+    (_) => TaskEditorPage(heading: 'Edit task', initialText: todo.title),
+  );
+  if (title != null) await ref.read(todosProvider.notifier).rename(todo, title);
+}
 
 /// Everything you can do to one task, reached by double tapping it.
 Future<void> showTaskActions(BuildContext context, WidgetRef ref, Todo todo) {
@@ -28,8 +42,8 @@ Future<void> showTaskActions(BuildContext context, WidgetRef ref, Todo todo) {
         BrandedActionGrid(
           children: [
             BrandedActionButton(
-              icon: todo.done ? Icons.remove_done_rounded : Icons.check_rounded,
-              label: todo.done ? 'Not done' : 'Done',
+              icon: doneIconFor(todo),
+              label: doneLabelFor(todo),
               onTap: () {
                 close();
                 todos.toggle(todo);
@@ -40,7 +54,7 @@ Future<void> showTaskActions(BuildContext context, WidgetRef ref, Todo todo) {
               label: 'Edit',
               onTap: () {
                 close();
-                _edit(context, todos, todo);
+                editTask(context, ref, todo);
               },
             ),
             BrandedActionButton(
@@ -58,16 +72,4 @@ Future<void> showTaskActions(BuildContext context, WidgetRef ref, Todo todo) {
       ],
     );
   });
-}
-
-Future<void> _edit(
-  BuildContext context,
-  TodosController todos,
-  Todo todo,
-) async {
-  final title = await openBrandedPage<String>(
-    context,
-    (_) => TaskEditorPage(heading: 'Edit task', initialText: todo.title),
-  );
-  if (title != null) await todos.rename(todo, title);
 }

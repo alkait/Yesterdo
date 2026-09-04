@@ -4,22 +4,49 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/todo.dart';
 import '../../state/providers.dart';
 import '../branded/branded.dart';
-import 'task_actions_sheet.dart';
+import 'task_actions.dart';
 
-/// One task, on its own bordered card, always a single line. Double tap for
-/// what you can do to it, drag the grip to reorder, or swipe left to delete.
+/// One task, on its own bordered card, always a single line. Swipe either way
+/// for buttons, double tap for all of them, drag the grip to reorder.
 class TodoTile extends ConsumerWidget {
-  const TodoTile({super.key, required this.todo, required this.index});
+  const TodoTile({
+    super.key,
+    required this.todo,
+    required this.index,
+    required this.swipeGroup,
+  });
 
   final Todo todo;
 
   /// Position in the list, which the drag handle needs.
   final int index;
 
+  final BrandedSwipeGroup swipeGroup;
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) => BrandedDismissible(
-    dismissKey: ValueKey('dismiss-${todo.id}'),
-    onDismissed: () => ref.read(todosProvider.notifier).remove(todo),
+  Widget build(BuildContext context, WidgetRef ref) => BrandedSwipeActions(
+    group: swipeGroup,
+    id: todo.id,
+    leading: [
+      BrandedSwipeAction(
+        icon: doneIconFor(todo),
+        label: doneLabelFor(todo),
+        onTap: () => ref.read(todosProvider.notifier).toggle(todo),
+      ),
+      BrandedSwipeAction(
+        icon: Icons.edit_outlined,
+        label: 'Edit',
+        onTap: () => editTask(context, ref, todo),
+      ),
+    ],
+    trailing: [
+      BrandedSwipeAction(
+        icon: Icons.delete_outline_rounded,
+        label: 'Delete',
+        tone: BrandedTone.danger,
+        onTap: () => ref.read(todosProvider.notifier).remove(todo),
+      ),
+    ],
     child: BrandedCard(
       recessed: todo.done,
       onDoubleTap: () => showTaskActions(context, ref, todo),

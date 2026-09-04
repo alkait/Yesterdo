@@ -33,9 +33,11 @@ Each task is a bordered card showing a single line, ellipsised when it runs
 long, and carries no checkbox. Arabic and Hebrew tasks lay themselves out right
 to left, decided by the first strong letter so a leading digit or emoji does not
 throw it off. Double tapping one opens a
-sheet with done, edit and delete. Open tasks have a grip on the right for
-dragging them into a new order, which is written back as positions. Writing a
-task always happens on its own full screen, never inline.
+sheet with done, edit and delete. Swiping uncovers the same buttons, right for
+done and edit, left for delete, and nothing happens until one is tapped. Open
+tasks have a grip on the right for dragging them into a new order, which is
+written back as positions. Writing a task always happens on its own full screen,
+never inline.
 
 ```
 lib/
