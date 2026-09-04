@@ -243,7 +243,7 @@ void main() {
     test('a written-down occurrence replaces its projection', () {
       final day = mergeDay(
         stored: [
-          const Todo(
+          Todo(
             id: 9,
             title: 'Take the pills',
             done: true,
@@ -262,7 +262,7 @@ void main() {
     test('a hidden occurrence shows nothing at all', () {
       final day = mergeDay(
         stored: [
-          const Todo(
+          Todo(
             id: 9,
             title: 'Take the pills',
             done: false,
@@ -278,7 +278,7 @@ void main() {
     });
 
     test('a projected task keeps its key once written down', () {
-      const projected = Todo(
+      final projected = Todo(
         title: 'Take the pills',
         done: false,
         position: 5,

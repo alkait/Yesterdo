@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../data/rich/style_run.dart';
+
 /// The looks a person can pick from. Each one carries a light and a dark
 /// palette, and the system decides which of the two is showing.
 enum AppThemeChoice {
@@ -154,6 +156,19 @@ abstract final class AppTheme {
           outlineVariant: Color(0xFF3A2430),
           surfaceContainerHighest: Color(0xFF231219),
         ),
+      };
+
+  /// The wash behind highlighted words. The same three in every look, since
+  /// a highlight is meant to read as a marker pen, not as part of the look;
+  /// deeper in the dark so they still show.
+  static Color highlightFor(Highlight highlight, Brightness brightness) =>
+      switch ((highlight, brightness)) {
+        (Highlight.yellow, Brightness.light) => const Color(0xFFFFF1A6),
+        (Highlight.yellow, Brightness.dark) => const Color(0xFF6B5A00),
+        (Highlight.green, Brightness.light) => const Color(0xFFCDEFC8),
+        (Highlight.green, Brightness.dark) => const Color(0xFF1F5A2A),
+        (Highlight.blue, Brightness.light) => const Color(0xFFCCE3FF),
+        (Highlight.blue, Brightness.dark) => const Color(0xFF1B3F6E),
       };
 
   static ThemeData _build(ColorScheme scheme) => ThemeData(

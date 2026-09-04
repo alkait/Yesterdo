@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:remind_me/data/app_database.dart';
 import 'package:remind_me/data/repeat_rule.dart';
+import 'package:remind_me/data/todo.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 /// The schema as version 1 shipped it, kept here so the upgrade is tested
@@ -122,8 +123,65 @@ Future<void> createVersionFive(Database db, int version) async {
   );
 }
 
+/// The schema as version 6 shipped it: reminder sets and sounds, plain
+/// words only.
+Future<void> createVersionSix(Database db, int version) async {
+  await createVersionFive(db, version);
+  for (final table in ['todos', 'recurrences']) {
+    await db.execute('ALTER TABLE $table ADD COLUMN sound TEXT');
+  }
+}
+
 void main() {
   setUpAll(sqfliteFfiInit);
+
+  test('a version 6 task keeps its plain words and gains a body', () async {
+    final directory = await Directory.systemTemp.createTemp('remind_me_test');
+    addTearDown(() => directory.delete(recursive: true));
+    final path = p.join(directory.path, 'remind_me.db');
+
+    var db = await databaseFactoryFfi.openDatabase(
+      path,
+      options: OpenDatabaseOptions(version: 6, onCreate: createVersionSix),
+    );
+    await db.insert('todos', <String, Object?>{
+      'day': 20699,
+      'title': 'Buy milk\nand bread',
+      'done': 0,
+      'position': 0,
+    });
+    await db.close();
+
+    db = await databaseFactoryFfi.openDatabase(
+      path,
+      options: OpenDatabaseOptions(
+        version: 7,
+        onCreate: AppDatabase.createSchema,
+        onUpgrade: AppDatabase.upgradeSchema,
+      ),
+    );
+    addTearDown(db.close);
+
+    final row = (await db.query('todos')).single;
+    expect(row['title'], 'Buy milk\nand bread');
+    expect(row['body'], isNull, reason: 'read as plain words until rewritten');
+    final todo = Todo.fromRow(row);
+    expect(todo.body.blocks, hasLength(2));
+    expect(todo.title, 'Buy milk\nand bread');
+
+    await db.update('todos', Todo.bodyColumns(todo.body));
+    expect((await db.query('todos')).single['body'], isNotNull);
+    expect((await db.query('recurrences')), isEmpty);
+    await db.insert('recurrences', <String, Object?>{
+      'title': 'x',
+      'kind': 'daily',
+      'weekdays': 0,
+      'month_days': 0,
+      'start_day': 20699,
+      'position': 0,
+      'body': '[]',
+    });
+  });
 
   test(
     'a version 5 reminder becomes a set of them, and gains a sound',
@@ -164,7 +222,7 @@ void main() {
       db = await databaseFactoryFfi.openDatabase(
         path,
         options: OpenDatabaseOptions(
-          version: 6,
+          version: 7,
           onCreate: AppDatabase.createSchema,
           onUpgrade: AppDatabase.upgradeSchema,
         ),
@@ -213,7 +271,7 @@ void main() {
     db = await databaseFactoryFfi.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 6,
+        version: 7,
         onCreate: AppDatabase.createSchema,
         onUpgrade: AppDatabase.upgradeSchema,
       ),
@@ -261,7 +319,7 @@ void main() {
     db = await databaseFactoryFfi.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 6,
+        version: 7,
         onCreate: AppDatabase.createSchema,
         onUpgrade: AppDatabase.upgradeSchema,
       ),
@@ -319,7 +377,7 @@ void main() {
     db = await databaseFactoryFfi.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 6,
+        version: 7,
         onCreate: AppDatabase.createSchema,
         onUpgrade: AppDatabase.upgradeSchema,
       ),
@@ -373,7 +431,7 @@ void main() {
     db = await databaseFactoryFfi.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 6,
+        version: 7,
         onCreate: AppDatabase.createSchema,
         onUpgrade: AppDatabase.upgradeSchema,
       ),
@@ -432,7 +490,7 @@ void main() {
     final fresh = await databaseFactoryFfi.openDatabase(
       p.join(directory.path, 'fresh.db'),
       options: OpenDatabaseOptions(
-        version: 6,
+        version: 7,
         onCreate: AppDatabase.createSchema,
       ),
     );
@@ -445,6 +503,7 @@ void main() {
       3: createVersionThree,
       4: createVersionFour,
       5: createVersionFive,
+      6: createVersionSix,
     };
     for (final MapEntry(key: version, value: create) in shipped.entries) {
       final upgradedPath = p.join(directory.path, 'upgraded_$version.db');
@@ -456,7 +515,7 @@ void main() {
       upgraded = await databaseFactoryFfi.openDatabase(
         upgradedPath,
         options: OpenDatabaseOptions(
-          version: 6,
+          version: 7,
           onCreate: AppDatabase.createSchema,
           onUpgrade: AppDatabase.upgradeSchema,
         ),

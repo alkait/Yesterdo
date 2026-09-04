@@ -312,20 +312,24 @@ void main() {
     expect(find.byType(BrandedSelectionCircle), findsNothing);
   });
 
-  testWidgets('tapping a card, once or twice, opens nothing', (tester) async {
+  testWidgets('tapping a card opens it to be read, nothing more', (
+    tester,
+  ) async {
     await tester.pumpWidget(bootApp());
     await tester.pumpAndSettle();
     await addTask(tester, 'Buy milk');
 
-    final tile = find.text('Buy milk');
-    await tester.tap(tile);
-    await tester.pump(const Duration(milliseconds: 40));
-    await tester.tap(tile);
+    await tester.tap(find.text('Buy milk'));
     await tester.pumpAndSettle();
 
+    expect(find.text('Task'), findsOneWidget);
+    expect(find.text('Buy milk'), findsOneWidget);
     expect(find.byIcon(Icons.check_rounded), findsNothing);
     expect(find.byIcon(Icons.edit_outlined), findsNothing);
     expect(find.byIcon(Icons.delete_outline_rounded), findsNothing);
+
+    await tester.tap(find.text('Back'));
+    await tester.pumpAndSettle();
     expect(visibleTitles(tester), ['Buy milk']);
   });
 
@@ -425,7 +429,10 @@ void main() {
     await actOn(tester, 'Buy milk', 'Edit');
 
     expect(find.text('Edit task'), findsOneWidget);
-    expect(find.widgetWithText(TextField, 'Buy milk'), findsOneWidget);
+    expect(
+      find.widgetWithText(TextField, '${BrandedRichController.guard}Buy milk'),
+      findsOneWidget,
+    );
 
     await tester.enterText(find.byType(TextField), 'Buy oat milk');
     await tester.pump();
@@ -502,14 +509,19 @@ void main() {
     await tester.pumpWidget(bootApp());
     await tester.pumpAndSettle();
 
+    const long =
+        'Buy milk and bread and eggs and butter and cheese and jam and honey '
+        'and tea and coffee and sugar and flour and rice and pasta and beans '
+        'and lentils and onions and garlic and tomatoes and peppers and '
+        'apples and pears and bananas and oranges and lemons and limes';
     await addTask(tester, 'Buy milk');
-    await addTask(tester, 'Buy milk\nand bread\nand eggs');
+    await addTask(tester, long);
 
-    final rendered = titleTextOf(tester, 'Buy milk\nand bread\nand eggs');
+    final rendered = titleTextOf(tester, long);
     expect(rendered.maxLines, Brand.cardLines);
     expect(rendered.overflow, TextOverflow.ellipsis);
-    // Two lines drawn, the third cut.
-    final box = tester.getSize(find.text('Buy milk\nand bread\nand eggs'));
+    // Two lines drawn, the rest cut.
+    final box = tester.getSize(find.text(long));
     final oneLine = tester.getSize(find.text('Buy milk')).height;
     expect(box.height, greaterThan(oneLine * 1.5));
     expect(box.height, lessThan(oneLine * 2.5));
@@ -1836,7 +1848,7 @@ void main() {
       expect(scheduler.pending.single.day, today);
 
       // The editor row says what was chosen.
-      await actOn(tester, 'Call Sam\nabout the invoice', 'Edit');
+      await actOn(tester, 'Call Sam', 'Edit');
       expect(find.text('2:30 PM'), findsOneWidget);
       expect(find.text('15 min before'), findsOneWidget);
     });
@@ -2117,7 +2129,8 @@ void main() {
       await tester.pumpWidget(bootApp(store: store, clock: () => at(9, 0)));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Call Sam\nabout the invoice'));
+      // The card shows the first block alone; the sheet shows it all.
+      await tester.tap(find.text('Call Sam'));
       await tester.pumpAndSettle();
 
       expect(find.byKey(const ValueKey('attention-title')), findsOneWidget);
@@ -2356,10 +2369,7 @@ void main() {
         await tester.tap(find.text('Done'));
         await tester.pump(reorderDelay);
         await tester.pumpAndSettle();
-        expect(
-          tileFor(tester, 'Call Sam\nabout the invoice').todo.done,
-          isTrue,
-        );
+        expect(tileFor(tester, 'Call Sam').todo.done, isTrue);
       },
     );
 

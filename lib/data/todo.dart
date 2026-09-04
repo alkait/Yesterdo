@@ -1,14 +1,18 @@
 import 'due.dart';
 import 'repeat_rule.dart';
+import 'rich/task_body.dart';
 
 /// A single task on a single day.
 ///
 /// A task is either stored as its own row, or projected from a repeat rule and
 /// not written down at all until someone acts on it.
 class Todo {
-  const Todo({
+  /// Built from a [body], or from plain [title] words as a shorthand for a
+  /// body of plain paragraphs. One or the other.
+  Todo({
     this.id,
-    required this.title,
+    String? title,
+    TaskBody? body,
     required this.done,
     required this.position,
     this.completedAt,
@@ -16,11 +20,12 @@ class Todo {
     this.hidden = false,
     this.due,
     this.dismissed = false,
-  });
+  }) : assert(title != null || body != null, 'words, one way or the other'),
+       body = body ?? TaskBody.plain(title ?? '');
 
   factory Todo.fromRow(Map<String, Object?> row) => Todo(
     id: row['id']! as int,
-    title: row['title']! as String,
+    body: bodyFromRow(row),
     done: (row['done']! as int) == 1,
     position: row['position']! as int,
     completedAt: row['completed_at'] as int?,
@@ -30,9 +35,17 @@ class Todo {
     dismissed: (row['dismissed'] as int? ?? 0) == 1,
   );
 
+  /// The words as stored: the body's JSON when there is one, else the plain
+  /// title from before bodies existed.
+  static TaskBody bodyFromRow(Map<String, Object?> row) =>
+      switch (row['body']) {
+        final String json => TaskBody.decode(json),
+        _ => TaskBody.plain(row['title']! as String),
+      };
+
   /// One day's showing of a repeat rule, before anyone has touched it.
   factory Todo.projected(Recurrence recurrence) => Todo(
-    title: recurrence.title,
+    body: recurrence.body,
     done: false,
     position: recurrence.position,
     recurrenceId: recurrence.id,
@@ -42,7 +55,12 @@ class Todo {
   /// Row id, or null while the task is only projected from a rule.
   final int? id;
 
-  final String title;
+  /// The words in full, with their styles and checklist.
+  final TaskBody body;
+
+  /// The words stripped of every style, one line per block.
+  String get title => body.plainText;
+
   final bool done;
 
   /// Insertion rank within the day.
@@ -84,7 +102,9 @@ class Todo {
 
   Todo repositioned(int newPosition) => copyWith(position: newPosition);
 
-  Todo renamed(String newTitle) => copyWith(title: newTitle);
+  Todo renamed(String newTitle) => copyWith(body: TaskBody.plain(newTitle));
+
+  Todo withBody(TaskBody newBody) => copyWith(body: newBody);
 
   Todo toggled(int nowMillis) => copyWith(
     done: !done,
@@ -111,7 +131,7 @@ class Todo {
 
   Todo copyWith({
     int? id,
-    String? title,
+    TaskBody? body,
     bool? done,
     int? position,
     int? completedAt,
@@ -122,7 +142,7 @@ class Todo {
     bool? dismissed,
   }) => Todo(
     id: id ?? this.id,
-    title: title ?? this.title,
+    body: body ?? this.body,
     done: done ?? this.done,
     position: position ?? this.position,
     completedAt: clearCompletedAt ? null : (completedAt ?? this.completedAt),
@@ -132,9 +152,16 @@ class Todo {
     dismissed: dismissed ?? this.dismissed,
   );
 
+  /// The two columns the words are kept in: the body, and the plain title
+  /// derived from it for anything that reads words without styles.
+  static Map<String, Object?> bodyColumns(TaskBody body) => <String, Object?>{
+    'title': body.plainText,
+    'body': body.encode(),
+  };
+
   Map<String, Object?> toRow(int day) => <String, Object?>{
     'day': day,
-    'title': title,
+    ...bodyColumns(body),
     'done': done ? 1 : 0,
     'position': position,
     'completed_at': completedAt,

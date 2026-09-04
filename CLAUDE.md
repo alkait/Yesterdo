@@ -129,6 +129,46 @@ A day-at-a-time todo list for iPhone and iPad. Offline, local, no account, no sy
   it to load, pops any screen above the list and puts up the attention sheet. A
   task gone by then opens the day and nothing else.
 
+## Rich words
+
+- A task's words are a `TaskBody`: a list of blocks, each a paragraph or a
+  checklist item, each holding a `StyledText` of plain words plus styled runs.
+  A run is a start, an end and a `Styles`: bold, italic, underline, one of three
+  named highlights, a link. Runs never overlap and never carry no style.
+- The body is stored as JSON in `body` on both `todos` and `recurrences`. The
+  plain `title` beside it is derived from the body, never the other way round,
+  and is what sorting, notifications and anything without styles read. A row
+  with no body is read as its plain title, so old rows need no rewriting.
+- `StyledText.replaced` is the one place an edit moves runs. Words typed inside
+  a run take its style, and so do words typed straight after it, unless the bar
+  set otherwise. Do not adjust runs anywhere else.
+- Editing is what-you-see through `BrandedRichController`, a text controller
+  that diffs each change against the last, shifts the runs to follow, and paints
+  them in `buildTextSpan`. The field underneath is a plain text field, so
+  selection, cursor, autocorrect and undo stay the system's.
+- Each block is its own field, stacked by `BodyEditor`. A guarded field keeps an
+  invisible character in front of the words, because the soft keyboard says
+  nothing when backspace is pressed in an empty field; deleting the guard is how
+  the start of a block is heard, and the words then join the block above.
+  Return hands the words after the caret to a new block of the same kind; on an
+  empty checklist item it ends the list instead. There is no selection across
+  blocks and undo is per block.
+- The format bar, `BrandedFormatBar`, sits over the keyboard on the editor and
+  drives the block with the caret: bold, italic, underline, highlight (yellow,
+  green, blue, off, in turn), link and checklist. It is dark until a block has
+  the caret. A link is asked for on a sheet; with nothing selected the address
+  is typed in as the link.
+- Highlight colours are the same three in every look, deeper in the dark, in
+  `AppTheme.highlightFor`. They are meant to read as a marker pen, not as part
+  of the look.
+- A card shows the first block, styles and all, through `BrandedRichText`,
+  with its box if it is a checklist item, and "2 of 5" in the small print when
+  there is a checklist. Tapping a card that is not calling opens `TaskViewPage`,
+  where the words are read in full, boxes tick through
+  `TodosController.setBody`, links open through the device bridge, and Edit
+  leads on. A tick is a thing of the day, like done: a showing of a rule is
+  written down and keeps its ticks, and the series is not touched.
+
 ## UI: the Branded rule
 
 Every visual element is wrapped in a Branded widget, so a change to the look lands
@@ -140,7 +180,10 @@ in one place and shows up everywhere.
   `BrandedAppBar`, `BrandedBottomBar`, `BrandedScaffold`, `BrandedCard`,
   `BrandedDragLift`, `BrandedReorderableList`, `BrandedSwipeActions`,
   `BrandedSelectionCircle`, `BrandedTextField`, `BrandedDivider`,
-  `BrandedThemeSwatch`, `BrandedApp`, `showBrandedSheet` and `openBrandedPage`.
+  `BrandedThemeSwatch`, `BrandedRichText`, `BrandedRichField`,
+  `BrandedRichController`, `BrandedFormatBar`, `BrandedCheckBox`,
+  `BrandedSlideSwitcher`, `BrandedTimeWheel`, `BrandedApp`, `showBrandedSheet`
+  and `openBrandedPage`.
 - Raw `Text`, `Icon`, `TextField`, `Scaffold`, `AppBar`, `Divider`, `Dismissible`,
   `MaterialApp`, `MaterialPageRoute`, `ListView.`, `ReorderableListView`,
   `ReorderableDragStartListener` and `showModalBottomSheet` are banned outside
@@ -178,7 +221,7 @@ in one place and shows up everywhere.
 ## Interaction
 
 - Writing a task never happens inline. Both adding and editing push
-  `TaskEditorPage` as a full screen, which returns the text through the navigator.
+  `TaskEditorPage` as a full screen, which returns the body through the navigator.
   Save is greyed and inert until there are words; Cancel is never greyed.
 - The editor asks for the keyboard only once its slide-in has finished, by
   listening to the route's animation. Raised during the transition it fights the
@@ -190,11 +233,11 @@ in one place and shows up everywhere.
   own sheet and plays each sound as it is tapped, then Clear and Done. It hands
   back a `DuePick`, so backing out can be told from clearing. The row reads the
   time with the reminders summed up as small print.
-- A task row carries no checkbox and, unless it is calling, no tap of its own.
-  Done, edit and delete live on the swipe buttons and nowhere else; there is no
-  action sheet.
-- A calling card is the one card that takes a tap. It puts up the attention
-  sheet: the task's words in full, then Done, Snooze and Dismiss. The same sheet
+- A task row carries no checkbox of its own for done. Done, edit and delete
+  live on the swipe buttons and nowhere else; there is no action sheet. A tap on
+  a card opens it to be read, or puts up the attention sheet if it is calling.
+- A calling card's tap puts up the attention sheet instead of the read view:
+  the task's words in full, then Done, Snooze and Dismiss. The same sheet
   answers a tapped notification, so the context is there whichever way it came.
 - A calling card breathes: `BrandedCard.calling` leans the border and face into
   the accent and back, without end, until answered. Under reduce motion it holds

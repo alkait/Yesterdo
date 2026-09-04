@@ -1,5 +1,6 @@
 import 'due.dart';
 import 'repeat_rule.dart';
+import 'rich/task_body.dart';
 import 'todo.dart';
 
 /// Everything the app needs from storage. One implementation ships with the
@@ -14,7 +15,14 @@ abstract class TodoStore {
   /// is [mergeDay]'s job.
   Future<List<Recurrence>> recurrencesFor(int day);
 
-  Future<Todo> insert({required int day, required String title, Due? due});
+  /// Writes a new one-off. Words come as a [body], or as plain [title]
+  /// words for short.
+  Future<Todo> insert({
+    required int day,
+    String? title,
+    TaskBody? body,
+    Due? due,
+  });
 
   /// Starts a repeating task, positioned as of [day].
   ///
@@ -22,7 +30,8 @@ abstract class TodoStore {
   /// so what the day holds afterwards is [mergeDay]'s to say, not this call's.
   Future<void> insertSeries({
     required int day,
-    required String title,
+    String? title,
+    TaskBody? body,
     required RepeatRule rule,
     Due? due,
   });
@@ -62,10 +71,15 @@ abstract class TodoStore {
   /// written-down occurrence takes the new ones too.
   Future<void> saveSeries({
     required int recurrenceId,
-    required String title,
+    String? title,
+    TaskBody? body,
     required RepeatRule rule,
     Due? due,
   });
+
+  /// The body meant by a pair of shorthand arguments.
+  static TaskBody bodyOf(String? title, TaskBody? body) =>
+      body ?? TaskBody.plain(title ?? '');
 
   /// The day as shown at [now]: tasks whose time has come head the list.
   /// Without a moment the order is the plain one from [compareTodos].

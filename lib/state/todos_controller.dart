@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/day.dart';
+import '../data/rich/task_body.dart';
 import '../data/todo.dart';
 import '../data/todo_store.dart';
 import 'providers.dart';
@@ -34,12 +35,12 @@ class TodosController extends AsyncNotifier<List<Todo>> {
   Future<void> refresh() => _reload();
 
   Future<void> add(TaskDraft draft) async {
-    if (draft.title.isEmpty) return;
+    if (!draft.body.hasWords) return;
 
     if (draft.repeat != null) {
       await _store.insertSeries(
         day: _day,
-        title: draft.title,
+        body: draft.body,
         rule: draft.repeat!,
         due: draft.due,
       );
@@ -50,7 +51,7 @@ class TodosController extends AsyncNotifier<List<Todo>> {
 
     final todo = await _store.insert(
       day: _day,
-      title: draft.title,
+      body: draft.body,
       due: draft.due,
     );
     if (!ref.mounted) return;
@@ -102,33 +103,44 @@ class TodosController extends AsyncNotifier<List<Todo>> {
   /// Applies an edit. Words, time and rule all belong to the series, so
   /// editing a repeating task changes every day it appears on.
   Future<void> apply(Todo todo, TaskDraft draft) async {
-    if (draft.title.isEmpty) return;
+    if (!draft.body.hasWords) return;
 
     if (todo.repeats && draft.repeat != null) {
       await _store.saveSeries(
         recurrenceId: todo.recurrenceId!,
-        title: draft.title,
+        body: draft.body,
         rule: draft.repeat!,
         due: draft.due,
       );
     } else if (todo.repeats) {
       // Repeating no more: the series goes, and this day keeps a one-off.
       await _store.removeSeries(todo.recurrenceId!);
-      await _store.insert(day: _day, title: draft.title, due: draft.due);
+      await _store.insert(day: _day, body: draft.body, due: draft.due);
     } else if (draft.repeat != null) {
       // A one-off becomes a series starting on this day.
       await _store.remove(day: _day, todo: todo);
       await _store.insertSeries(
         day: _day,
-        title: draft.title,
+        body: draft.body,
         rule: draft.repeat!,
         due: draft.due,
       );
     } else {
-      await _store.save(todo.renamed(draft.title).withDue(draft.due));
+      await _store.save(todo.withBody(draft.body).withDue(draft.due));
     }
 
     await _reload();
+  }
+
+  /// Ticks or unticks one item on a task's checklist, from the read view.
+  /// Like done, it is a thing of the day: a showing of a rule is written
+  /// down and keeps its own ticks, and the series is not touched.
+  Future<void> setBody(Todo todo, TaskBody body) async {
+    final written = await _write(todo);
+    final updated = written.withBody(body);
+    await _store.save(updated);
+    if (!ref.mounted) return;
+    _show(_replacing(updated));
   }
 
   /// Sends a task to another day. It leaves this list at once.

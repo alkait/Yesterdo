@@ -1,5 +1,6 @@
 import 'package:remind_me/data/due.dart';
 import 'package:remind_me/data/repeat_rule.dart';
+import 'package:remind_me/data/rich/task_body.dart';
 import 'package:remind_me/data/todo.dart';
 import 'package:remind_me/data/todo_store.dart';
 
@@ -27,10 +28,15 @@ class MemoryTodoStore implements TodoStore {
   );
 
   @override
-  Future<Todo> insert({required int day, required String title, Due? due}) {
+  Future<Todo> insert({
+    required int day,
+    String? title,
+    TaskBody? body,
+    Due? due,
+  }) {
     final todo = Todo(
       id: _nextTodoId++,
-      title: title,
+      body: TodoStore.bodyOf(title, body),
       done: false,
       position: _nextPosition(day),
       due: due,
@@ -42,14 +48,15 @@ class MemoryTodoStore implements TodoStore {
   @override
   Future<void> insertSeries({
     required int day,
-    required String title,
+    String? title,
+    TaskBody? body,
     required RepeatRule rule,
     Due? due,
   }) {
     _recurrences.add(
       Recurrence(
         id: _nextRecurrenceId++,
-        title: title,
+        body: TodoStore.bodyOf(title, body),
         rule: rule,
         position: _nextPosition(day),
         due: due,
@@ -105,7 +112,7 @@ class MemoryTodoStore implements TodoStore {
   }) async {
     if (todo.repeats) {
       await remove(day: fromDay, todo: todo);
-      await insert(day: toDay, title: todo.title, due: todo.due);
+      await insert(day: toDay, body: todo.body, due: todo.due);
       return;
     }
     _dayOf(fromDay).removeWhere((each) => each.id == todo.id);
@@ -138,7 +145,7 @@ class MemoryTodoStore implements TodoStore {
     }
     _recurrences[index] = Recurrence(
       id: existing.id,
-      title: existing.title,
+      body: existing.body,
       position: existing.position,
       due: existing.due,
       rule: RepeatRule(
@@ -168,7 +175,7 @@ class MemoryTodoStore implements TodoStore {
     }
     _recurrences[index] = Recurrence(
       id: existing.id,
-      title: existing.title,
+      body: existing.body,
       position: existing.position,
       due: existing.due,
       rule: RepeatRule(
@@ -185,15 +192,17 @@ class MemoryTodoStore implements TodoStore {
   @override
   Future<void> saveSeries({
     required int recurrenceId,
-    required String title,
+    String? title,
+    TaskBody? body,
     required RepeatRule rule,
     Due? due,
   }) {
+    final words = TodoStore.bodyOf(title, body);
     final index = _recurrences.indexWhere((each) => each.id == recurrenceId);
     if (index != -1) {
       _recurrences[index] = Recurrence(
         id: recurrenceId,
-        title: title,
+        body: words,
         rule: rule,
         position: _recurrences[index].position,
         due: due,
@@ -203,7 +212,7 @@ class MemoryTodoStore implements TodoStore {
       for (var at = 0; at < items.length; at++) {
         if (items[at].recurrenceId == recurrenceId) {
           items[at] = items[at]
-              .renamed(title)
+              .withBody(words)
               .copyWith(due: due, clearDue: due == null, dismissed: false);
         }
       }

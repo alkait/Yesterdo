@@ -21,6 +21,14 @@ class MemoryDeviceBridge implements DeviceBridge {
     return Future.value();
   }
 
+  final List<String> opened = <String>[];
+
+  @override
+  Future<void> openUrl(String url) {
+    opened.add(url);
+    return Future.value();
+  }
+
   @override
   Future<ReminderPermission> notificationPermission() => Future.value(status);
 }

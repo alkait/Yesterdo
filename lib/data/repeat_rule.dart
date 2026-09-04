@@ -1,6 +1,8 @@
 import '../core/date_labels.dart';
 import '../core/day.dart';
 import 'due.dart';
+import 'rich/task_body.dart';
+import 'todo.dart';
 
 enum RepeatKind { daily, weekly, monthly }
 
@@ -157,17 +159,20 @@ class RepeatRule {
 
 /// A repeating task: a rule, the words that go with it, and where it sits.
 class Recurrence {
-  const Recurrence({
+  /// Built from a [body], or from plain [title] words as a shorthand.
+  Recurrence({
     required this.id,
-    required this.title,
+    String? title,
+    TaskBody? body,
     required this.rule,
     required this.position,
     this.due,
-  });
+  }) : assert(title != null || body != null, 'words, one way or the other'),
+       body = body ?? TaskBody.plain(title ?? '');
 
   factory Recurrence.fromRow(Map<String, Object?> row) => Recurrence(
     id: row['id']! as int,
-    title: row['title']! as String,
+    body: Todo.bodyFromRow(row),
     position: row['position']! as int,
     due: Due.fromRow(row),
     rule: RepeatRule(
@@ -180,8 +185,10 @@ class Recurrence {
   );
 
   final int id;
-  final String title;
+  final TaskBody body;
   final RepeatRule rule;
+
+  String get title => body.plainText;
   final int position;
 
   /// The time it is due on every day it falls on, or null for none.
@@ -190,12 +197,12 @@ class Recurrence {
   bool fallsOn(int day) => rule.fallsOn(day);
 
   static Map<String, Object?> rowFor({
-    required String title,
+    required TaskBody body,
     required RepeatRule rule,
     required int position,
     Due? due,
   }) => <String, Object?>{
-    'title': title,
+    ...Todo.bodyColumns(body),
     ...ruleColumns(rule),
     'position': position,
     ...due?.toRow() ?? Due.emptyRow,

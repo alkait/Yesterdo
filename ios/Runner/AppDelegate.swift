@@ -31,6 +31,11 @@ import UserNotifications
         self?.setAppIcon(named: call.arguments as? String, result: result)
       case "previewSound":
         self?.previewSound(file: call.arguments as? String, result: result)
+      case "openUrl":
+        if let raw = call.arguments as? String, let url = URL(string: raw) {
+          UIApplication.shared.open(url)
+        }
+        result(nil)
       case "notificationPermission":
         UNUserNotificationCenter.current().getNotificationSettings { settings in
           let status: String

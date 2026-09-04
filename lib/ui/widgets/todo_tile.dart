@@ -35,21 +35,39 @@ class TodoTile extends ConsumerWidget {
     final card = BrandedCard(
       recessed: todo.done,
       calling: calling,
-      onTap: calling ? () => showAttentionSheet(context, ref, todo) : null,
+      // A calling card answers with its sheet; any other opens to be read.
+      onTap: calling
+          ? () => showAttentionSheet(context, ref, todo)
+          : () => openTask(context, todo),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          BrandedText(
-            todo.title,
-            role: BrandedTextRole.card,
-            struck: todo.done,
-            tone: todo.done ? BrandedTone.muted : BrandedTone.primary,
-            maxLines: Brand.cardLines,
+          // The first block, styles and all. A checklist item shows its box.
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (todo.body.first.isCheck)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2, right: 8),
+                  child: BrandedCheckBox(checked: todo.body.first.checked),
+                ),
+              Expanded(
+                child: BrandedRichText(
+                  todo.body.first.content,
+                  role: BrandedTextRole.card,
+                  struck: todo.done || todo.body.first.checked,
+                  tone: todo.done ? BrandedTone.muted : BrandedTone.primary,
+                  maxLines: Brand.cardLines,
+                ),
+              ),
+            ],
           ),
           // The words get the whole width. Anything else about the task
           // goes in small print underneath.
-          if (todo.repeats || todo.due != null)
+          if (todo.repeats ||
+              todo.due != null ||
+              todo.body.checklistProgress.$2 > 0)
             _SmallPrint(todo: todo, calling: calling),
         ],
       ),
@@ -101,8 +119,8 @@ class TodoTile extends ConsumerWidget {
   }
 }
 
-/// The line under the words: a repeat glyph for a repeating task, a bell
-/// when a reminder is set, and the time. All take the accent while the card
+/// The line under the words: how much of a checklist is ticked, a repeat
+/// glyph for a repeating task, a bell when a reminder is set, and the time. All take the accent while the card
 /// is calling.
 class _SmallPrint extends StatelessWidget {
   const _SmallPrint({required this.todo, required this.calling});
@@ -114,10 +132,19 @@ class _SmallPrint extends StatelessWidget {
   Widget build(BuildContext context) {
     final tone = calling ? BrandedTone.accent : BrandedTone.muted;
     final due = todo.due;
+    final (ticked, items) = todo.body.checklistProgress;
     return Padding(
       padding: const EdgeInsets.only(top: 4),
       child: Row(
         children: [
+          if (items > 0) ...[
+            BrandedText(
+              '$ticked of $items',
+              role: BrandedTextRole.caption,
+              tone: tone,
+            ),
+            const SizedBox(width: Brand.gap),
+          ],
           if (todo.repeats) ...[
             BrandedIcon(
               Icons.repeat_rounded,

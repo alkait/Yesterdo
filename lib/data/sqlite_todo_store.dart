@@ -2,6 +2,7 @@ import 'package:sqflite/sqflite.dart';
 
 import 'due.dart';
 import 'repeat_rule.dart';
+import 'rich/task_body.dart';
 import 'todo.dart';
 import 'todo_store.dart';
 
@@ -33,11 +34,17 @@ class SqliteTodoStore implements TodoStore {
   @override
   Future<Todo> insert({
     required int day,
-    required String title,
+    String? title,
+    TaskBody? body,
     Due? due,
   }) async {
     final position = await _nextPosition(day);
-    final draft = Todo(title: title, done: false, position: position, due: due);
+    final draft = Todo(
+      body: TodoStore.bodyOf(title, body),
+      done: false,
+      position: position,
+      due: due,
+    );
     final id = await _db.insert(_todos, draft.toRow(day));
     return draft.stored(id);
   }
@@ -45,14 +52,20 @@ class SqliteTodoStore implements TodoStore {
   @override
   Future<void> insertSeries({
     required int day,
-    required String title,
+    String? title,
+    TaskBody? body,
     required RepeatRule rule,
     Due? due,
   }) async {
     final position = await _nextPosition(day);
     await _db.insert(
       _recurrences,
-      Recurrence.rowFor(title: title, rule: rule, position: position, due: due),
+      Recurrence.rowFor(
+        body: TodoStore.bodyOf(title, body),
+        rule: rule,
+        position: position,
+        due: due,
+      ),
     );
   }
 
@@ -71,7 +84,7 @@ class SqliteTodoStore implements TodoStore {
   Future<void> save(Todo todo) => _db.update(
     _todos,
     <String, Object?>{
-      'title': todo.title,
+      ...Todo.bodyColumns(todo.body),
       'done': todo.done ? 1 : 0,
       'completed_at': todo.completedAt,
       'hidden': todo.hidden ? 1 : 0,
@@ -119,7 +132,7 @@ class SqliteTodoStore implements TodoStore {
   }) async {
     if (todo.repeats) {
       await remove(day: fromDay, todo: todo);
-      await insert(day: toDay, title: todo.title, due: todo.due);
+      await insert(day: toDay, body: todo.body, due: todo.due);
       return;
     }
     // A new day is a new call, so a wave-away from the old one no longer
@@ -212,14 +225,16 @@ class SqliteTodoStore implements TodoStore {
   @override
   Future<void> saveSeries({
     required int recurrenceId,
-    required String title,
+    String? title,
+    TaskBody? body,
     required RepeatRule rule,
     Due? due,
   }) async {
+    final words = TodoStore.bodyOf(title, body);
     await _db.update(
       _recurrences,
       <String, Object?>{
-        'title': title,
+        ...Todo.bodyColumns(words),
         ...Recurrence.ruleColumns(rule),
         ...due?.toRow() ?? Due.emptyRow,
       },
@@ -231,7 +246,7 @@ class SqliteTodoStore implements TodoStore {
     await _db.update(
       _todos,
       <String, Object?>{
-        'title': title,
+        ...Todo.bodyColumns(words),
         ...due?.toRow() ?? Due.emptyRow,
         'dismissed': 0,
       },

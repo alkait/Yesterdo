@@ -10,6 +10,7 @@ import '../../state/providers.dart';
 import '../../state/task_draft.dart';
 import '../branded/branded.dart';
 import '../task_editor_page.dart';
+import '../task_view_page.dart';
 import 'month_picker_sheet.dart';
 import 'sound_picker_sheet.dart';
 
@@ -29,13 +30,17 @@ Future<void> editTask(BuildContext context, WidgetRef ref, Todo todo) async {
     (_) => TaskEditorPage(
       heading: 'Edit task',
       anchorDay: ref.read(selectedDayProvider).epochDay,
-      initialText: todo.title,
+      initialBody: todo.body,
       initialDue: todo.due,
       initialRepeat: rule,
     ),
   );
   if (draft != null) await ref.read(todosProvider.notifier).apply(todo, draft);
 }
+
+/// Opens a task to be read in full, on its own screen.
+Future<void> openTask(BuildContext context, Todo todo) =>
+    openBrandedPage<void>(context, (_) => TaskViewPage(taskKey: todo.key));
 
 /// Sends a task to a later day, chosen on the month grid. Neither the past
 /// nor the day it is on can be chosen. Nothing moves if the grid is swiped

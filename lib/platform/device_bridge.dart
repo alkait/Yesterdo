@@ -15,6 +15,9 @@ abstract class DeviceBridge {
   Future<void> previewSound(ReminderSound sound);
 
   Future<ReminderPermission> notificationPermission();
+
+  /// Hands a web address to the system to open.
+  Future<void> openUrl(String url);
 }
 
 /// The shipping bridge: a method channel into `AppDelegate`.
@@ -33,6 +36,9 @@ class MethodChannelDeviceBridge implements DeviceBridge {
   @override
   Future<void> previewSound(ReminderSound sound) =>
       _channel.invokeMethod('previewSound', sound.file);
+
+  @override
+  Future<void> openUrl(String url) => _channel.invokeMethod('openUrl', url);
 
   @override
   Future<ReminderPermission> notificationPermission() async {

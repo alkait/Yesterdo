@@ -4,7 +4,7 @@ import 'package:sqflite/sqflite.dart';
 /// Owns the on-device SQLite file. Nothing leaves the device.
 abstract final class AppDatabase {
   static const _fileName = 'remind_me.db';
-  static const _version = 6;
+  static const _version = 7;
 
   static Future<Database> open() async {
     final path = p.join(await getDatabasesPath(), _fileName);
@@ -31,7 +31,8 @@ CREATE TABLE todos (
   due_time INTEGER,
   reminder INTEGER,
   sound TEXT,
-  dismissed INTEGER NOT NULL DEFAULT 0
+  dismissed INTEGER NOT NULL DEFAULT 0,
+  body TEXT
 )''');
     await db.execute('CREATE INDEX todos_day_idx ON todos (day)');
     await _createRecurrences(db);
@@ -42,6 +43,7 @@ CREATE TABLE todos (
   /// Version 1 knew nothing of repeating tasks. Version 2 had nowhere to keep
   /// a setting. Version 3 held one day of the month per rule. Version 4 had
   /// no due times. Version 5 held one reminder per task and no sound.
+  /// Version 6 held plain words only.
   static Future<void> upgradeSchema(Database db, int from, int to) async {
     if (from < 2) {
       await db.execute('ALTER TABLE todos ADD COLUMN recurrence_id INTEGER');
@@ -59,6 +61,19 @@ CREATE TABLE todos (
     // today's shape, so only a version 4 table still needs its due columns.
     if (from < 5) await _addDueTimes(db, recurrencesToo: from == 4);
     if (from == 5) await _widenReminders(db);
+    // As above: a `recurrences` table made afresh already has its body.
+    if (from < 7) await _addBodies(db, recurrencesToo: from >= 4);
+  }
+
+  /// Version 6 held plain words only. The body column holds them styled;
+  /// a row without one is read as its plain title, so nothing is rewritten.
+  static Future<void> _addBodies(
+    Database db, {
+    required bool recurrencesToo,
+  }) async {
+    await db.execute('ALTER TABLE todos ADD COLUMN body TEXT');
+    if (!recurrencesToo) return;
+    await db.execute('ALTER TABLE recurrences ADD COLUMN body TEXT');
   }
 
   /// Version 5 kept a single reminder as minutes before the time. Now the
@@ -130,7 +145,8 @@ CREATE TABLE recurrences (
   position INTEGER NOT NULL,
   due_time INTEGER,
   reminder INTEGER,
-  sound TEXT
+  sound TEXT,
+  body TEXT
 )''');
     await db.execute(
       'CREATE INDEX recurrences_start_idx ON recurrences (start_day)',
