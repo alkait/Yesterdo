@@ -48,6 +48,12 @@ abstract final class Brand {
   static const thumbnailRadius = 8.0;
   static const wheelMinuteStep = 5;
 
+  /// The switch on a toggle row: its track, and the gap between the track
+  /// and the thumb.
+  static const switchWidth = 50.0;
+  static const switchHeight = 30.0;
+  static const switchInset = 2.0;
+
   /// How much of the accent a calling card's face takes at the top of a
   /// breath. Enough to be seen, not enough to shout.
   static const callingTint = 0.10;
@@ -72,6 +78,13 @@ abstract final class Brand {
   /// One in-and-out of a calling card's pulse.
   static const breath = Duration(milliseconds: 1400);
   static const breathCurve = Curves.easeInOut;
+
+  /// A card travelling to its new place in the order, after being checked
+  /// or when its time comes, and how much it swells on the way, as a lifted
+  /// one does.
+  static const flight = Duration(milliseconds: 340);
+  static const flightCurve = Curves.easeInOutCubic;
+  static const flightLift = 0.03;
 }
 
 /// The five meanings a foreground colour can carry. Widgets name a tone;

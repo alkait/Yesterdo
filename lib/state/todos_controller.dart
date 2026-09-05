@@ -64,6 +64,13 @@ class TodosController extends AsyncNotifier<List<Todo>> {
     final updated = written.toggled(_now.millisecondsSinceEpoch);
     await _store.save(updated);
     if (!ref.mounted) return;
+    // Done is heard as well as seen, unless sounds are off. Undoing it is
+    // silent.
+    if (updated.done && ref.read(appSoundsProvider)) {
+      await ref
+          .read(deviceBridgeProvider)
+          .playDone(ref.read(doneSoundProvider));
+    }
 
     // Flip in place first; re-order only after the strike has been seen.
     _show(_replacing(updated));

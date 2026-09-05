@@ -1,4 +1,5 @@
 import 'package:remind_me/core/app_theme.dart';
+import 'package:remind_me/data/done_sound.dart';
 import 'package:remind_me/data/reminder_sound.dart';
 import 'package:remind_me/platform/device_bridge.dart';
 import 'package:remind_me/reminders/reminder_scheduler.dart';
@@ -25,6 +26,17 @@ class MemoryDeviceBridge implements DeviceBridge {
   @override
   Future<void> previewSound(ReminderSound sound) {
     previewed.add(sound);
+    return Future.value();
+  }
+
+  /// Every done sound played, in order.
+  final List<DoneSound> donePlayed = <DoneSound>[];
+
+  int get doneSounds => donePlayed.length;
+
+  @override
+  Future<void> playDone(DoneSound sound) {
+    donePlayed.add(sound);
     return Future.value();
   }
 

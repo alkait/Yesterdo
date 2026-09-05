@@ -14,8 +14,10 @@ import '../task_view_page.dart';
 import 'month_picker_sheet.dart';
 import 'sound_picker_sheet.dart';
 
-/// The things you can do to a task, reached by swiping its card. Named in
-/// one place so the buttons and their labels cannot drift.
+/// The things you can do to a task, reached by swiping its card, or on the
+/// attention sheet. Named in one place so the buttons and their labels
+/// cannot drift. Done has no swipe button of its own any more, the circle on
+/// the card is for that, but the attention sheet still offers it.
 IconData doneIconFor(Todo todo) =>
     todo.done ? Icons.remove_done_rounded : Icons.check_rounded;
 

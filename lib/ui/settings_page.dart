@@ -6,6 +6,7 @@ import '../reminders/reminder_scheduler.dart';
 import '../state/developer_mode.dart';
 import '../state/providers.dart';
 import 'branded/branded.dart';
+import 'widgets/done_sound_picker_sheet.dart';
 import 'widgets/theme_picker_sheet.dart';
 
 /// The settings screen: which look the app is drawn in, whether the system
@@ -50,6 +51,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final chosen = ref.watch(themeChoiceProvider);
     final permission = ref.watch(reminderPermissionProvider).value;
     final developer = ref.watch(developerModeProvider);
+    final sounds = ref.watch(appSoundsProvider);
+    final doneSound = ref.watch(doneSoundProvider);
 
     return BrandedScaffold(
       children: [
@@ -83,6 +86,25 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   label: 'Theme',
                   value: chosen.label,
                   onTap: () => showThemePicker(context),
+                ),
+                const SizedBox(height: Brand.gap),
+                const BrandedText(
+                  'Sounds',
+                  role: BrandedTextRole.caption,
+                  tone: BrandedTone.muted,
+                ),
+                BrandedToggleRow(
+                  key: const ValueKey('settings-sounds'),
+                  label: 'App sounds',
+                  value: sounds,
+                  onChanged: ref.read(appSoundsProvider.notifier).set,
+                ),
+                const BrandedDivider(),
+                BrandedFieldRow(
+                  key: const ValueKey('settings-done-sound'),
+                  label: 'Done sound',
+                  value: doneSound.label,
+                  onTap: () => showDoneSoundPicker(context),
                 ),
                 const SizedBox(height: Brand.gap),
                 const BrandedText(
@@ -124,6 +146,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     label: 'Version',
                     value: appVersion,
                   ),
+                ),
+                // The done sounds are Headphaze's, under CC BY 4.0, which
+                // asks for a credit, and Universfield's, under the Pixabay
+                // Content Licence.
+                const BrandedFieldRow(
+                  label: 'Sounds by',
+                  value: 'Headphaze, Universfield',
+                  detail: 'Freesound CC BY 4.0, Pixabay licence',
                 ),
                 if (developer)
                   BrandedTextButton(

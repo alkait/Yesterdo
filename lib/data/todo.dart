@@ -181,12 +181,13 @@ class Todo {
   };
 }
 
-/// Open tasks keep their position order. Completed ones sink below them, and
-/// the one just checked heads that struck group.
+/// Open tasks keep their position order. Completed ones sink below them, in
+/// the order they were finished, so the one just checked goes to the very
+/// bottom.
 int compareTodos(Todo a, Todo b) {
   if (a.done != b.done) return a.done ? 1 : -1;
   final ranked = a.done
-      ? (b.completedAt ?? 0).compareTo(a.completedAt ?? 0)
+      ? (a.completedAt ?? 0).compareTo(b.completedAt ?? 0)
       : a.position.compareTo(b.position);
   // Positions can collide after a reorder, or between a rule and a row, so the
   // key settles it and the list never reshuffles between rebuilds.

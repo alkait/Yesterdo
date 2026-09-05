@@ -1,6 +1,7 @@
 import 'package:flutter/services.dart';
 
 import '../core/app_theme.dart';
+import '../data/done_sound.dart';
 import '../data/reminder_sound.dart';
 import '../reminders/reminder_scheduler.dart';
 
@@ -17,6 +18,9 @@ abstract class DeviceBridge {
 
   /// Plays a reminder sound once, so it can be heard before it is chosen.
   Future<void> previewSound(ReminderSound sound);
+
+  /// Plays a sound that marks a task done.
+  Future<void> playDone(DoneSound sound);
 
   Future<ReminderPermission> notificationPermission();
 
@@ -59,6 +63,10 @@ class MethodChannelDeviceBridge implements DeviceBridge {
   @override
   Future<void> previewSound(ReminderSound sound) =>
       _channel.invokeMethod('previewSound', sound.file);
+
+  @override
+  Future<void> playDone(DoneSound sound) =>
+      _channel.invokeMethod('playSound', sound.file);
 
   @override
   Future<void> openUrl(String url) => _channel.invokeMethod('openUrl', url);

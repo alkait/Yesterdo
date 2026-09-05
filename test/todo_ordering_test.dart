@@ -28,10 +28,10 @@ void main() {
       expect(items.map((t) => t.id), [2, 1]);
     });
 
-    test('the most recently checked task heads the struck group', () {
-      final items = [checked(1, 0, 100), checked(2, 1, 200)]
+    test('the most recently checked task ends the struck group', () {
+      final items = [checked(2, 1, 200), checked(1, 0, 100)]
         ..sort(compareTodos);
-      expect(items.map((t) => t.id), [2, 1]);
+      expect(items.map((t) => t.id), [1, 2]);
     });
   });
 

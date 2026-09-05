@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/app_theme.dart';
 import '../core/day.dart';
+import '../data/done_sound.dart';
 import '../data/reminder_sound.dart';
 import '../data/repeat_rule.dart';
 import '../data/settings_store.dart';
@@ -11,10 +12,12 @@ import '../platform/device_bridge.dart';
 import '../reminders/reminder_planner.dart';
 import '../reminders/reminder_scheduler.dart';
 import '../reminders/reminder_sync.dart';
+import 'app_sounds.dart';
 import 'attention_request.dart';
 import 'backlog.dart';
 import 'backlog_controller.dart';
 import 'developer_mode.dart';
+import 'done_sound_choice.dart';
 import 'last_sound.dart';
 import 'repeat_history.dart';
 import 'selected_day.dart';
@@ -128,6 +131,22 @@ final lastSoundProvider = NotifierProvider<LastSound, ReminderSound>(
 /// first frame; tests bind a folder of their own.
 final imagesDirectoryProvider = Provider<String>(
   (ref) => throw StateError('imagesDirectoryProvider must be overridden'),
+);
+
+/// Whether the app's own sounds were on last time, bound in `main` before
+/// the first frame.
+final initialAppSoundsProvider = Provider<bool>((ref) => true);
+
+final appSoundsProvider = NotifierProvider<AppSounds, bool>(AppSounds.new);
+
+/// The done sound saved from last time, bound in `main` before the first
+/// frame.
+final initialDoneSoundProvider = Provider<DoneSound>(
+  (ref) => DoneSound.fallback,
+);
+
+final doneSoundProvider = NotifierProvider<DoneSoundChoice, DoneSound>(
+  DoneSoundChoice.new,
 );
 
 /// Whether developer mode was on last time, bound in `main` before the

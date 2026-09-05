@@ -25,6 +25,9 @@
 		C3D488CA3AF940ED9090D6FD /* alert.caf in Resources */ = {isa = PBXBuildFile; fileRef = 772D2A78757A44F583522499 /* alert.caf */; };
 		A837DDAD01CA477E806E5C19 /* drop.caf in Resources */ = {isa = PBXBuildFile; fileRef = 2E33F14436B84AE6AE878CBA /* drop.caf */; };
 		77D5E5442D0D48FAA84072CD /* ripple.caf in Resources */ = {isa = PBXBuildFile; fileRef = 8C8175EEF77F4370948F019F /* ripple.caf */; };
+		5D0E5E1A0C0E4D3E9B7A1F05 /* pop.caf in Resources */ = {isa = PBXBuildFile; fileRef = 5D0E5E1A0C0E4D3E9B7A1F06 /* pop.caf */; };
+		5D0E5E1A0C0E4D3E9B7A1F03 /* notify.caf in Resources */ = {isa = PBXBuildFile; fileRef = 5D0E5E1A0C0E4D3E9B7A1F04 /* notify.caf */; };
+		5D0E5E1A0C0E4D3E9B7A1F01 /* done.caf in Resources */ = {isa = PBXBuildFile; fileRef = 5D0E5E1A0C0E4D3E9B7A1F02 /* done.caf */; };
 		6C4B7B838F5E48C499D6F460 /* ImageBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C96DE5020D54002842B8E85 /* ImageBridge.swift */; };
 /* End PBXBuildFile section */
 
@@ -78,6 +81,9 @@
 		772D2A78757A44F583522499 /* alert.caf */ = {isa = PBXFileReference; lastKnownFileType = file; name = alert.caf; path = Sounds/alert.caf; sourceTree = "<group>"; };
 		2E33F14436B84AE6AE878CBA /* drop.caf */ = {isa = PBXFileReference; lastKnownFileType = file; name = drop.caf; path = Sounds/drop.caf; sourceTree = "<group>"; };
 		8C8175EEF77F4370948F019F /* ripple.caf */ = {isa = PBXFileReference; lastKnownFileType = file; name = ripple.caf; path = Sounds/ripple.caf; sourceTree = "<group>"; };
+		5D0E5E1A0C0E4D3E9B7A1F06 /* pop.caf */ = {isa = PBXFileReference; lastKnownFileType = file; name = pop.caf; path = Sounds/pop.caf; sourceTree = "<group>"; };
+		5D0E5E1A0C0E4D3E9B7A1F04 /* notify.caf */ = {isa = PBXFileReference; lastKnownFileType = file; name = notify.caf; path = Sounds/notify.caf; sourceTree = "<group>"; };
+		5D0E5E1A0C0E4D3E9B7A1F02 /* done.caf */ = {isa = PBXFileReference; lastKnownFileType = file; name = done.caf; path = Sounds/done.caf; sourceTree = "<group>"; };
 		7C96DE5020D54002842B8E85 /* ImageBridge.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ImageBridge.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -145,6 +151,9 @@
 				772D2A78757A44F583522499 /* alert.caf */,
 				2E33F14436B84AE6AE878CBA /* drop.caf */,
 				8C8175EEF77F4370948F019F /* ripple.caf */,
+				5D0E5E1A0C0E4D3E9B7A1F06 /* pop.caf */,
+				5D0E5E1A0C0E4D3E9B7A1F04 /* notify.caf */,
+				5D0E5E1A0C0E4D3E9B7A1F02 /* done.caf */,
 				AEEF1DF8C9B345D083EB288A /* chime.caf */,
 				375C8A153D6540DA9B043B5B /* bell.caf */,
 				6F2BF550C88242F7BCA6ECDE /* pulse.caf */,
@@ -264,6 +273,9 @@
 				C3D488CA3AF940ED9090D6FD /* alert.caf in Resources */,
 				A837DDAD01CA477E806E5C19 /* drop.caf in Resources */,
 				77D5E5442D0D48FAA84072CD /* ripple.caf in Resources */,
+				5D0E5E1A0C0E4D3E9B7A1F05 /* pop.caf in Resources */,
+				5D0E5E1A0C0E4D3E9B7A1F03 /* notify.caf in Resources */,
+				5D0E5E1A0C0E4D3E9B7A1F01 /* done.caf in Resources */,
 				9A14236AB13840259A04C6A6 /* chime.caf in Resources */,
 				97FF99BF86F64C5284DF604C /* bell.caf in Resources */,
 				DA07B6E0A53F42DB90B9D821 /* pulse.caf in Resources */,

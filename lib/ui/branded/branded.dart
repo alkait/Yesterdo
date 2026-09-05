@@ -30,3 +30,4 @@ export 'branded_text.dart';
 export 'branded_text_field.dart';
 export 'branded_theme_swatch.dart';
 export 'branded_time_wheel.dart';
+export 'branded_toggle_row.dart';

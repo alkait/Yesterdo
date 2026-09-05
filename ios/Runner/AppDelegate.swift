@@ -33,7 +33,7 @@ import UserNotifications
         self?.setAppIcon(named: call.arguments as? String, result: result)
       case "setBadge":
         self?.setBadge(call.arguments as? Int ?? 0, result: result)
-      case "previewSound":
+      case "previewSound", "playSound":
         self?.previewSound(file: call.arguments as? String, result: result)
       case "imagesDirectory":
         result(ImageBridge.directory.path)
@@ -110,8 +110,9 @@ import UserNotifications
     }
   }
 
-  /// Plays a bundled reminder sound once. A nil file is the system's own
-  /// notification sound, which plays through the notification centre alone.
+  /// Plays a bundled sound once: a reminder sound to be heard before it is
+  /// chosen, or the done sound. A nil file is the system's own notification
+  /// sound, which plays through the notification centre alone.
   private func previewSound(file: String?, result: @escaping FlutterResult) {
     previewPlayer?.stop()
     guard let file = file, let url = Bundle.main.url(forResource: file, withExtension: nil)

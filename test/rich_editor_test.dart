@@ -214,8 +214,10 @@ void main() {
     expect(find.text('1 of 2'), findsOneWidget);
     final tile = tileFor(tester, 'Milk');
     expect(tile.todo.body.first.checked, isTrue);
-    // A ticked first item is struck on the card, and its box is ticked.
+    // The card carries one circle, for done; the item's own box is not
+    // drawn there, the strike says it is ticked.
     expect(find.byType(BrandedCheckBox), findsOneWidget);
+    expect(find.byIcon(Icons.check_rounded), findsNothing);
   });
 
   testWidgets('a right-to-left item carries its box on the right, and the '
@@ -234,11 +236,12 @@ void main() {
     );
     await save(tester);
 
-    // On the card too.
+    // The card shows no box of the item's own; its one circle is for done
+    // and sits at the leading edge whatever the words' direction.
     expect(
       tester.getCenter(find.byType(BrandedCheckBox)).dx,
-      greaterThan(tester.getCenter(find.text('حليب')).dx),
-      reason: 'card box on the right',
+      lessThan(tester.getCenter(find.text('حليب')).dx),
+      reason: 'done circle on the left',
     );
 
     // In the read view, a tap on the words ticks the item.

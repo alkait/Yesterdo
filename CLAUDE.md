@@ -97,8 +97,10 @@ only the rules for working on it.
   handing off to Flutter. Without that line Dart is never told of a tapped
   notification.
 - A sound is a short CAF file under `ios/Runner/Sounds`, listed as a resource
-  in the Xcode project so it lands at the bundle root. A new sound is a new
-  file there and a new `ReminderSound` case.
+  in the Xcode project so it lands at the bundle root. A new reminder sound
+  is a new file there and a new `ReminderSound` case; a new done sound, a
+  new `DoneSound` case. Anything brought in
+  under a licence that asks for credit is credited in Settings, under About.
 
 ## UI: the Branded rule
 
@@ -141,8 +143,11 @@ lands in one place and shows up everywhere.
   `TaskEditorPage` as a full screen.
 - The editor asks for the keyboard only once its slide-in has finished, by
   listening to the route's animation. No `autofocus` on that field.
-- A task row carries no checkbox. Done, edit and delete live on the swipe
-  buttons and nowhere else; there is no action sheet.
+- Done is the circle on the card, and the attention sheet's Done. Edit and
+  delete live on the swipe buttons and nowhere else; there is no action
+  sheet.
+- A card that changes place in the order flies there through `TodoFlight`.
+  Do not let a card jump.
 - A swipe never acts on its own. It uncovers buttons and nothing happens
   until one is tapped.
 - The task actions are named once in `task_actions.dart`, so their icons and

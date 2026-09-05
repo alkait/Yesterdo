@@ -6,11 +6,11 @@ import '../../state/providers.dart';
 import '../branded/branded.dart';
 import 'attention_sheet.dart';
 import 'task_actions.dart';
+import 'todo_card.dart';
 
-/// One task, on its own bordered card, its words on up to two lines and
-/// ellipsised past that. Swipe either way for buttons, press and hold to
-/// reorder. A calling card is the one card that takes a tap, which puts up
-/// the attention sheet.
+/// One task in the list: its [TodoCard], with swipe buttons either way and
+/// a press-and-hold lift to reorder. The circle marks it done. A calling
+/// card is the one card whose tap puts up the attention sheet.
 class TodoTile extends ConsumerWidget {
   const TodoTile({
     super.key,
@@ -32,68 +32,20 @@ class TodoTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final first = todo.body.firstText;
-    final card = BrandedCard(
-      recessed: todo.done,
+    final card = TodoCard(
+      todo: todo,
       calling: calling,
       // A calling card answers with its sheet; any other opens to be read.
       onTap: calling
           ? () => showAttentionSheet(context, ref, todo)
           : () => openTask(context, todo),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // The first block of words, styles and all. A checklist item
-          // shows its box.
-          Row(
-            textDirection: brandedTextDirection(first?.text ?? ''),
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (first?.isCheck ?? false)
-                Padding(
-                  padding: const EdgeInsetsDirectional.only(end: Brand.gap / 2),
-                  child: BrandedCheckBox(checked: first!.checked),
-                ),
-              Expanded(
-                child: first == null
-                    ? BrandedText(
-                        'Picture',
-                        role: BrandedTextRole.card,
-                        tone: BrandedTone.muted,
-                        maxLines: 1,
-                      )
-                    : BrandedRichText(
-                        first.content,
-                        role: BrandedTextRole.card,
-                        struck: todo.done || first.checked,
-                        tone: todo.done
-                            ? BrandedTone.muted
-                            : BrandedTone.primary,
-                        maxLines: Brand.cardLines,
-                      ),
-              ),
-            ],
-          ),
-          // The words get the whole width. Anything else about the task
-          // goes in small print underneath.
-          if (todo.repeats ||
-              todo.due != null ||
-              todo.body.checklistProgress.$2 > 0)
-            _SmallPrint(todo: todo, calling: calling),
-        ],
-      ),
+      onToggle: () => ref.read(todosProvider.notifier).toggle(todo),
     );
 
     return BrandedSwipeActions(
       group: swipeGroup,
       id: todo.key,
       leading: [
-        BrandedSwipeAction(
-          icon: doneIconFor(todo),
-          label: doneLabelFor(todo),
-          onTap: () => ref.read(todosProvider.notifier).toggle(todo),
-        ),
         BrandedSwipeAction(
           icon: Icons.edit_outlined,
           label: 'Edit',
@@ -128,63 +80,6 @@ class TodoTile extends ConsumerWidget {
       child: todo.done || calling
           ? card
           : BrandedDragLift(index: index, child: card),
-    );
-  }
-}
-
-/// The line under the words: how much of a checklist is ticked, a repeat
-/// glyph for a repeating task, a bell when a reminder is set, and the time. All take the accent while the card
-/// is calling.
-class _SmallPrint extends StatelessWidget {
-  const _SmallPrint({required this.todo, required this.calling});
-
-  final Todo todo;
-  final bool calling;
-
-  @override
-  Widget build(BuildContext context) {
-    final tone = calling ? BrandedTone.accent : BrandedTone.muted;
-    final due = todo.due;
-    final (ticked, items) = todo.body.checklistProgress;
-    return Padding(
-      padding: const EdgeInsets.only(top: 4),
-      child: Row(
-        children: [
-          if (items > 0) ...[
-            BrandedText(
-              '$ticked of $items',
-              role: BrandedTextRole.caption,
-              tone: tone,
-            ),
-            const SizedBox(width: Brand.gap),
-          ],
-          if (todo.repeats) ...[
-            BrandedIcon(
-              Icons.repeat_rounded,
-              size: BrandedIconSize.small,
-              tone: tone,
-            ),
-            const SizedBox(width: 6),
-          ],
-          if (due != null) ...[
-            if (due.hasReminder) ...[
-              BrandedIcon(
-                Icons.notifications_none_rounded,
-                size: BrandedIconSize.small,
-                tone: tone,
-              ),
-              const SizedBox(width: 4),
-            ],
-            BrandedText(
-              due.label(
-                twentyFourHour: MediaQuery.alwaysUse24HourFormatOf(context),
-              ),
-              role: BrandedTextRole.caption,
-              tone: tone,
-            ),
-          ],
-        ],
-      ),
     );
   }
 }

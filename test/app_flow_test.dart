@@ -20,6 +20,7 @@ import 'package:remind_me/ui/settings_page.dart';
 import 'package:remind_me/ui/widgets/date_header.dart';
 import 'package:remind_me/ui/widgets/task_actions.dart';
 import 'package:remind_me/ui/widgets/todo_list_view.dart';
+import 'package:remind_me/ui/widgets/todo_card.dart';
 import 'package:remind_me/ui/widgets/todo_tile.dart';
 
 import 'support/memory_device_bridge.dart';
@@ -214,15 +215,18 @@ Future<void> actOn(
   String action, {
   bool settle = true,
 }) async {
-  final (direction, icon) = switch (action) {
-    'Done' => (const Offset(200, 0), Icons.check_rounded),
-    'Not done' => (const Offset(200, 0), Icons.remove_done_rounded),
-    'Edit' => (const Offset(200, 0), Icons.edit_outlined),
-    'Delete' => (const Offset(-160, 0), Icons.delete_outline_rounded),
-    _ => throw ArgumentError.value(action, 'action'),
-  };
-  await swipe(tester, title, direction);
-  await tester.tap(find.byIcon(icon));
+  // Done and Not done are the circle on the card; the rest are swiped for.
+  if (action == 'Done' || action == 'Not done') {
+    await tester.tap(circleOn(title));
+  } else {
+    final (direction, icon) = switch (action) {
+      'Edit' => (const Offset(200, 0), Icons.edit_outlined),
+      'Delete' => (const Offset(-160, 0), Icons.delete_outline_rounded),
+      _ => throw ArgumentError.value(action, 'action'),
+    };
+    await swipe(tester, title, direction);
+    await tester.tap(find.byIcon(icon));
+  }
   if (settle) {
     await tester.pump(reorderDelay);
     await tester.pumpAndSettle();
@@ -230,6 +234,12 @@ Future<void> actOn(
     await tester.pump();
   }
 }
+
+/// The done circle on a task's card.
+Finder circleOn(String title) => find.descendant(
+  of: find.ancestor(of: find.text(title), matching: find.byType(TodoTile)),
+  matching: find.byType(BrandedCheckBox),
+);
 
 /// Holds a card until it lifts, then drags it down over another one.
 Future<void> dragCardDown(
@@ -354,12 +364,20 @@ void main() {
     expect(find.text('History'), findsOneWidget);
   });
 
-  testWidgets('tasks carry no checkbox', (tester) async {
+  testWidgets('every card carries a done circle, empty until checked', (
+    tester,
+  ) async {
     await tester.pumpWidget(bootApp());
     await tester.pumpAndSettle();
     await addTask(tester, 'Buy milk');
 
-    expect(find.byType(BrandedSelectionCircle), findsNothing);
+    expect(circleOn('Buy milk'), findsOneWidget);
+    expect(find.byIcon(Icons.check_rounded), findsNothing);
+    await tester.tap(circleOn('Buy milk'));
+    await tester.pump();
+    expect(find.byIcon(Icons.check_rounded), findsOneWidget);
+    await tester.pump(reorderDelay);
+    await tester.pumpAndSettle();
   });
 
   testWidgets('tapping a card opens it to be read, nothing more', (
@@ -439,7 +457,51 @@ void main() {
     expect(visibleTitles(tester), ['Call Sam', 'Post letter', 'Buy milk']);
   });
 
-  testWidgets('the newest completed task heads the struck group', (
+  testWidgets('marking done plays the done sound; undoing it is silent', (
+    tester,
+  ) async {
+    final device = MemoryDeviceBridge();
+    await tester.pumpWidget(bootApp(device: device));
+    await tester.pumpAndSettle();
+    await addTask(tester, 'Buy milk');
+
+    await actOn(tester, 'Buy milk', 'Done');
+    expect(device.doneSounds, 1);
+    await actOn(tester, 'Buy milk', 'Not done');
+    expect(device.doneSounds, 1);
+  });
+
+  testWidgets('a checked card flies to its place rather than jumping', (
+    tester,
+  ) async {
+    await tester.pumpWidget(bootApp());
+    await tester.pumpAndSettle();
+    await addTask(tester, 'Buy milk');
+    await addTask(tester, 'Call Sam');
+
+    await tester.tap(circleOn('Call Sam'));
+    await tester.pump();
+    // Struck in place first; the order is untouched.
+    expect(visibleTitles(tester), ['Call Sam', 'Buy milk']);
+    expect(find.byType(TodoCard), findsNWidgets(2));
+
+    // Then the new order arrives, and a copy of the card is on its way
+    // over the list, with a spacer holding where it was.
+    await tester.pump(reorderDelay);
+    await tester.pump();
+    expect(visibleTitles(tester), ['Buy milk', 'Call Sam']);
+    expect(find.byType(TodoCard), findsNWidgets(3), reason: 'the copy');
+    expect(find.byKey(const ValueKey('flight-spacer-t2')), findsOneWidget);
+
+    // Landed: the copy is gone and the card is in its place.
+    await tester.pump(Brand.flight);
+    await tester.pumpAndSettle();
+    expect(find.byType(TodoCard), findsNWidgets(2));
+    expect(find.byKey(const ValueKey('flight-spacer-t2')), findsNothing);
+    expect(visibleTitles(tester), ['Buy milk', 'Call Sam']);
+  });
+
+  testWidgets('the newest completed task goes to the very bottom', (
     tester,
   ) async {
     await tester.pumpWidget(bootApp());
@@ -453,7 +515,7 @@ void main() {
     expect(visibleTitles(tester), ['Call Sam', 'Post letter', 'Buy milk']);
 
     await actOn(tester, 'Call Sam', 'Done');
-    expect(visibleTitles(tester), ['Post letter', 'Call Sam', 'Buy milk']);
+    expect(visibleTitles(tester), ['Post letter', 'Buy milk', 'Call Sam']);
   });
 
   testWidgets('unmarking lifts a task back above the completed ones', (
@@ -708,26 +770,32 @@ void main() {
     expect(visibleTitles(tester), ['Call Sam']);
   });
 
-  testWidgets('the leading side offers done and edit', (tester) async {
+  testWidgets('the leading side offers edit alone; the circle is done', (
+    tester,
+  ) async {
     await tester.pumpWidget(bootApp());
     await tester.pumpAndSettle();
 
     await addTask(tester, 'Buy milk');
     await addTask(tester, 'Call Sam');
 
-    await swipe(tester, 'Buy milk', const Offset(200, 0));
-    expect(find.byIcon(Icons.check_rounded), findsOneWidget);
-    expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
-
-    await tester.tap(find.byIcon(Icons.check_rounded));
+    await tester.tap(circleOn('Call Sam'));
     await tester.pump(reorderDelay);
     await tester.pumpAndSettle();
+    expect(visibleTitles(tester), ['Buy milk', 'Call Sam']);
+    expect(tileFor(tester, 'Call Sam').todo.done, isTrue);
 
+    // The same circle undoes it.
+    await tester.tap(circleOn('Call Sam'));
+    await tester.pump(reorderDelay);
+    await tester.pumpAndSettle();
     expect(visibleTitles(tester), ['Call Sam', 'Buy milk']);
+    expect(tileFor(tester, 'Call Sam').todo.done, isFalse);
 
-    // Now the same button offers to undo it.
+    // The swipe has no done button any more, only edit.
     await swipe(tester, 'Buy milk', const Offset(200, 0));
-    expect(find.byIcon(Icons.remove_done_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.check_rounded), findsNothing);
+    expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
   });
 
   testWidgets('the edit button opens the editor screen', (tester) async {
