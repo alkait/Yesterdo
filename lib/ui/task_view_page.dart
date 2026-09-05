@@ -7,6 +7,7 @@ import '../data/todo.dart';
 import '../state/providers.dart';
 import 'branded/branded.dart';
 import 'image_view_page.dart';
+import 'repeat_history_page.dart';
 import 'widgets/task_actions.dart';
 
 /// A task read in full: its words with their styles, its checklist with
@@ -117,7 +118,9 @@ class TaskViewPage extends ConsumerWidget {
 }
 
 /// The due time and the repeat, under the words, read only: the same rows
-/// the editor has, without the chevrons. Only what is set is shown.
+/// the editor has, without the chevrons. Only what is set is shown. A
+/// repeating task has a History row too, the one row here that leads on,
+/// which says how many showings were done and opens them day by day.
 class _Particulars extends ConsumerWidget {
   const _Particulars({required this.todo, required this.day});
 
@@ -133,6 +136,9 @@ class _Particulars extends ConsumerWidget {
                 ruleForProvider((day: day, recurrenceId: todo.recurrenceId)),
               )
               .value
+        : null;
+    final history = todo.repeats
+        ? ref.watch(repeatHistoryProvider(todo.recurrenceId!)).value
         : null;
     return Padding(
       padding: const EdgeInsets.only(top: Brand.gap),
@@ -150,13 +156,27 @@ class _Particulars extends ConsumerWidget {
             ),
             if (todo.repeats) const BrandedDivider(),
           ],
-          if (todo.repeats)
+          if (todo.repeats) ...[
             BrandedFieldRow(
               label: 'Repeat',
               // The rule arrives a moment after the words.
               value: rule?.label ?? '',
               detail: rule?.detail,
             ),
+            const BrandedDivider(),
+            BrandedFieldRow(
+              key: const ValueKey('history-row'),
+              label: 'History',
+              value: history?.summary ?? '',
+              // Nothing to walk through until the first showing has come.
+              onTap: history == null || history.isEmpty
+                  ? null
+                  : () => openBrandedPage<void>(
+                      context,
+                      (_) => RepeatHistoryPage(todo: todo),
+                    ),
+            ),
+          ],
         ],
       ),
     );

@@ -94,6 +94,10 @@ abstract class TodoStore {
   /// the rest out.
   Future<Set<String>> allImages();
 
+  /// A rule with every showing of it that has been written down, for the
+  /// history. Null for a rule since gone.
+  Future<SeriesRows?> readSeries(int recurrenceId);
+
   /// The body meant by a pair of shorthand arguments.
   static TaskBody bodyOf(String? title, TaskBody? body) =>
       body ?? TaskBody.plain(title ?? '');
@@ -106,4 +110,14 @@ abstract class TodoStore {
     day: day,
     now: now,
   );
+}
+
+/// A rule and its written-down showings, keyed by day. What the history is
+/// composed from: a day the rule falls on reads its row here, or is taken
+/// as untouched when there is none.
+class SeriesRows {
+  const SeriesRows({required this.recurrence, required this.byDay});
+
+  final Recurrence recurrence;
+  final Map<int, Todo> byDay;
 }

@@ -243,6 +243,24 @@ class MemoryTodoStore implements TodoStore {
     for (final each in _recurrences) ...each.body.images,
   });
 
+  @override
+  Future<SeriesRows?> readSeries(int recurrenceId) {
+    final recurrence = _recurrences
+        .where((each) => each.id == recurrenceId)
+        .firstOrNull;
+    if (recurrence == null) return Future.value();
+    return Future.value(
+      SeriesRows(
+        recurrence: recurrence,
+        byDay: {
+          for (final entry in _byDay.entries)
+            for (final todo in entry.value)
+              if (todo.recurrenceId == recurrenceId) entry.key: todo,
+        },
+      ),
+    );
+  }
+
   List<Todo> _dayOf(int day) => _byDay.putIfAbsent(day, () => <Todo>[]);
 
   List<int> _taken(int day) => <int>[

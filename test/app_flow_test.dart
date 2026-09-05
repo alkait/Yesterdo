@@ -349,8 +349,9 @@ void main() {
     expect(find.text('At 10:00 AM'), findsOneWidget);
     expect(find.text('Repeat'), findsOneWidget);
     expect(find.text('Every day'), findsOneWidget);
-    // No chevrons: the rows open nothing.
-    expect(find.byIcon(Icons.chevron_right_rounded), findsNothing);
+    // The due and repeat rows open nothing; only History carries a chevron.
+    expect(find.byIcon(Icons.chevron_right_rounded), findsOneWidget);
+    expect(find.text('History'), findsOneWidget);
   });
 
   testWidgets('tasks carry no checkbox', (tester) async {

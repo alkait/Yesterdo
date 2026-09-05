@@ -309,4 +309,16 @@ void main() {
     expect(await titlesOn(day + 2), ['Take the pills']);
     expect(await titlesOn(day + 3), isEmpty);
   });
+  test('a series is read back with its written-down showings by day', () async {
+    final id = await startDaily();
+    final showing = (await store.todosOn(day + 1)).single;
+    final written = await store.materialize(day: day + 1, todo: showing);
+    await store.save(written.toggled(1));
+
+    final series = await store.readSeries(id);
+    expect(series!.recurrence.title, 'Take the pills');
+    expect(series.byDay.keys, [day + 1]);
+    expect(series.byDay[day + 1]!.done, isTrue);
+    expect(await store.readSeries(id + 1), isNull);
+  });
 }

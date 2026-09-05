@@ -312,6 +312,25 @@ class SqliteTodoStore implements TodoStore {
     return wanted;
   }
 
+  @override
+  Future<SeriesRows?> readSeries(int recurrenceId) async {
+    final rules = await _db.query(
+      _recurrences,
+      where: 'id = ?',
+      whereArgs: [recurrenceId],
+    );
+    if (rules.isEmpty) return null;
+    final rows = await _db.query(
+      _todos,
+      where: 'recurrence_id = ?',
+      whereArgs: [recurrenceId],
+    );
+    return SeriesRows(
+      recurrence: Recurrence.fromRow(rules.single),
+      byDay: {for (final row in rows) row['day']! as int: Todo.fromRow(row)},
+    );
+  }
+
   /// Above everything on the day, rows and rules alike. Positions may go
   /// negative; only their order means anything.
   Future<int> _topPosition(int day) async {

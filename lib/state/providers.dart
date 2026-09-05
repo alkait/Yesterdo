@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/app_theme.dart';
+import '../core/day.dart';
 import '../data/reminder_sound.dart';
 import '../data/repeat_rule.dart';
 import '../data/settings_store.dart';
@@ -15,6 +16,7 @@ import 'backlog.dart';
 import 'backlog_controller.dart';
 import 'developer_mode.dart';
 import 'last_sound.dart';
+import 'repeat_history.dart';
 import 'selected_day.dart';
 import 'theme_choice.dart';
 import 'todos_controller.dart';
@@ -83,6 +85,17 @@ final ruleForProvider = FutureProvider.autoDispose
       }
       return null;
     });
+
+/// How a repeating task has gone, every showing from its first day to
+/// today. Read afresh each time it is looked at.
+final repeatHistoryProvider = FutureProvider.autoDispose
+    .family<RepeatHistory, int>(
+      (ref, recurrenceId) => RepeatHistory.read(
+        ref.watch(todoStoreProvider),
+        recurrenceId: recurrenceId,
+        today: ref.watch(clockProvider)().epochDay,
+      ),
+    );
 
 /// The task a tapped notification asked to see, until the list has shown it.
 final attentionRequestProvider =
