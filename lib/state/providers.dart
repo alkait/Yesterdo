@@ -58,6 +58,8 @@ final reminderSyncProvider = Provider<ReminderSync>(
   (ref) => ReminderSync(
     ReminderPlanner(ref.watch(todoStoreProvider)),
     ref.watch(reminderSchedulerProvider),
+    ref.watch(todoStoreProvider),
+    ref.watch(deviceBridgeProvider),
   ),
 );
 

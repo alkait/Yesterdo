@@ -6,6 +6,7 @@ import 'package:remind_me/data/repeat_rule.dart';
 import 'package:remind_me/reminders/reminder_planner.dart';
 import 'package:remind_me/reminders/reminder_sync.dart';
 
+import 'support/memory_device_bridge.dart';
 import 'support/memory_reminder_scheduler.dart';
 import 'support/memory_todo_store.dart';
 
@@ -132,7 +133,8 @@ void main() {
 
   test('a sync hands the whole plan over, replacing the last one', () async {
     final scheduler = MemoryReminderScheduler();
-    final sync = ReminderSync(planner, scheduler);
+    final device = MemoryDeviceBridge();
+    final sync = ReminderSync(planner, scheduler, store, device);
     final todo = await store.insert(
       day: today,
       title: 'Call Sam',
@@ -144,5 +146,29 @@ void main() {
     await store.save(todo.toggled(1));
     await sync.refresh(now: nine);
     expect(scheduler.pending, isEmpty);
+  });
+
+  test('a sync numbers the icon with what is left to do today', () async {
+    final device = MemoryDeviceBridge();
+    final sync = ReminderSync(
+      planner,
+      MemoryReminderScheduler(),
+      store,
+      device,
+    );
+    final milk = await store.insert(day: today, title: 'Milk');
+    await store.insert(day: today, title: 'Bread');
+    await store.insert(day: today + 1, title: 'Tomorrow');
+    await store.insertSeries(
+      day: today,
+      title: 'Stretch',
+      rule: RepeatRule.daily(today),
+    );
+    await sync.refresh(now: nine);
+    expect(device.badge, 3, reason: 'two rows and a rule, not tomorrow');
+
+    await store.save(milk.toggled(1));
+    await sync.refresh(now: nine);
+    expect(device.badge, 2);
   });
 }

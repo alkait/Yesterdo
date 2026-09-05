@@ -31,6 +31,8 @@ import UserNotifications
       switch call.method {
       case "setAppIcon":
         self?.setAppIcon(named: call.arguments as? String, result: result)
+      case "setBadge":
+        self?.setBadge(call.arguments as? Int ?? 0, result: result)
       case "previewSound":
         self?.previewSound(file: call.arguments as? String, result: result)
       case "imagesDirectory":
@@ -77,6 +79,33 @@ import UserNotifications
         result(FlutterError(code: "icon", message: error.localizedDescription, details: nil))
       } else {
         result(nil)
+      }
+    }
+  }
+
+  /// Numbers the icon. The system shows a badge only once notifications
+  /// were allowed, and only with the badge among what was allowed; an app
+  /// allowed before badges were asked for is granted them here without a
+  /// prompt, since the system never asks twice. Never asked, nothing is
+  /// done: the question is put when a reminder is first chosen, not here.
+  private func setBadge(_ count: Int, result: @escaping FlutterResult) {
+    let centre = UNUserNotificationCenter.current()
+    centre.getNotificationSettings { settings in
+      let apply = {
+        DispatchQueue.main.async {
+          UIApplication.shared.applicationIconBadgeNumber = count
+          result(nil)
+        }
+      }
+      switch settings.authorizationStatus {
+      case .notDetermined, .denied:
+        DispatchQueue.main.async { result(nil) }
+      default:
+        if settings.badgeSetting == .enabled {
+          apply()
+        } else {
+          centre.requestAuthorization(options: [.badge]) { _, _ in apply() }
+        }
       }
     }
   }

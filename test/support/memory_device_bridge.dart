@@ -6,12 +6,19 @@ import 'package:remind_me/reminders/reminder_scheduler.dart';
 /// Test double for [DeviceBridge]. Remembers what it was asked to do.
 class MemoryDeviceBridge implements DeviceBridge {
   AppThemeChoice? icon;
+  int badge = 0;
   final List<ReminderSound> previewed = <ReminderSound>[];
   ReminderPermission status = ReminderPermission.notAsked;
 
   @override
   Future<void> setAppIcon(AppThemeChoice choice) {
     icon = choice;
+    return Future.value();
+  }
+
+  @override
+  Future<void> setBadge(int count) {
+    badge = count;
     return Future.value();
   }
 

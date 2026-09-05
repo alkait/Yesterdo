@@ -4,12 +4,16 @@ import '../core/app_theme.dart';
 import '../data/reminder_sound.dart';
 import '../reminders/reminder_scheduler.dart';
 
-/// The few things only the device itself can do: swap the app icon, play a
-/// sound out loud, and say whether notifications were ever allowed. One
-/// implementation talks to iOS; tests supply their own.
+/// The few things only the device itself can do: swap the app icon, number
+/// it, play a sound out loud, and say whether notifications were ever
+/// allowed. One implementation talks to iOS; tests supply their own.
 abstract class DeviceBridge {
   /// Shows the icon drawn for this look on the home screen.
   Future<void> setAppIcon(AppThemeChoice choice);
+
+  /// Puts a number on the icon, or takes it off with zero. The system only
+  /// shows it once notifications have been allowed.
+  Future<void> setBadge(int count);
 
   /// Plays a reminder sound once, so it can be heard before it is chosen.
   Future<void> previewSound(ReminderSound sound);
@@ -48,6 +52,9 @@ class MethodChannelDeviceBridge implements DeviceBridge {
     // The look the app ships in is the primary icon, which has no name.
     choice == AppThemeChoice.fallback ? null : 'AppIcon-${choice.name}',
   );
+
+  @override
+  Future<void> setBadge(int count) => _channel.invokeMethod('setBadge', count);
 
   @override
   Future<void> previewSound(ReminderSound sound) =>

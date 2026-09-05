@@ -132,6 +132,13 @@ A day-at-a-time todo list for iPhone and iPad. Offline, local, no account, no sy
 - Go through the `ReminderScheduler` interface. The app binds
   `LocalReminderScheduler`, tests bind `MemoryReminderScheduler` and read what
   was handed over.
+- The icon's number is how many of today's tasks are not done, waved-away
+  ones included. `ReminderSync` sets it through `DeviceBridge.setBadge` on
+  the same refresh as the notifications, so it is right whenever the app has
+  just run and goes stale at midnight until the app is next opened. The
+  system shows it only once notifications are allowed; permission is asked
+  with the badge in it, and `AppDelegate` grants the badge without a prompt
+  to an app allowed before it was asked for.
 - Permission is asked for the first time a reminder is chosen, from the editor,
   never at launch. The settings screen shows where it stands through
   `reminderPermissionProvider`, which is invalidated whenever the app comes back

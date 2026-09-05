@@ -91,7 +91,8 @@ class LocalReminderScheduler implements ReminderScheduler {
 
   @override
   Future<bool> requestPermission() async =>
-      await _ios?.requestPermissions(alert: true, sound: true) ?? false;
+      await _ios?.requestPermissions(alert: true, sound: true, badge: true) ??
+      false;
 
   @override
   Future<void> openSettings() async {
