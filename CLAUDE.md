@@ -38,7 +38,8 @@ A day-at-a-time todo list for iPhone and iPad. Offline, local, no account, no sy
   formatted date string.
 - A new task goes on top: `insert` and `insertSeries` take the position above
   everything on the day, rows and rules alike, so positions may go negative.
-  Only their order means anything. A task sent to another day joins the end.
+  Only their order means anything. A task sent to another day joins the end,
+  unless it is brought back from the backlog, when it goes on top.
 - Ordering lives only in `compareTodos`. Open tasks keep their position order,
   completed ones sit below them, and the one just checked heads that struck group.
   Ties break on id so a list never reshuffles between rebuilds. Do not re-sort ad
@@ -106,8 +107,11 @@ A day-at-a-time todo list for iPhone and iPad. Offline, local, no account, no sy
 - The time belongs to the series. Editing a repeating task's time changes every
   day it appears on and clears every wave-away, because a new time is a new call.
 - A task is calling when its moment has passed on the day being looked at, it is
-  open, and `dismissed` is not set. `Todo.isCallingOn` is the one place that
-  decides; a card reads it, never the clock. Future days never call.
+  open, and `dismissed` is not set. The moment is its earliest reminder that
+  falls on that day, or the time itself when there is none, through
+  `Due.callInstantOn`; a reminder the day before belongs to that day.
+  `Todo.isCallingOn` is the one place that decides; a card reads it, never
+  the clock. Future days never call.
 - Calling tasks head the open group, earliest first, through `todoOrderOn`.
   `compareTodos` stays the plain order and `mergeDay` takes an optional `now`.
   `TodosController` keeps a timer set for the next task to fall due on the day,
@@ -161,11 +165,18 @@ A day-at-a-time todo list for iPhone and iPad. Offline, local, no account, no sy
 - It is raised only on today, as `BacklogRow` above the cards, saying how
   many are left. Tapping it opens `BacklogPage` as a full screen, one card
   per entry, which stays while cards are seen to and goes back by itself
-  once none are left. Tapping a card asks what to do on a sheet.
+  once none are left. Tapping a card asks what to do on a sheet. Swiping a
+  card left uncovers View, which opens `TaskViewPage.of` on the task as it
+  stands on its day: read only, no Edit, boxes that do not tick. The cards
+  sit in the same `BrandedReorderableList` the day uses, with no drag lift,
+  so a swipe feels the same on both.
 - A one-off offers Done, Bring to today, Send to future, which asks for a day
-  after today on the month grid, and Delete. A rule's entry offers Done and
-  Skip, each applied to every missed showing: Done writes each down finished,
-  Skip hides each, and the rule goes on. Nothing rolls over on its own, and
+  after today on the month grid, and Delete. Brought or sent, it lands on top
+  of that day, through `moveToDay` with `toTop`. A rule's entry offers Done and
+  Delete, each applied to every missed showing: Done writes each down
+  finished, Delete hides each, as deleting one showing does, and the rule goes
+  on. The options carry no small print; the caption above them, "Missed on 3
+  earlier days" or "Missed yesterday", says what they act on. Nothing rolls over on its own, and
   the icon's number stays today's.
 
 ## Rich words
@@ -206,7 +217,10 @@ A day-at-a-time todo list for iPhone and iPad. Offline, local, no account, no sy
   where the words are read in full, boxes tick through
   `TodosController.setBody`, links open through the device bridge, and Edit
   leads on. A tick is a thing of the day, like done: a showing of a rule is
-  written down and keeps its ticks, and the series is not touched.
+  written down and keeps its ticks, and the series is not touched. Under the
+  words, the due time and the repeat are shown as the editor's rows without
+  chevrons, through `BrandedFieldRow` with no `onTap`; the rule is read
+  through `ruleForProvider`. Only what is set is shown.
 
 - A picture is a block of its own, `Block.image`, holding the file name of a
   JPEG in the images folder under the app's documents. The device takes,
@@ -326,9 +340,11 @@ in one place and shows up everywhere.
   out, so the outgoing page never flashes the new day's tasks.
 - Swiping left uncovers Not Today, a stacked NOT / TODAY glyph, then Delete.
   Not Today is only there on an open task. It opens the month grid through
-  `showDayPicker`, which greys the past and the day itself and offers no
-  shortcut to today; picking a day moves the task there, to the end of that
-  day's open group, through `TodoStore.moveToDay`. Backing out moves nothing.
+  `showDayPicker`, which takes any day, past or to come, but greys the day
+  itself and offers no shortcut to today; picking a day moves the task there,
+  to the end of that day's open group, through `TodoStore.moveToDay`. Backing
+  out moves nothing. The picker takes an `isAllowed` predicate, so each
+  caller says which days are open.
 - A rule cannot have one showing moved. Not Today on a repeating task hides
   today's showing and writes a one-off copy of the words and time on the chosen
   day. The copy has left the series: it repeats never and later edits to the
@@ -382,10 +398,11 @@ in one place and shows up everywhere.
   the bottom bar. The gear sits in the bar's `trailing` slot, outside the add tap
   target, so it can never open the editor.
 - Settings ends with an About section showing the version, `appVersion` in
-  `lib/core/app_version.dart`, kept by hand beside `pubspec.yaml`. Ten taps on
-  it turn developer mode on, saved under `developer` through
-  `developerModeProvider`; a Developer section then appears with a row that
-  turns it off. Developer mode only ever adds tools, never changes behaviour.
+  `lib/core/app_version.dart`, kept by hand beside `pubspec.yaml`, as a
+  plain label with no chevron, so nobody is invited to tap it. Ten taps on it
+  still turn developer mode on, saved under `developer` through
+  `developerModeProvider`; a single button under the version then turns it
+  off. Developer mode only ever adds tools, never changes behaviour.
 - The sound chosen last is saved under `sound` and is what a new reminder
   starts from, through `lastSoundProvider`; `main` reads it before the first
   frame like the look.

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/app_theme.dart';
 import '../data/reminder_sound.dart';
+import '../data/repeat_rule.dart';
 import '../data/settings_store.dart';
 import '../data/todo.dart';
 import '../data/todo_store.dart';
@@ -70,6 +71,18 @@ final reminderSyncProvider = Provider<ReminderSync>(
     ref.watch(deviceBridgeProvider),
   ),
 );
+
+/// The rule behind a repeating task, as it stands on [day]; null for a
+/// one-off or a rule since gone.
+final ruleForProvider = FutureProvider.autoDispose
+    .family<RepeatRule?, ({int day, int? recurrenceId})>((ref, at) async {
+      if (at.recurrenceId == null) return null;
+      final rules = await ref.watch(todoStoreProvider).recurrencesFor(at.day);
+      for (final rule in rules) {
+        if (rule.id == at.recurrenceId) return rule.rule;
+      }
+      return null;
+    });
 
 /// The task a tapped notification asked to see, until the list has shown it.
 final attentionRequestProvider =

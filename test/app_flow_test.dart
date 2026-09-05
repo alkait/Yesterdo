@@ -330,6 +330,29 @@ void main() {
     expect(tileFor(tester, 'Call Sam').todo.repeats, isFalse);
   });
 
+  testWidgets('the read view shows the due and the repeat, read only', (
+    tester,
+  ) async {
+    await tester.pumpWidget(bootApp(clock: () => at(9, 0)));
+    await tester.pumpAndSettle();
+    await addTask(
+      tester,
+      'Take the pills',
+      repeat: 'Every day',
+      due: Due(minute: minuteOf(10, 0), reminders: const {0}),
+    );
+
+    await tester.tap(find.text('Take the pills'));
+    await tester.pumpAndSettle();
+    expect(find.text('Due'), findsOneWidget);
+    expect(find.text('10:00 AM'), findsOneWidget);
+    expect(find.text('At 10:00 AM'), findsOneWidget);
+    expect(find.text('Repeat'), findsOneWidget);
+    expect(find.text('Every day'), findsOneWidget);
+    // No chevrons: the rows open nothing.
+    expect(find.byIcon(Icons.chevron_right_rounded), findsNothing);
+  });
+
   testWidgets('tasks carry no checkbox', (tester) async {
     await tester.pumpWidget(bootApp());
     await tester.pumpAndSettle();
@@ -353,6 +376,7 @@ void main() {
     expect(find.byIcon(Icons.check_rounded), findsNothing);
     expect(find.byIcon(Icons.edit_outlined), findsNothing);
     expect(find.byIcon(Icons.delete_outline_rounded), findsNothing);
+    expect(find.text('Due'), findsNothing, reason: 'nothing set, no rows');
 
     await tester.tap(find.text('Back'));
     await tester.pumpAndSettle();
@@ -1538,26 +1562,26 @@ void main() {
     await tester.tap(find.byIcon(Icons.settings_outlined));
     await tester.pumpAndSettle();
     expect(find.text('Version'), findsOneWidget);
-    expect(find.text('Developer mode'), findsNothing);
+    expect(find.text('Turn developer mode off'), findsNothing);
 
     for (var tap = 0; tap < DeveloperMode.tapsToEnable - 1; tap++) {
       await tester.tap(find.text('Version'));
       await tester.pump();
     }
     expect(
-      find.text('Developer mode'),
+      find.text('Turn developer mode off'),
       findsNothing,
       reason: 'nine is not ten',
     );
     await tester.tap(find.text('Version'));
     await tester.pumpAndSettle();
-    expect(find.text('Developer mode'), findsOneWidget);
+    expect(find.text('Turn developer mode off'), findsOneWidget);
     expect(settings.values[DeveloperMode.settingKey], 'on');
 
-    // The row turns it off again.
-    await tester.tap(find.text('Developer mode'));
+    // The button turns it off again.
+    await tester.tap(find.text('Turn developer mode off'));
     await tester.pumpAndSettle();
-    expect(find.text('Developer mode'), findsNothing);
+    expect(find.text('Turn developer mode off'), findsNothing);
     expect(settings.values[DeveloperMode.settingKey], 'off');
     expect(await DeveloperMode.load(settings), isFalse);
     expect(
@@ -1623,9 +1647,7 @@ void main() {
       expect(visibleTitles(tester), ['Buy milk']);
     });
 
-    testWidgets('the grid will not take the past or the day itself', (
-      tester,
-    ) async {
+    testWidgets('the grid will not take the day itself', (tester) async {
       await tester.pumpWidget(bootApp(clock: () => at(9, 0)));
       await tester.pumpAndSettle();
       await addTask(tester, 'Buy milk');
@@ -1634,13 +1656,6 @@ void main() {
       await tester.tap(find.byKey(ValueKey('pick-day-$today')));
       await tester.pumpAndSettle();
       expect(find.byKey(ValueKey('pick-day-$today')), findsOneWidget);
-      // Yesterday may sit in last month, off the grid that opened.
-      final yesterday = find.byKey(ValueKey('pick-day-${today - 1}'));
-      if (yesterday.evaluate().isNotEmpty) {
-        await tester.tap(yesterday);
-        await tester.pumpAndSettle();
-        expect(find.byKey(ValueKey('pick-day-$today')), findsOneWidget);
-      }
       expect(
         find.widgetWithText(BrandedTextButton, 'Today'),
         findsNothing,
@@ -1650,6 +1665,28 @@ void main() {
       // Swiped away: nothing moved.
       await tester.tapAt(const Offset(10, 10));
       await tester.pumpAndSettle();
+      expect(visibleTitles(tester), ['Buy milk']);
+    });
+
+    testWidgets('the past is open: a task can go back to yesterday', (
+      tester,
+    ) async {
+      await tester.pumpWidget(bootApp(clock: () => at(9, 0)));
+      await tester.pumpAndSettle();
+      await addTask(tester, 'Buy milk');
+      await notToday(tester, 'Buy milk');
+
+      // Yesterday may sit in last month, off the grid that opened.
+      final yesterday = find.byKey(ValueKey('pick-day-${today - 1}'));
+      if (yesterday.evaluate().isEmpty) {
+        await tester.tap(find.bySemanticsLabel('Previous month'));
+        await tester.pumpAndSettle();
+      }
+      await tester.tap(yesterday);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Nothing planned'), findsOneWidget);
+      await stepDay(tester, -1);
       expect(visibleTitles(tester), ['Buy milk']);
     });
 

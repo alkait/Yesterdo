@@ -50,6 +50,16 @@ class Due {
   /// The moment this falls on a given day, in local time.
   DateTime instantOn(int day) => dateFromEpochDayAt(day, minute);
 
+  /// When the task starts calling for attention on a given day: at its
+  /// earliest reminder that falls on that day, or at the time itself when
+  /// there is none. A reminder the day before is that day's business.
+  DateTime callInstantOn(int day) {
+    final start = dateFromEpochDayAt(day, 0);
+    final onDay = reminderInstantsOn(day)
+        .where((instant) => !instant.isBefore(start));
+    return onDay.isEmpty ? instantOn(day) : onDay.first;
+  }
+
   /// When each reminder fires on a given day, earliest first.
   List<DateTime> reminderInstantsOn(int day) {
     final at = instantOn(day);

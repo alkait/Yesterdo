@@ -21,19 +21,19 @@ Future<void> showMonthPickerSheet(BuildContext context, WidgetRef ref) {
   );
 }
 
-/// Asks for a day on or after [notBefore], marking [selected] as where the
-/// task is now. Days before that, [selected] itself included, are greyed and
-/// ignore the finger. Returns the day, or null when the sheet is swiped
-/// away.
+/// Asks for a day, marking [selected] as where the task is now. Days
+/// [isAllowed] refuses are greyed and ignore the finger, and there is no
+/// shortcut to today, which may be one of them. Returns the day, or null
+/// when the sheet is swiped away.
 Future<DateTime?> showDayPicker(
   BuildContext context, {
   required DateTime selected,
-  required DateTime notBefore,
+  required bool Function(DateTime) isAllowed,
 }) => showBrandedSheet<DateTime>(
   context,
   (sheetContext) => _MonthPicker(
     selected: selected,
-    notBefore: notBefore,
+    isAllowed: isAllowed,
     onPick: (date) => Navigator.of(sheetContext).pop(date),
   ),
 );
@@ -42,14 +42,14 @@ class _MonthPicker extends StatefulWidget {
   const _MonthPicker({
     required this.selected,
     required this.onPick,
-    this.notBefore,
+    this.isAllowed,
   });
 
   final DateTime selected;
   final ValueChanged<DateTime> onPick;
 
-  /// The first day that can be picked, or null for any day at all.
-  final DateTime? notBefore;
+  /// Which days can be picked, or null for any day at all.
+  final bool Function(DateTime)? isAllowed;
 
   @override
   State<_MonthPicker> createState() => _MonthPickerState();
@@ -76,15 +76,13 @@ class _MonthPickerState extends State<_MonthPicker> {
       MonthGrid(
         month: _month,
         isSelected: (date) => date.isSameDayAs(widget.selected),
-        isAllowed: widget.notBefore == null
-            ? null
-            : (date) => date.epochDay >= widget.notBefore!.epochDay,
+        isAllowed: widget.isAllowed,
         onPick: widget.onPick,
       ),
       const SizedBox(height: 8),
       // Only a free choice has a shortcut to today; a constrained one may
       // not allow it.
-      if (widget.notBefore == null)
+      if (widget.isAllowed == null)
         BrandedTextButton(
           label: 'Today',
           onTap: () => widget.onPick(todayDate()),

@@ -8,20 +8,23 @@ import '../../state/providers.dart';
 import '../branded/branded.dart';
 import 'month_picker_sheet.dart';
 
-/// A rule says how many showings were missed; a one-off says which day.
+/// A one-off says which day it was left on; a rule says how many days it
+/// was missed on, or which day when it was only one.
 String backlogDetail(BacklogEntry entry, {required DateTime now}) {
-  if (entry.repeats) {
-    return entry.count == 1 ? '1 missed' : '${entry.count} missed';
+  if (entry.repeats && entry.count > 1) {
+    return 'Missed on ${entry.count} earlier days';
   }
   final date = dateFromEpochDay(entry.latestDay);
-  return now.epochDay - entry.latestDay == 1
-      ? 'Yesterday'
-      : '${shortWeekdayName(date.weekday)}, ${shortDate(date)}';
+  final day = now.epochDay - entry.latestDay == 1
+      ? 'yesterday'
+      : 'on ${shortWeekdayName(date.weekday)}, ${shortDate(date)}';
+  if (entry.repeats) return 'Missed $day';
+  return day == 'yesterday' ? 'Yesterday' : day.substring(3);
 }
 
 /// What to do with one entry. A one-off can be done, brought to today, sent
 /// to a day in the future, or deleted. A rule's missed showings are done or
-/// skipped together; the rule itself goes on.
+/// deleted together; the rule itself goes on.
 Future<void> showBacklogEntrySheet(
   BuildContext context,
   WidgetRef ref,
@@ -40,17 +43,14 @@ Future<void> showBacklogEntrySheet(
         ? <Widget>[
             BrandedOptionRow(
               label: 'Done',
-              detail: entry.count == 1
-                  ? 'The missed showing'
-                  : 'All ${entry.count} missed showings',
               icon: Icons.check_rounded,
               onTap: () => choose(() => backlog.done(entry)),
             ),
             BrandedOptionRow(
-              label: 'Skip',
-              detail: 'Leave them behind; the task still repeats',
-              icon: Icons.fast_forward_rounded,
-              onTap: () => choose(() => backlog.skip(entry)),
+              label: 'Delete',
+              icon: Icons.delete_outline_rounded,
+              tone: BrandedTone.danger,
+              onTap: () => choose(() => backlog.deleteMissed(entry)),
             ),
           ]
         : <Widget>[
@@ -113,11 +113,11 @@ Future<void> _sendToFuture(
   WidgetRef ref,
   BacklogEntry entry,
 ) async {
-  final today = ref.read(clockProvider)().startOfDay;
+  final today = ref.read(clockProvider)().epochDay;
   final picked = await showDayPicker(
     context,
     selected: dateFromEpochDay(entry.latestDay),
-    notBefore: today.addDays(1),
+    isAllowed: (date) => date.epochDay > today,
   );
   if (picked == null) return;
   await ref.read(backlogProvider.notifier).bring(entry, day: picked.epochDay);

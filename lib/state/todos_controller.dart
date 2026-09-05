@@ -254,14 +254,15 @@ class TodosController extends AsyncNotifier<List<Todo>> {
     _armFor(items);
   }
 
-  /// Wakes at the next moment a task on this day falls due, and brings it up.
+  /// Wakes at the next moment a task on this day starts calling, and
+  /// brings it up.
   void _armFor(List<Todo> items) {
     _nextCall?.cancel();
     final now = _now;
     DateTime? next;
     for (final todo in items) {
       if (todo.done || todo.dismissed || todo.due == null) continue;
-      final at = todo.due!.instantOn(_day);
+      final at = todo.due!.callInstantOn(_day);
       if (!at.isAfter(now)) continue;
       if (next == null || at.isBefore(next)) next = at;
     }

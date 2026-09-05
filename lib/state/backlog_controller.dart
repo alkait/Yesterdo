@@ -24,21 +24,24 @@ class BacklogController extends AsyncNotifier<Backlog> {
     await _settle();
   }
 
-  /// Leaves every showing behind: each is hidden, and the rule goes on.
-  Future<void> skip(BacklogEntry entry) async {
+  /// Deletes every missed showing: each is hidden, as deleting one showing
+  /// of a rule does, and the rule goes on.
+  Future<void> deleteMissed(BacklogEntry entry) async {
     for (final item in entry.items) {
       await _store.remove(day: item.day, todo: item.todo);
     }
     await _settle();
   }
 
-  /// Puts a one-off on today, or on a later [day].
+  /// Puts a one-off on today, or on a later [day], above everything there:
+  /// what was brought back is the thing to see first.
   Future<void> bring(BacklogEntry entry, {int? day}) async {
     final item = entry.items.single;
     await _store.moveToDay(
       fromDay: item.day,
       toDay: day ?? _today,
       todo: item.todo,
+      toTop: true,
     );
     await _settle();
   }

@@ -59,12 +59,13 @@ class BrandedOptionRow extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     BrandedText(label, tone: tone, maxLines: 1),
+                    // Small print says why, so it wraps rather than cuts
+                    // short; the row grows to hold it.
                     if (detail case final detail? when detail.isNotEmpty)
                       BrandedText(
                         detail,
                         role: BrandedTextRole.caption,
                         tone: BrandedTone.muted,
-                        maxLines: 1,
                       ),
                   ],
                 ),

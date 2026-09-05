@@ -5,26 +5,27 @@ import 'branded_icon.dart';
 import 'branded_text.dart';
 
 /// A setting on a form: what it is on the left, what it says on the right, and
-/// a chevron because tapping opens something.
+/// a chevron because tapping opens something. Without [onTap] it is only
+/// read: the same row, no chevron, and the value greyed like the label.
 class BrandedFieldRow extends StatelessWidget {
   const BrandedFieldRow({
     super.key,
     required this.label,
     required this.value,
-    required this.onTap,
+    this.onTap,
     this.detail,
   });
 
   final String label;
   final String value;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   /// Small print under the value. Nothing is drawn for null or empty.
   final String? detail;
 
   @override
   Widget build(BuildContext context) => Semantics(
-    button: true,
+    button: onTap != null,
     label: [label, value, ?detail].where((s) => s.isNotEmpty).join(', '),
     child: GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -41,7 +42,13 @@ class BrandedFieldRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  BrandedText(value, maxLines: 1),
+                  BrandedText(
+                    value,
+                    maxLines: 1,
+                    tone: onTap == null
+                        ? BrandedTone.muted
+                        : BrandedTone.primary,
+                  ),
                   if (detail case final detail? when detail.isNotEmpty)
                     BrandedText(
                       detail,
@@ -52,11 +59,13 @@ class BrandedFieldRow extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 4),
-            const BrandedIcon(
-              Icons.chevron_right_rounded,
-              size: BrandedIconSize.medium,
-            ),
+            if (onTap != null) ...[
+              const SizedBox(width: 4),
+              const BrandedIcon(
+                Icons.chevron_right_rounded,
+                size: BrandedIconSize.medium,
+              ),
+            ],
           ],
         ),
       ),

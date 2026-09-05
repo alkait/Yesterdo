@@ -253,6 +253,32 @@ void main() {
       expect(moved.last.dismissed, isFalse, reason: 'a new day is a new call');
     });
 
+    test('a task can be put on top of the day it goes to', () async {
+      await store.insert(day: day + 3, title: 'Already there');
+      final milk = await store.insert(day: day, title: 'Buy milk');
+      await store.moveToDay(
+        fromDay: day,
+        toDay: day + 3,
+        todo: milk,
+        toTop: true,
+      );
+      expect(await titlesOn(day + 3), ['Buy milk', 'Already there']);
+
+      await store.insertSeries(
+        day: day,
+        title: 'Take the pills',
+        rule: RepeatRule.daily(day),
+      );
+      final showing = (await store.todosOn(day)).single;
+      await store.moveToDay(
+        fromDay: day,
+        toDay: day + 3,
+        todo: showing,
+        toTop: true,
+      );
+      expect((await titlesOn(day + 3)).first, 'Take the pills');
+    });
+
     test('a showing of a rule is hidden here and copied there', () async {
       await store.insertSeries(
         day: day,

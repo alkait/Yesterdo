@@ -111,16 +111,21 @@ class MemoryTodoStore implements TodoStore {
     required int fromDay,
     required int toDay,
     required Todo todo,
+    bool toTop = false,
   }) async {
+    final position = toTop ? _topPosition(toDay) : _nextPosition(toDay);
     if (todo.repeats) {
       await remove(day: fromDay, todo: todo);
-      await insert(day: toDay, body: todo.body, due: todo.due);
+      await insert(
+        day: toDay,
+        body: todo.body,
+        due: todo.due,
+        position: position,
+      );
       return;
     }
     _dayOf(fromDay).removeWhere((each) => each.id == todo.id);
-    _dayOf(
-      toDay,
-    ).add(todo.repositioned(_nextPosition(toDay)).copyWith(dismissed: false));
+    _dayOf(toDay).add(todo.repositioned(position).copyWith(dismissed: false));
   }
 
   @override

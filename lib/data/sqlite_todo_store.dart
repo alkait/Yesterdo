@@ -131,21 +131,26 @@ class SqliteTodoStore implements TodoStore {
     required int fromDay,
     required int toDay,
     required Todo todo,
+    bool toTop = false,
   }) async {
+    final position = toTop
+        ? await _topPosition(toDay)
+        : await _nextPosition(toDay);
     if (todo.repeats) {
       await remove(day: fromDay, todo: todo);
-      await insert(day: toDay, body: todo.body, due: todo.due);
+      await insert(
+        day: toDay,
+        body: todo.body,
+        due: todo.due,
+        position: position,
+      );
       return;
     }
     // A new day is a new call, so a wave-away from the old one no longer
     // holds.
     await _db.update(
       _todos,
-      <String, Object?>{
-        'day': toDay,
-        'position': await _nextPosition(toDay),
-        'dismissed': 0,
-      },
+      <String, Object?>{'day': toDay, 'position': position, 'dismissed': 0},
       where: 'id = ?',
       whereArgs: [todo.id],
     );

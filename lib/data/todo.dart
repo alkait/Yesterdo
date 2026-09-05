@@ -96,10 +96,14 @@ class Todo {
     return line.isEmpty && body.images.isNotEmpty ? 'Picture' : line;
   }
 
-  /// Whether the task is calling for attention on [day] at [now]: its time
-  /// has come, it is still open, and nobody has waved it away.
+  /// Whether the task is calling for attention on [day] at [now]: its
+  /// moment has come, the earliest reminder on the day or the time itself,
+  /// it is still open, and nobody has waved it away.
   bool isCallingOn({required int day, required DateTime now}) =>
-      due != null && !done && !dismissed && !due!.instantOn(day).isAfter(now);
+      due != null &&
+      !done &&
+      !dismissed &&
+      !due!.callInstantOn(day).isAfter(now);
 
   Todo repositioned(int newPosition) => copyWith(position: newPosition);
 

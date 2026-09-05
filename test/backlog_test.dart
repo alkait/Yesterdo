@@ -52,7 +52,11 @@ void main() {
     expect(find.text('Left behind'), findsOneWidget);
     expect(find.text('Ancient'), findsNothing);
     expect(find.text('Walk'), findsNothing);
-    expect(find.text('3 missed'), findsOneWidget, reason: 'one line per rule');
+    expect(
+      find.text('Missed on 3 earlier days'),
+      findsOneWidget,
+      reason: 'one line per rule',
+    );
     expect(find.text('Yesterday'), findsOneWidget);
     // Today's own Stretch card sits under the sheet; the line is the last.
     final sam = tester.getTopLeft(find.text('Call Sam')).dy;
@@ -60,6 +64,42 @@ void main() {
     final rent = tester.getTopLeft(find.text('Pay rent')).dy;
     expect(sam, lessThan(rent));
     expect(stretch, lessThan(rent));
+  });
+
+  testWidgets('a swipe uncovers View, which reads the task in full', (
+    tester,
+  ) async {
+    final store = await seeded();
+    await tester.pumpWidget(bootApp(store: store, clock: () => at(9, 0)));
+    await tester.pumpAndSettle();
+    await openBacklog(tester);
+
+    await tester.drag(
+      find.byKey(const ValueKey('backlog-t1')),
+      const Offset(-200, 0),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.visibility_outlined));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Task'), findsOneWidget);
+    expect(find.text('Call Sam'), findsOneWidget);
+    expect(find.text('Edit'), findsNothing, reason: 'read only');
+    expect(find.text('Repeat'), findsNothing, reason: 'nothing set');
+    await tester.tap(find.text('Back'));
+    await tester.pumpAndSettle();
+    expect(find.text('Left behind'), findsOneWidget);
+
+    // A rule's card views the words with the rule under them.
+    await tester.drag(
+      find.byKey(const ValueKey('backlog-r1')),
+      const Offset(-200, 0),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.visibility_outlined));
+    await tester.pumpAndSettle();
+    expect(find.text('Repeat'), findsOneWidget);
+    expect(find.text('Every day'), findsOneWidget);
   });
 
   testWidgets('the row is not there on another day, nor with nothing left', (
@@ -99,7 +139,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('backlog-t2')), findsNothing);
     final tomorrow = await store.todosOn(today + 1);
-    expect(tomorrow.map((t) => t.title), contains('Pay rent'));
+    expect(tomorrow.first.title, 'Pay rent', reason: 'on top of the day');
 
     // Done on a rule's line takes every missed showing, and the sheet comes
     // down by itself once nothing is left.
@@ -113,9 +153,14 @@ void main() {
     }
     expect(tileFor(tester, 'Stretch').todo.done, isFalse, reason: 'today');
     expect(tileFor(tester, 'Call Sam').todo.done, isFalse);
+    expect(
+      (await store.todosOn(today)).first.title,
+      'Call Sam',
+      reason: 'brought back on top',
+    );
   });
 
-  testWidgets('skipping a rule hides its missed showings and keeps the rule', (
+  testWidgets('deleting missed showings hides them and keeps the rule', (
     tester,
   ) async {
     final store = await seeded();
@@ -123,7 +168,7 @@ void main() {
     await tester.pumpAndSettle();
 
     await openBacklog(tester);
-    await choose(tester, 'r1', 'Skip');
+    await choose(tester, 'r1', 'Delete');
     expect(find.byKey(const ValueKey('backlog-r1')), findsNothing);
     expect(
       (await store.todosOn(today - 1)).map((t) => t.title),

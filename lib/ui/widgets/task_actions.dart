@@ -42,17 +42,15 @@ Future<void> editTask(BuildContext context, WidgetRef ref, Todo todo) async {
 Future<void> openTask(BuildContext context, Todo todo) =>
     openBrandedPage<void>(context, (_) => TaskViewPage(taskKey: todo.key));
 
-/// Sends a task to a later day, chosen on the month grid. Neither the past
-/// nor the day it is on can be chosen. Nothing moves if the grid is swiped
+/// Sends a task to another day, chosen on the month grid: any day, past
+/// or to come, but the one it is on. Nothing moves if the grid is swiped
 /// away.
 Future<void> moveTask(BuildContext context, WidgetRef ref, Todo todo) async {
   final selected = ref.read(selectedDayProvider);
-  final today = ref.read(clockProvider)().startOfDay;
-  final earliest = selected.isAfter(today) ? selected : today;
   final picked = await showDayPicker(
     context,
     selected: selected,
-    notBefore: earliest.addDays(1),
+    isAllowed: (date) => !date.isSameDayAs(selected),
   );
   if (picked == null) return;
   await ref.read(todosProvider.notifier).moveToDay(todo, picked.epochDay);

@@ -114,28 +114,24 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   role: BrandedTextRole.caption,
                   tone: BrandedTone.muted,
                 ),
-                BrandedFieldRow(
+                // A plain label, so nobody is invited to tap it; ten taps
+                // still turn developer mode on for those who know.
+                GestureDetector(
                   key: const ValueKey('settings-version'),
-                  label: 'Version',
-                  value: appVersion,
+                  behavior: HitTestBehavior.opaque,
                   onTap: _onVersionTap,
-                ),
-                if (developer) ...[
-                  const SizedBox(height: Brand.gap),
-                  const BrandedText(
-                    'Developer',
-                    role: BrandedTextRole.caption,
-                    tone: BrandedTone.muted,
+                  child: const BrandedFieldRow(
+                    label: 'Version',
+                    value: appVersion,
                   ),
-                  BrandedFieldRow(
+                ),
+                if (developer)
+                  BrandedTextButton(
                     key: const ValueKey('settings-developer'),
-                    label: 'Developer mode',
-                    value: 'On',
-                    detail: 'Swipe a task left to rehearse its reminder',
+                    label: 'Turn developer mode off',
                     onTap: () =>
                         ref.read(developerModeProvider.notifier).set(false),
                   ),
-                ],
               ],
             ),
           ),
