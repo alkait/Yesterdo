@@ -47,11 +47,12 @@ class TodoTile extends ConsumerWidget {
           // The first block of words, styles and all. A checklist item
           // shows its box.
           Row(
+            textDirection: brandedTextDirection(first?.text ?? ''),
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (first?.isCheck ?? false)
                 Padding(
-                  padding: const EdgeInsets.only(top: 2, right: 8),
+                  padding: const EdgeInsetsDirectional.only(end: Brand.gap / 2),
                   child: BrandedCheckBox(checked: first!.checked),
                 ),
               Expanded(

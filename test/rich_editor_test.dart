@@ -218,6 +218,45 @@ void main() {
     expect(find.byType(BrandedCheckBox), findsOneWidget);
   });
 
+  testWidgets('a right-to-left item carries its box on the right, and the '
+      'whole line ticks in the read view', (tester) async {
+    await tester.pumpWidget(bootApp());
+    await tester.pumpAndSettle();
+    await openEditor(tester);
+    await tapKey(tester, 'checklist');
+    await typeInto(tester, 0, 'حليب');
+    await tester.pumpAndSettle();
+    // In the editor the box stands to the right of the field.
+    expect(
+      tester.getCenter(find.byType(BrandedCheckBox)).dx,
+      greaterThan(tester.getCenter(find.byType(TextField).first).dx),
+      reason: 'editor box on the right',
+    );
+    await save(tester);
+
+    // On the card too.
+    expect(
+      tester.getCenter(find.byType(BrandedCheckBox)).dx,
+      greaterThan(tester.getCenter(find.text('حليب')).dx),
+      reason: 'card box on the right',
+    );
+
+    // In the read view, a tap on the words ticks the item.
+    await tester.tap(find.text('حليب'));
+    await tester.pumpAndSettle();
+    expect(find.text('Task'), findsOneWidget);
+    expect(
+      tester.getCenter(find.byKey(const ValueKey('tick-حليب'))).dx,
+      greaterThan(tester.getCenter(find.text('حليب')).dx),
+      reason: 'read view box on the right',
+    );
+    await tester.tap(find.text('حليب'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Back'));
+    await tester.pumpAndSettle();
+    expect(tileFor(tester, 'حليب').todo.body.first.checked, isTrue);
+  });
+
   testWidgets('a link is set on the selection and opens from the read view', (
     tester,
   ) async {

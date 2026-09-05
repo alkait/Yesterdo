@@ -335,15 +335,25 @@ class _BlockRow extends StatelessWidget {
       struck: entry.kind == BlockKind.check && entry.checked,
     );
     if (entry.kind != BlockKind.check) return field;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 6, right: Brand.gap),
-          child: BrandedCheckBox(checked: entry.checked, onTap: onTick),
-        ),
-        Expanded(child: field),
-      ],
+    // The box sits on the side the words start from, so a right-to-left
+    // item carries it on the right. A tap on the words places the caret,
+    // so only the box toggles here; the read view lets the whole line.
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: entry.controller,
+      builder: (context, value, child) => Directionality(
+        textDirection: brandedTextDirection(value.text),
+        child: child!,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsetsDirectional.only(end: Brand.gap / 2),
+            child: BrandedCheckBox(checked: entry.checked, onTap: onTick),
+          ),
+          Expanded(child: field),
+        ],
+      ),
     );
   }
 }

@@ -117,19 +117,29 @@ class _BlockView extends StatelessWidget {
       ),
     );
     if (!block.isCheck) return words;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 6, right: Brand.gap),
-          child: BrandedCheckBox(
-            key: ValueKey('tick-${block.text}'),
-            checked: block.checked,
-            onTap: onTick,
-          ),
+    // The whole line ticks, not just the box, and the box sits on the side
+    // the words start from. A link in the words still wins, as the nearer
+    // gesture.
+    return Directionality(
+      textDirection: brandedTextDirection(block.text),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTick,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsetsDirectional.only(end: Brand.gap / 2),
+              child: BrandedCheckBox(
+                key: ValueKey('tick-${block.text}'),
+                checked: block.checked,
+                onTap: onTick,
+              ),
+            ),
+            Expanded(child: words),
+          ],
         ),
-        Expanded(child: words),
-      ],
+      ),
     );
   }
 }

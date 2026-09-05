@@ -27,6 +27,15 @@ abstract final class Brand {
   static const swipeActionGap = 6.0;
   static const tapTarget = 48.0;
   static const checkSize = 22.0;
+
+  /// The box on a checklist item, drawn larger than the selection circle so
+  /// it reads at a glance and is easy to hit.
+  static const checkBoxSize = 26.0;
+  static const checkBoxBorder = 2.0;
+
+  /// The tappable box's height: one body line with its padding, so the
+  /// circle's centre lines up with the first line of the words beside it.
+  static const checkBoxHitHeight = 34.0;
   static const daySize = 36.0;
   static const sheetRadius = 18.0;
   static const tileRadius = 14.0;

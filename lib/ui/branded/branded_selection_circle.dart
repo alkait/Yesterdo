@@ -11,12 +11,17 @@ class BrandedSelectionCircle extends StatelessWidget {
     required this.selected,
     this.outlined = false,
     this.size = Brand.checkSize,
+    this.bold = false,
     this.child,
   });
 
   final bool selected;
   final bool outlined;
   final double size;
+
+  /// A heavier, darker outline, for a circle that has to be found and
+  /// tapped rather than merely noticed.
+  final bool bold;
   final Widget? child;
 
   @override
@@ -33,8 +38,12 @@ class BrandedSelectionCircle extends StatelessWidget {
         color: selected ? scheme.primary : Colors.transparent,
         border: selected || outlined
             ? Border.all(
-                color: selected ? scheme.primary : scheme.outlineVariant,
-                width: 1.5,
+                color: selected
+                    ? scheme.primary
+                    : bold
+                    ? scheme.onSurfaceVariant
+                    : scheme.outlineVariant,
+                width: bold ? Brand.checkBoxBorder : 1.5,
               )
             : null,
       ),
