@@ -1,4 +1,4 @@
-# RemindMe
+# Yesterdo
 
 A day-at-a-time todo list for iPhone and iPad. Offline, local, no account, no sync.
 

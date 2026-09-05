@@ -50,7 +50,7 @@ Widget bootApp({
     initialSoundProvider.overrideWithValue(sound),
     initialDeveloperModeProvider.overrideWithValue(developer),
   ],
-  child: const RemindMeApp(),
+  child: const YesterdoApp(),
 );
 
 /// A moment on the real today, since the list opens on the real today.
@@ -2710,7 +2710,7 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: const RemindMeApp(),
+          child: const YesterdoApp(),
         ),
       );
       await tester.pumpAndSettle();

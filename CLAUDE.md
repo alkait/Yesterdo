@@ -1,6 +1,13 @@
-# RemindMe
+# Yesterdo
 
 A day-at-a-time todo list for iPhone and iPad. Offline, local, no account, no sync.
+
+## Name
+
+- The app is Yesterdo: the display name in `Info.plist`, the app title in
+  `YesterdoApp`, and the bundle identifier `com.alkait.yesterdo`. The Dart
+  package `remind_me`, the database file and the method channel keep their
+  old names; they are internal and never seen.
 
 ## Git
 

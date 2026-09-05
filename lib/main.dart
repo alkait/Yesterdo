@@ -65,7 +65,7 @@ Future<void> main() async {
   container.read(reminderSyncProvider).refresh();
 
   runApp(
-    UncontrolledProviderScope(container: container, child: const RemindMeApp()),
+    UncontrolledProviderScope(container: container, child: const YesterdoApp()),
   );
   // Pictures nobody refers to any more are cleared out once the app is up.
   WidgetsBinding.instance.addPostFrameCallback((_) {
