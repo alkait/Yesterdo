@@ -6,6 +6,7 @@ import '../state/providers.dart';
 import 'branded/branded.dart';
 import 'widgets/add_task_bar.dart';
 import 'widgets/attention_listener.dart';
+import 'widgets/backlog_row.dart';
 import 'widgets/date_header.dart';
 import 'widgets/day_swiper.dart';
 import 'widgets/todo_list_view.dart';
@@ -29,6 +30,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   Widget build(BuildContext context) {
     final date = ref.watch(selectedDayProvider);
     final day = date.epochDay;
+    final today = ref.watch(clockProvider)().epochDay;
     // Forwards in time comes in from the right; a jump on the month grid
     // is judged the same way.
     if (_lastDay != null && day != _lastDay) {
@@ -48,6 +50,9 @@ class _HomePageState extends ConsumerState<HomePage> {
                   child: Column(
                     children: [
                       DateHeader(date: date),
+                      // What was left on earlier days is only raised on
+                      // today, where it is behind you.
+                      if (day == today) const BacklogRow(),
                       Expanded(child: TodoListView(day: day)),
                     ],
                   ),

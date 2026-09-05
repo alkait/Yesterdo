@@ -151,6 +151,23 @@ A day-at-a-time todo list for iPhone and iPad. Offline, local, no account, no sy
   it to load, pops any screen above the list and puts up the attention sheet. A
   task gone by then opens the day and nothing else.
 
+## Left behind
+
+- What was left undone on earlier days is a `Backlog`, read from the store
+  through `Backlog.read`: the last thirty days, tasks not done, waved-away
+  ones included. A one-off is an entry of its own; a rule's missed showings
+  are gathered under one entry with a count. `backlogProvider` holds it and
+  is invalidated by `TodosController` after every write.
+- It is raised only on today, as `BacklogRow` above the cards, saying how
+  many are left. Tapping it opens `BacklogPage` as a full screen, one card
+  per entry, which stays while cards are seen to and goes back by itself
+  once none are left. Tapping a card asks what to do on a sheet.
+- A one-off offers Done, Bring to today, Send to future, which asks for a day
+  after today on the month grid, and Delete. A rule's entry offers Done and
+  Skip, each applied to every missed showing: Done writes each down finished,
+  Skip hides each, and the rule goes on. Nothing rolls over on its own, and
+  the icon's number stays today's.
+
 ## Rich words
 
 - A task's words are a `TaskBody`: a list of blocks, each a paragraph or a

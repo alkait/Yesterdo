@@ -239,9 +239,13 @@ class TodosController extends AsyncNotifier<List<Todo>> {
     await _syncReminders();
   }
 
+  /// After a write: the reminders and the icon's number follow the store,
+  /// and what is left from earlier days is read again.
   Future<void> _syncReminders() async {
     if (!ref.mounted) return;
     await ref.read(reminderSyncProvider).refresh(now: _now);
+    if (!ref.mounted) return;
+    ref.invalidate(backlogProvider);
   }
 
   /// Puts a list on screen and sets the timer for the next task to rise.

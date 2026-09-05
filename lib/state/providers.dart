@@ -10,6 +10,8 @@ import '../reminders/reminder_planner.dart';
 import '../reminders/reminder_scheduler.dart';
 import '../reminders/reminder_sync.dart';
 import 'attention_request.dart';
+import 'backlog.dart';
+import 'backlog_controller.dart';
 import 'developer_mode.dart';
 import 'last_sound.dart';
 import 'selected_day.dart';
@@ -52,6 +54,12 @@ final themeChoiceProvider = NotifierProvider<ThemeChoice, AppThemeChoice>(
 /// Bound to the system's notifications in `main`; tests bind a recorder.
 final reminderSchedulerProvider = Provider<ReminderScheduler>(
   (ref) => throw StateError('reminderSchedulerProvider must be overridden'),
+);
+
+/// What was left undone on earlier days. Read afresh after every write,
+/// through [TodosController], and whenever the app wakes.
+final backlogProvider = AsyncNotifierProvider<BacklogController, Backlog>(
+  BacklogController.new,
 );
 
 final reminderSyncProvider = Provider<ReminderSync>(
