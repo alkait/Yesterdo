@@ -4,7 +4,7 @@ import 'package:sqflite/sqflite.dart';
 /// Owns the on-device SQLite file. Nothing leaves the device.
 abstract final class AppDatabase {
   static const _fileName = 'remind_me.db';
-  static const _version = 8;
+  static const _version = 9;
 
   static Future<Database> open() async {
     final path = p.join(await getDatabasesPath(), _fileName);
@@ -44,6 +44,7 @@ CREATE TABLE todos (
   /// a setting. Version 3 held one day of the month per rule. Version 4 had
   /// no due times. Version 5 held one reminder per task and no sound.
   /// Version 6 held plain words only. Version 7 had no custom repeats.
+  /// Version 8 could not have a rule's missed showings ignored.
   static Future<void> upgradeSchema(Database db, int from, int to) async {
     if (from < 2) {
       await db.execute('ALTER TABLE todos ADD COLUMN recurrence_id INTEGER');
@@ -66,6 +67,12 @@ CREATE TABLE todos (
     // Version 7 knew no custom repeats. Same caveat about a fresh table.
     if (from < 8 && from >= 4) {
       await db.execute('ALTER TABLE recurrences ADD COLUMN days TEXT');
+    }
+    // Version 8 raised every missed showing. Same caveat about a fresh table.
+    if (from < 9 && from >= 4) {
+      await db.execute(
+        'ALTER TABLE recurrences ADD COLUMN ignored_through INTEGER',
+      );
     }
   }
 
@@ -146,6 +153,7 @@ CREATE TABLE recurrences (
   month_days INTEGER NOT NULL DEFAULT 0,
   start_day INTEGER NOT NULL,
   end_day INTEGER,
+  ignored_through INTEGER,
   position INTEGER NOT NULL,
   due_time INTEGER,
   reminder INTEGER,

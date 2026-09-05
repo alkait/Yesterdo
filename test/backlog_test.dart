@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:remind_me/core/day.dart';
 import 'package:remind_me/data/repeat_rule.dart';
+import 'package:remind_me/state/backlog.dart';
 
 import 'app_flow_test.dart' show at, bootApp, tileFor;
 import 'support/memory_todo_store.dart';
@@ -186,5 +187,47 @@ void main() {
     expect(tileFor(tester, 'Stretch').todo.done, isFalse, reason: 'today');
     final yesterday = await store.todosOn(today - 1);
     expect(yesterday.where((t) => !t.done), isEmpty);
+  });
+
+  testWidgets('ignoring missed showings leaves them where they are', (
+    tester,
+  ) async {
+    final store = await seeded();
+    await tester.pumpWidget(bootApp(store: store, clock: () => at(9, 0)));
+    await tester.pumpAndSettle();
+
+    await openBacklog(tester);
+    await choose(tester, 'r1', 'Ignore');
+    expect(find.byKey(const ValueKey('backlog-r1')), findsNothing);
+    for (var day = today - 3; day < today; day++) {
+      final stretch = (await store.todosOn(day))
+          .singleWhere((t) => t.title == 'Stretch');
+      expect(stretch.done, isFalse, reason: 'still open on day $day');
+      expect(stretch.isStored, isFalse, reason: 'nothing written on day $day');
+    }
+    expect((await store.todosOn(today + 1)).map((t) => t.title), [
+      'Stretch',
+    ], reason: 'the rule goes on');
+
+    await tester.tap(find.text('Back'));
+    await tester.pumpAndSettle();
+    expect(find.text('2 left from earlier days'), findsOneWidget);
+    expect(tileFor(tester, 'Stretch').todo.done, isFalse, reason: 'today');
+  });
+
+  test('an ignored rule counts again once a later day is missed', () async {
+    final store = MemoryTodoStore();
+    await store.insertSeries(
+      day: today - 3,
+      title: 'Stretch',
+      rule: RepeatRule.daily(today - 3),
+    );
+    await store.ignoreMissed(recurrenceId: 1, day: today - 1);
+    expect((await Backlog.read(store, today: today)).count, 0);
+
+    // Tomorrow, today's own showing is a miss of its own.
+    final later = await Backlog.read(store, today: today + 1);
+    expect(later.count, 1);
+    expect(later.entries.single.latestDay, today);
   });
 }

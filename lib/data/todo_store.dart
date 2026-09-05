@@ -82,6 +82,14 @@ abstract class TodoStore {
     Due? due,
   });
 
+  /// Leaves a rule's missed showings on the days up to and including [day]
+  /// where they are, and stops the backlog raising them again. Nothing is
+  /// written to those days; a later day missed is a fresh miss and counts.
+  Future<void> ignoreMissed({required int recurrenceId, required int day});
+
+  /// Per rule, the last day whose missed showings have been ignored.
+  Future<Map<int, int>> ignoredMissed();
+
   /// Every picture any task or rule refers to, for the sweep that clears
   /// the rest out.
   Future<Set<String>> allImages();

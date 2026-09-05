@@ -179,12 +179,18 @@ A day-at-a-time todo list for iPhone and iPad. Offline, local, no account, no sy
   so a swipe feels the same on both.
 - A one-off offers Done, Bring to today, Send to future, which asks for a day
   after today on the month grid, and Delete. Brought or sent, it lands on top
-  of that day, through `moveToDay` with `toTop`. A rule's entry offers Done and
-  Delete, each applied to every missed showing: Done writes each down
-  finished, Delete hides each, as deleting one showing does, and the rule goes
-  on. The options carry no small print; the caption above them, "Missed on 3
-  earlier days" or "Missed yesterday", says what they act on. Nothing rolls over on its own, and
-  the icon's number stays today's.
+  of that day, through `moveToDay` with `toTop`. A rule's entry offers Done,
+  Ignore and Delete, each applied to every missed showing: Done writes each
+  down finished, Delete hides each, as deleting one showing does, and Ignore
+  writes nothing at all, leaving every showing open on its day. The rule goes
+  on after each. The options carry no small print; the caption above them,
+  "Missed on 3 earlier days" or "Missed yesterday", says what they act on.
+  Nothing rolls over on its own, and the icon's number stays today's.
+- Ignore is a day on the rule, `ignored_through` in `recurrences`, set to the
+  newest day the entry stood for and only ever moved forwards. `Backlog.read`
+  passes over a rule's showings on that day and before. The review is about
+  the past, so ignoring answers exactly the count that was reported: a day
+  missed after it is a fresh miss and is raised again.
 
 ## Rich words
 

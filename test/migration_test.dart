@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:remind_me/data/app_database.dart';
 import 'package:remind_me/data/repeat_rule.dart';
+import 'package:remind_me/data/sqlite_todo_store.dart';
 import 'package:remind_me/data/todo.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -140,8 +141,59 @@ Future<void> createVersionSeven(Database db, int version) async {
   }
 }
 
+/// The schema as version 8 shipped it: custom repeats, and every missed
+/// showing of a rule raised.
+Future<void> createVersionEight(Database db, int version) async {
+  await createVersionSeven(db, version);
+  await db.execute('ALTER TABLE recurrences ADD COLUMN days TEXT');
+}
+
 void main() {
   setUpAll(sqfliteFfiInit);
+
+  test(
+    'a version 8 rule keeps going and gains room for ignored days',
+    () async {
+      final directory = await Directory.systemTemp.createTemp('remind_me_test');
+      addTearDown(() => directory.delete(recursive: true));
+      final path = p.join(directory.path, 'remind_me.db');
+
+      var db = await databaseFactoryFfi.openDatabase(
+        path,
+        options: OpenDatabaseOptions(version: 8, onCreate: createVersionEight),
+      );
+      await db.insert('recurrences', <String, Object?>{
+        'title': 'Stretch',
+        'kind': 'daily',
+        'weekdays': 0,
+        'month_days': 0,
+        'start_day': 20699,
+        'position': 0,
+      });
+      await db.close();
+
+      db = await databaseFactoryFfi.openDatabase(
+        path,
+        options: OpenDatabaseOptions(
+          version: 9,
+          onCreate: AppDatabase.createSchema,
+          onUpgrade: AppDatabase.upgradeSchema,
+        ),
+      );
+      addTearDown(db.close);
+
+      final store = SqliteTodoStore(db);
+      expect(
+        await store.ignoredMissed(),
+        isEmpty,
+        reason: 'nothing ignored yet',
+      );
+      final rule = Recurrence.fromRow((await db.query('recurrences')).single);
+      expect(rule.rule.kind, RepeatKind.daily);
+      await store.ignoreMissed(recurrenceId: rule.id, day: 20702);
+      expect(await store.ignoredMissed(), {rule.id: 20702});
+    },
+  );
 
   test('a version 7 rule keeps going and gains room for chosen days', () async {
     final directory = await Directory.systemTemp.createTemp('remind_me_test');
@@ -165,7 +217,7 @@ void main() {
     db = await databaseFactoryFfi.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 8,
+        version: 9,
         onCreate: AppDatabase.createSchema,
         onUpgrade: AppDatabase.upgradeSchema,
       ),
@@ -200,7 +252,7 @@ void main() {
     db = await databaseFactoryFfi.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 8,
+        version: 9,
         onCreate: AppDatabase.createSchema,
         onUpgrade: AppDatabase.upgradeSchema,
       ),
@@ -267,7 +319,7 @@ void main() {
       db = await databaseFactoryFfi.openDatabase(
         path,
         options: OpenDatabaseOptions(
-          version: 8,
+          version: 9,
           onCreate: AppDatabase.createSchema,
           onUpgrade: AppDatabase.upgradeSchema,
         ),
@@ -316,7 +368,7 @@ void main() {
     db = await databaseFactoryFfi.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 8,
+        version: 9,
         onCreate: AppDatabase.createSchema,
         onUpgrade: AppDatabase.upgradeSchema,
       ),
@@ -364,7 +416,7 @@ void main() {
     db = await databaseFactoryFfi.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 8,
+        version: 9,
         onCreate: AppDatabase.createSchema,
         onUpgrade: AppDatabase.upgradeSchema,
       ),
@@ -422,7 +474,7 @@ void main() {
     db = await databaseFactoryFfi.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 8,
+        version: 9,
         onCreate: AppDatabase.createSchema,
         onUpgrade: AppDatabase.upgradeSchema,
       ),
@@ -476,7 +528,7 @@ void main() {
     db = await databaseFactoryFfi.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 8,
+        version: 9,
         onCreate: AppDatabase.createSchema,
         onUpgrade: AppDatabase.upgradeSchema,
       ),
@@ -535,7 +587,7 @@ void main() {
     final fresh = await databaseFactoryFfi.openDatabase(
       p.join(directory.path, 'fresh.db'),
       options: OpenDatabaseOptions(
-        version: 8,
+        version: 9,
         onCreate: AppDatabase.createSchema,
       ),
     );
@@ -550,6 +602,7 @@ void main() {
       5: createVersionFive,
       6: createVersionSix,
       7: createVersionSeven,
+      8: createVersionEight,
     };
     for (final MapEntry(key: version, value: create) in shipped.entries) {
       final upgradedPath = p.join(directory.path, 'upgraded_$version.db');
@@ -561,7 +614,7 @@ void main() {
       upgraded = await databaseFactoryFfi.openDatabase(
         upgradedPath,
         options: OpenDatabaseOptions(
-          version: 8,
+          version: 9,
           onCreate: AppDatabase.createSchema,
           onUpgrade: AppDatabase.upgradeSchema,
         ),

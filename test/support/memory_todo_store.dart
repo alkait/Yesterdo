@@ -9,6 +9,7 @@ import 'package:remind_me/data/todo_store.dart';
 class MemoryTodoStore implements TodoStore {
   final Map<int, List<Todo>> _byDay = <int, List<Todo>>{};
   final List<Recurrence> _recurrences = <Recurrence>[];
+  final Map<int, int> _ignored = <int, int>{};
   int _nextTodoId = 1;
   int _nextRecurrenceId = 1;
 
@@ -134,6 +135,7 @@ class MemoryTodoStore implements TodoStore {
       items.removeWhere((each) => each.recurrenceId == recurrenceId);
     }
     _recurrences.removeWhere((each) => each.id == recurrenceId);
+    _ignored.remove(recurrenceId);
     return Future.value();
   }
 
@@ -222,6 +224,17 @@ class MemoryTodoStore implements TodoStore {
     day: day,
     now: now,
   );
+
+  @override
+  Future<void> ignoreMissed({required int recurrenceId, required int day}) {
+    final known = _ignored[recurrenceId];
+    if (known == null || known < day) _ignored[recurrenceId] = day;
+    return Future.value();
+  }
+
+  @override
+  Future<Map<int, int>> ignoredMissed() =>
+      Future.value(Map<int, int>.of(_ignored));
 
   @override
   Future<Set<String>> allImages() => Future.value({

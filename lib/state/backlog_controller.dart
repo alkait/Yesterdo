@@ -33,6 +33,16 @@ class BacklogController extends AsyncNotifier<Backlog> {
     await _settle();
   }
 
+  /// Leaves every missed showing where it is and stops it being raised
+  /// again. The rule goes on, and a day missed after these counts anew.
+  Future<void> ignoreMissed(BacklogEntry entry) async {
+    await _store.ignoreMissed(
+      recurrenceId: entry.todo.recurrenceId!,
+      day: entry.latestDay,
+    );
+    await _settle();
+  }
+
   /// Puts a one-off on today, or on a later [day], above everything there:
   /// what was brought back is the thing to see first.
   Future<void> bring(BacklogEntry entry, {int? day}) async {

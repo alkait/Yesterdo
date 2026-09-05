@@ -271,6 +271,32 @@ class SqliteTodoStore implements TodoStore {
   );
 
   @override
+  Future<void> ignoreMissed({
+    required int recurrenceId,
+    required int day,
+  }) async {
+    // Only ever forwards, so an entry read before an older one was ignored
+    // cannot uncover days again.
+    await _db.rawUpdate(
+      'UPDATE $_recurrences SET ignored_through = '
+      'MAX(COALESCE(ignored_through, ?), ?) WHERE id = ?',
+      [day, day, recurrenceId],
+    );
+  }
+
+  @override
+  Future<Map<int, int>> ignoredMissed() async {
+    final rows = await _db.query(
+      _recurrences,
+      columns: ['id', 'ignored_through'],
+      where: 'ignored_through IS NOT NULL',
+    );
+    return <int, int>{
+      for (final row in rows) row['id']! as int: row['ignored_through']! as int,
+    };
+  }
+
+  @override
   Future<Set<String>> allImages() async {
     final wanted = <String>{};
     for (final table in [_todos, _recurrences]) {
