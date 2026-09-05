@@ -428,7 +428,12 @@ in one place and shows up everywhere.
   Choosing a look swaps the icon through `DeviceBridge`. The system puts up its
   own alert when it does; that cannot be avoided.
 - `BrandedAppBar` gives its two sides equal room, so the title sits on the
-  screen's centre line whether or not anything stands beside it. The date under
+  screen's centre line whether or not anything stands beside it. It lays
+  itself out rather than using a `Row`, which would measure the middle before
+  it knew what the sides need: the sides take what they ask for, the narrower
+  is given as much room as the wider, and the middle gets what is left. A
+  title too wide for that shrinks to fit, keeping its proportions, instead of
+  crowding the buttons, so a large text size never pushes them off. The date under
   the day headline uses the short month name.
 
 ## Tests
