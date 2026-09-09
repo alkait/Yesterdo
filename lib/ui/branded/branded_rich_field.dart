@@ -43,30 +43,35 @@ class BrandedRichField extends StatelessWidget {
       decorationColor: scheme.onSurfaceVariant,
       decorationThickness: 1.5,
     );
-    final field = _input(context, scheme, style);
-    if (hint.isEmpty || controller.content.text.isNotEmpty) return field;
-
     // A guarded field always holds its invisible guard character, so as far
     // as the field is concerned it is never empty and its own hint would
     // never show. It is drawn behind instead.
+    //
+    // Always drawn, only sometimes seen: taking it out of the tree when the
+    // first letter lands would move the field and build it afresh, and the
+    // keyboard would go down with it.
+    final showHint = hint.isNotEmpty && controller.content.text.isEmpty;
     return Stack(
       children: [
         Positioned.fill(
           child: IgnorePointer(
-            child: Padding(
-              padding: _padding,
-              child: Align(
-                alignment: AlignmentDirectional.topStart,
-                child: Text(
-                  hint,
-                  textDirection: brandedTextDirection(hint),
-                  style: style.copyWith(color: scheme.onSurfaceVariant),
+            child: Opacity(
+              opacity: showHint ? 1 : 0,
+              child: Padding(
+                padding: _padding,
+                child: Align(
+                  alignment: AlignmentDirectional.topStart,
+                  child: Text(
+                    hint,
+                    textDirection: brandedTextDirection(hint),
+                    style: style.copyWith(color: scheme.onSurfaceVariant),
+                  ),
                 ),
               ),
             ),
           ),
         ),
-        field,
+        _input(context, scheme, style),
       ],
     );
   }

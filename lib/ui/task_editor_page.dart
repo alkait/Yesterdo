@@ -98,7 +98,7 @@ class _TaskEditorPageState extends ConsumerState<TaskEditorPage> {
     Navigator.of(context).pop(
       TaskDraft(
         day: _day,
-        body: _body.capitalized(),
+        body: _body,
         due: _due,
         repeat: _repeat,
       ),

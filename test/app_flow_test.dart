@@ -217,6 +217,26 @@ Future<void> stepDay(WidgetTester tester, int days) async {
   }
 }
 
+/// How much of the editor's prompt is showing. It is always in the tree, so
+/// that the field beside it never moves; only its opacity says whether it is
+/// meant to be seen.
+double hintOpacity(WidgetTester tester) => tester
+    .widget<Opacity>(
+      find
+          .ancestor(
+            of: find.text('What needs doing?'),
+            matching: find.byType(Opacity),
+          )
+          .first,
+    )
+    .opacity;
+
+/// The element behind the words being written. It has to be the same one
+/// from keystroke to keystroke: a field rebuilt in a new place drops its
+/// connection to the keyboard, and the keyboard goes down with it.
+Element fieldElement(WidgetTester tester) =>
+    tester.element(find.byType(EditableText).first);
+
 /// Swipes a card to uncover the button for [action] and taps it. Done, Not
 /// done and Edit live on the leading side, Delete on the trailing side.
 Future<void> actOn(
@@ -308,37 +328,38 @@ void main() {
 
     await tester.tap(find.text('Add a task'));
     await tester.pumpAndSettle();
-    expect(find.text('What needs doing?'), findsOneWidget);
+    expect(hintOpacity(tester), 1);
 
     // The prompt goes as soon as there are words, and the guard character
-    // the field carries does not count as any.
+    // the field carries does not count as any. It stays in the tree, so the
+    // field beside it keeps its place and its caret.
     await tester.enterText(find.byType(TextField), 'B');
     await tester.pump();
-    expect(find.text('What needs doing?'), findsNothing);
+    expect(hintOpacity(tester), 0);
 
     await tester.enterText(find.byType(TextField), '');
     await tester.pump();
-    expect(find.text('What needs doing?'), findsOneWidget);
+    expect(hintOpacity(tester), 1);
   });
 
-  testWidgets('a task saved in lower case starts with a capital', (
+  testWidgets('the keyboard stays up as the first letter is typed', (
     tester,
   ) async {
     await tester.pumpWidget(bootApp());
     await tester.pumpAndSettle();
 
-    await addTask(tester, 'buy milk');
-    expect(find.text('Buy milk'), findsOneWidget);
-  });
-
-  testWidgets('a word with a capital of its own is left alone', (
-    tester,
-  ) async {
-    await tester.pumpWidget(bootApp());
+    await tester.tap(find.text('Add a task'));
     await tester.pumpAndSettle();
+    final field = fieldElement(tester);
+    expect(tester.testTextInput.isVisible, isTrue, reason: 'asked for on arrival');
 
-    await addTask(tester, 'iPhone to the shop');
-    expect(find.text('iPhone to the shop'), findsOneWidget);
+    // Typed the way the keyboard does, into whatever holds the caret, so
+    // nothing hands the field back to itself afterwards.
+    tester.testTextInput.enterText('B');
+    await tester.pump();
+
+    expect(fieldElement(tester), same(field));
+    expect(tester.testTextInput.isVisible, isTrue);
   });
 
   testWidgets('cancelling the editor adds nothing', (tester) async {

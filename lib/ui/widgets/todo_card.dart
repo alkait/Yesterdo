@@ -73,6 +73,9 @@ class TodoCard extends StatelessWidget {
 /// The line under the words: how much of a checklist is ticked, a repeat
 /// glyph for a repeating task, a bell when a reminder is set, and the time.
 /// All take the accent while the card is calling.
+///
+/// Its words give way rather than run off the card: a narrow screen or large
+/// type can leave less room than the whole line wants.
 class _SmallPrint extends StatelessWidget {
   const _SmallPrint({required this.todo, required this.calling});
 
@@ -89,10 +92,13 @@ class _SmallPrint extends StatelessWidget {
       child: Row(
         children: [
           if (items > 0) ...[
-            BrandedText(
-              '$ticked of $items',
-              role: BrandedTextRole.caption,
-              tone: tone,
+            Flexible(
+              child: BrandedText(
+                '$ticked of $items',
+                role: BrandedTextRole.caption,
+                tone: tone,
+                maxLines: 1,
+              ),
             ),
             const SizedBox(width: Brand.gap),
           ],
@@ -113,12 +119,15 @@ class _SmallPrint extends StatelessWidget {
               ),
               const SizedBox(width: 4),
             ],
-            BrandedText(
-              due.label(
-                twentyFourHour: MediaQuery.alwaysUse24HourFormatOf(context),
+            Flexible(
+              child: BrandedText(
+                due.label(
+                  twentyFourHour: MediaQuery.alwaysUse24HourFormatOf(context),
+                ),
+                role: BrandedTextRole.caption,
+                tone: tone,
+                maxLines: 1,
               ),
-              role: BrandedTextRole.caption,
-              tone: tone,
             ),
           ],
         ],
