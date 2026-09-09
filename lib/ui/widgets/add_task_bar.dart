@@ -7,6 +7,7 @@ import '../../state/task_draft.dart';
 import '../branded/branded.dart';
 import '../task_editor_page.dart';
 import 'settings_button.dart';
+import 'task_actions.dart';
 
 /// The bar pinned to the bottom. It opens the editor rather than taking text
 /// inline, so writing a task always happens on its own screen. The settings
@@ -35,6 +36,6 @@ class AddTaskBar extends ConsumerWidget {
         anchorDay: ref.read(selectedDayProvider).epochDay,
       ),
     );
-    if (draft != null) await ref.read(todosProvider.notifier).add(draft);
+    if (draft != null) await addTaskFrom(ref, draft);
   }
 }

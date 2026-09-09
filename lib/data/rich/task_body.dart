@@ -140,6 +140,16 @@ class TaskBody {
       .firstOrNull;
 
   /// The pictures, in order.
+  /// The opening line of words, which is all a notification, a widget or a
+  /// banner has room for. A body that is pictures alone has none, and says
+  /// so.
+  String get firstLine {
+    final text = plainText;
+    final wrap = text.indexOf('\n');
+    final line = wrap == -1 ? text : text.substring(0, wrap);
+    return line.isEmpty && images.isNotEmpty ? 'Picture' : line;
+  }
+
   List<String> get images => [for (final block in blocks) ?block.image];
 
   /// How many checklist items there are, and how many are ticked.

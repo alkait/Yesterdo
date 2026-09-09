@@ -6,6 +6,7 @@ import '../../data/repeat_rule.dart';
 import '../../data/todo.dart';
 import '../../reminders/planned_reminder.dart';
 import '../../reminders/reminder_scheduler.dart';
+import '../../state/day_notice.dart';
 import '../../state/providers.dart';
 import '../../state/task_draft.dart';
 import '../branded/branded.dart';
@@ -23,6 +24,35 @@ IconData doneIconFor(Todo todo) =>
 
 String doneLabelFor(Todo todo) => todo.done ? 'Not done' : 'Done';
 
+/// A way to say where a task went, made before the task is written.
+///
+/// It has to be made first. A task that leaves the day being looked at takes
+/// its card with it, and the [WidgetRef] that came from that card cannot be
+/// read once the card has gone. So the day and the notifier are taken while
+/// the card is still there, and used afterwards.
+class _DayNotice {
+  _DayNotice(WidgetRef ref)
+    : _here = ref.read(selectedDayProvider).epochDay,
+      _notices = ref.read(dayNoticeProvider.notifier);
+
+  final int _here;
+  final DayNotices _notices;
+
+  /// Says where the task went, unless it went nowhere: on the day being
+  /// looked at there is nothing to say, since the task is right there.
+  void ifElsewhere({required String line, required int day}) {
+    if (day == _here) return;
+    _notices.raise(line: line, day: day);
+  }
+}
+
+/// Adds a task from a draft, and says where it went if that is not here.
+Future<void> addTaskFrom(WidgetRef ref, TaskDraft draft) async {
+  final notice = _DayNotice(ref);
+  await ref.read(todosProvider.notifier).add(draft);
+  notice.ifElsewhere(line: draft.body.firstLine, day: draft.day);
+}
+
 Future<void> editTask(BuildContext context, WidgetRef ref, Todo todo) async {
   final rule = await _ruleFor(ref, todo);
   if (!context.mounted) return;
@@ -37,7 +67,10 @@ Future<void> editTask(BuildContext context, WidgetRef ref, Todo todo) async {
       initialRepeat: rule,
     ),
   );
-  if (draft != null) await ref.read(todosProvider.notifier).apply(todo, draft);
+  if (draft == null) return;
+  final notice = _DayNotice(ref);
+  await ref.read(todosProvider.notifier).apply(todo, draft);
+  notice.ifElsewhere(line: draft.body.firstLine, day: draft.day);
 }
 
 /// Opens a task to be read in full, on its own screen.
@@ -55,7 +88,9 @@ Future<void> moveTask(BuildContext context, WidgetRef ref, Todo todo) async {
     isAllowed: (date) => !date.isSameDayAs(selected),
   );
   if (picked == null) return;
+  final notice = _DayNotice(ref);
   await ref.read(todosProvider.notifier).moveToDay(todo, picked.epochDay);
+  notice.ifElsewhere(line: todo.firstLine, day: picked.epochDay);
 }
 
 /// Puts this task's reminder up ten seconds from now, exactly as the real

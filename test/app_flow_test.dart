@@ -97,14 +97,24 @@ Future<void> addTask(
   String title, {
   String? repeat,
   Due? due,
+  int? day,
 }) async {
   await tester.tap(find.text('Add a task'));
   await tester.pumpAndSettle();
   await tester.enterText(find.byType(TextField), title);
   await tester.pump();
+  if (day != null) await chooseDay(tester, day);
   if (due != null) await chooseDue(tester, due);
   if (repeat != null) await chooseRepeat(tester, repeat);
   await tester.tap(find.text('Save'));
+  await tester.pumpAndSettle();
+}
+
+/// Opens the date chooser from the editor and picks [day] off the grid.
+Future<void> chooseDay(WidgetTester tester, int day) async {
+  await tester.tap(find.text('Date'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(ValueKey('pick-day-$day')));
   await tester.pumpAndSettle();
 }
 
@@ -1727,6 +1737,237 @@ void main() {
     await tester.tap(find.text('Done'));
     await tester.pumpAndSettle();
     expect(find.text('Every week'), findsNothing);
+  });
+
+  group('the date on the editor', () {
+    final today = todayDate().epochDay;
+
+    testWidgets('a new task starts on the day being looked at', (
+      tester,
+    ) async {
+      await tester.pumpWidget(bootApp(clock: () => at(9, 0)));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Add a task'));
+      await tester.pumpAndSettle();
+      expect(find.text('Date'), findsOneWidget);
+      expect(find.text('Today'), findsOneWidget);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+
+      // Turned to tomorrow, the editor starts there instead.
+      await stepDay(tester, 1);
+      await tester.tap(find.text('Add a task'));
+      await tester.pumpAndSettle();
+      expect(find.text('Tomorrow'), findsWidgets);
+    });
+
+    testWidgets('a repeating task takes its days from its rule', (
+      tester,
+    ) async {
+      await tester.pumpWidget(bootApp(clock: () => at(9, 0)));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Add a task'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'Stretch');
+      await tester.pump();
+      expect(find.text('Date'), findsOneWidget);
+
+      await chooseRepeat(tester, 'Every day');
+      expect(find.text('Date'), findsNothing);
+    });
+
+    testWidgets('a new task written for another day goes there', (
+      tester,
+    ) async {
+      await tester.pumpWidget(bootApp(clock: () => at(9, 0)));
+      await tester.pumpAndSettle();
+      await addTask(tester, 'Buy milk', day: today + 2);
+
+      expect(visibleTitles(tester), isEmpty, reason: 'not on today');
+      await stepDay(tester, 2);
+      expect(visibleTitles(tester), ['Buy milk']);
+    });
+
+    testWidgets('editing a task onto another day sends it there', (
+      tester,
+    ) async {
+      await tester.pumpWidget(bootApp(clock: () => at(9, 0)));
+      await tester.pumpAndSettle();
+      await addTask(tester, 'Buy milk');
+
+      await actOn(tester, 'Buy milk', 'Edit');
+      await chooseDay(tester, today + 1);
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      expect(visibleTitles(tester), isEmpty);
+      await stepDay(tester, 1);
+      expect(visibleTitles(tester), ['Buy milk']);
+    });
+  });
+
+  group('the banner for a task on another day', () {
+    final today = todayDate().epochDay;
+
+    testWidgets('says which task went where, and offers to go', (
+      tester,
+    ) async {
+      await tester.pumpWidget(bootApp(clock: () => at(9, 0)));
+      await tester.pumpAndSettle();
+      await addTask(tester, 'Buy milk', day: today + 2);
+
+      expect(find.byKey(const ValueKey('day-notice')), findsOneWidget);
+      expect(find.text('Buy milk'), findsOneWidget);
+      expect(find.text('Go'), findsOneWidget);
+
+      await tester.tap(find.text('Go'));
+      await tester.pumpAndSettle();
+      expect(visibleTitles(tester), ['Buy milk']);
+      expect(
+        find.byKey(const ValueKey('day-notice')),
+        findsNothing,
+        reason: 'nothing left to say once you are there',
+      );
+    });
+
+    testWidgets('Not today says where it sent the task', (tester) async {
+      await tester.pumpWidget(bootApp(clock: () => at(9, 0)));
+      await tester.pumpAndSettle();
+      await addTask(tester, 'Buy milk');
+
+      await swipe(tester, 'Buy milk', const Offset(260, 0));
+      await tester.tap(find.text('NOT'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(ValueKey('pick-day-${today + 2}')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('day-notice')), findsOneWidget);
+      expect(find.text('Go'), findsOneWidget);
+
+      await tester.tap(find.text('Go'));
+      await tester.pumpAndSettle();
+      expect(visibleTitles(tester), ['Buy milk']);
+    });
+
+    testWidgets('it survives the card leaving while the write is in flight', (
+      tester,
+    ) async {
+      // A real write takes frames, so the card is gone by the time there is
+      // anything to say. Whatever says it cannot belong to that card.
+      await tester.pumpWidget(
+        bootApp(
+          store: MemoryTodoStore(writeDelay: const Duration(seconds: 1)),
+          clock: () => at(9, 0),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await addTask(tester, 'Buy milk');
+
+      await swipe(tester, 'Buy milk', const Offset(260, 0));
+      await tester.tap(find.text('NOT'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(ValueKey('pick-day-${today + 1}')));
+      await tester.pumpAndSettle();
+      // The card has gone by now; the write has not landed.
+      expect(visibleTitles(tester), isEmpty);
+
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('day-notice')), findsOneWidget);
+    });
+
+    testWidgets('only the first line of a long task is shown', (tester) async {
+      await tester.pumpWidget(bootApp(clock: () => at(9, 0)));
+      await tester.pumpAndSettle();
+      await addTask(tester, 'Buy milk\nand bread\nand jam', day: today + 1);
+
+      expect(find.text('Buy milk'), findsOneWidget);
+      expect(find.text('and bread'), findsNothing);
+    });
+
+    testWidgets('a task saved onto this very day says nothing', (
+      tester,
+    ) async {
+      await tester.pumpWidget(bootApp(clock: () => at(9, 0)));
+      await tester.pumpAndSettle();
+      await addTask(tester, 'Buy milk');
+
+      expect(find.byKey(const ValueKey('day-notice')), findsNothing);
+    });
+
+    testWidgets('a push sideways or down sends it away', (tester) async {
+      for (final way in const <Offset>[
+        Offset(200, 0),
+        Offset(-200, 0),
+        Offset(0, 120),
+      ]) {
+        await tester.pumpWidget(bootApp(clock: () => at(9, 0)));
+        await tester.pumpAndSettle();
+        await addTask(tester, 'Buy milk', day: today + 1);
+        expect(find.byKey(const ValueKey('day-notice')), findsOneWidget);
+
+        await tester.drag(find.byKey(const ValueKey('day-notice')), way);
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('day-notice')),
+          findsNothing,
+          reason: 'pushed $way',
+        );
+      }
+    });
+
+    testWidgets('a small push settles back rather than dismissing', (
+      tester,
+    ) async {
+      await tester.pumpWidget(bootApp(clock: () => at(9, 0)));
+      await tester.pumpAndSettle();
+      await addTask(tester, 'Buy milk', day: today + 1);
+
+      await tester.drag(
+        find.byKey(const ValueKey('day-notice')),
+        const Offset(20, 0),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('day-notice')), findsOneWidget);
+    });
+
+    testWidgets('a push upwards is not a way out', (tester) async {
+      await tester.pumpWidget(bootApp(clock: () => at(9, 0)));
+      await tester.pumpAndSettle();
+      await addTask(tester, 'Buy milk', day: today + 1);
+
+      await tester.drag(
+        find.byKey(const ValueKey('day-notice')),
+        const Offset(0, -200),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('day-notice')), findsOneWidget);
+    });
+
+    testWidgets('it floats over the day instead of pushing it up', (
+      tester,
+    ) async {
+      await tester.pumpWidget(bootApp(clock: () => at(9, 0)));
+      await tester.pumpAndSettle();
+      final before = tester.getRect(find.byType(TodoListView));
+
+      await addTask(tester, 'Buy milk', day: today + 1);
+      expect(find.byKey(const ValueKey('day-notice')), findsOneWidget);
+      expect(tester.getRect(find.byType(TodoListView)), before);
+    });
+
+    testWidgets('it goes of its own accord after a while', (tester) async {
+      await tester.pumpWidget(bootApp(clock: () => at(9, 0)));
+      await tester.pumpAndSettle();
+      await addTask(tester, 'Buy milk', day: today + 1);
+
+      expect(find.byKey(const ValueKey('day-notice')), findsOneWidget);
+      await tester.pump(Brand.noticeDwell);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('day-notice')), findsNothing);
+    });
   });
 
   group('not today', () {

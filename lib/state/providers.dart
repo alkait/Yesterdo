@@ -18,6 +18,7 @@ import 'app_sounds.dart';
 import 'attention_request.dart';
 import 'backlog.dart';
 import 'backlog_controller.dart';
+import 'day_notice.dart';
 import 'developer_mode.dart';
 import 'done_sound_choice.dart';
 import 'last_sound.dart';
@@ -111,6 +112,12 @@ final repeatHistoryProvider = FutureProvider.autoDispose
         today: ref.watch(clockProvider)().epochDay,
       ),
     );
+
+/// A task saved onto another day, waiting for the banner to say so. Null
+/// while there is nothing to say.
+final dayNoticeProvider = NotifierProvider<DayNotices, DayNotice?>(
+  DayNotices.new,
+);
 
 /// The task a tapped notification asked to see, until the list has shown it.
 final attentionRequestProvider =

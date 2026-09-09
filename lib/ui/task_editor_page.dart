@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/date_labels.dart';
+import '../core/day.dart';
 import '../data/due.dart';
 import '../data/repeat_rule.dart';
 import '../data/rich/task_body.dart';
@@ -11,6 +13,7 @@ import 'widgets/body_editor.dart';
 import 'widgets/due_picker_sheet.dart';
 import 'widgets/image_source_sheet.dart';
 import 'widgets/link_sheet.dart';
+import 'widgets/month_picker_sheet.dart';
 import 'widgets/repeat_picker_sheet.dart';
 
 /// The full screen where a task's words are written and its time and repeat
@@ -43,6 +46,10 @@ class TaskEditorPage extends ConsumerStatefulWidget {
 class _TaskEditorPageState extends ConsumerState<TaskEditorPage> {
   final _editor = GlobalKey<BodyEditorState>();
   late TaskBody _body = widget.initialBody ?? TaskBody.plain('');
+
+  /// The day the task will sit on. A new one starts on the day being looked
+  /// at, which is today unless the list has been turned.
+  late int _day = widget.anchorDay;
   late Due? _due = widget.initialDue;
   late RepeatRule? _repeat = widget.initialRepeat;
   Animation<double>? _arrival;
@@ -88,8 +95,14 @@ class _TaskEditorPageState extends ConsumerState<TaskEditorPage> {
 
   void _save() {
     if (!_hasWords) return;
-    Navigator.of(context)
-        .pop(TaskDraft(body: _body.capitalized(), due: _due, repeat: _repeat));
+    Navigator.of(context).pop(
+      TaskDraft(
+        day: _day,
+        body: _body.capitalized(),
+        due: _due,
+        repeat: _repeat,
+      ),
+    );
   }
 
   Future<void> _pickDue() async {
@@ -104,6 +117,16 @@ class _TaskEditorPageState extends ConsumerState<TaskEditorPage> {
         await ref.read(reminderSchedulerProvider).requestPermission();
       }
     }
+  }
+
+  Future<void> _pickDay() async {
+    final picked = await showDayPicker(
+      context,
+      selected: dateFromEpochDay(_day),
+      isAllowed: (_) => true,
+    );
+    if (!mounted || picked == null) return;
+    setState(() => _day = picked.epochDay);
   }
 
   Future<void> _pickRepeat() async {
@@ -167,6 +190,20 @@ class _TaskEditorPageState extends ConsumerState<TaskEditorPage> {
                   onChanged: _onBodyChanged,
                 ),
                 const BrandedDivider(),
+                // A repeating task takes its days from its rule, so there is
+                // no one day to set here.
+                if (_repeat == null) ...[
+                  BrandedFieldRow(
+                    label: 'Date',
+                    value: dayHeadline(
+                      dateFromEpochDay(_day),
+                      now: ref.watch(clockProvider)(),
+                    ),
+                    detail: longDate(dateFromEpochDay(_day)),
+                    onTap: _pickDay,
+                  ),
+                  const BrandedDivider(),
+                ],
                 BrandedFieldRow(
                   label: 'Due',
                   value:

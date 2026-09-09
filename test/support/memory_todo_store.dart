@@ -6,7 +6,19 @@ import 'package:remind_me/data/todo_store.dart';
 
 /// Test double for [TodoStore]. Completes synchronously so widget tests can
 /// drive it with `pump` alone.
+///
+/// Pass [writeDelay] to make a write take real time, the way SQLite does.
+/// Frames are drawn while it waits, so a test can see what the interface
+/// does to a card that is on its way off the day.
 class MemoryTodoStore implements TodoStore {
+  MemoryTodoStore({this.writeDelay = Duration.zero});
+
+  /// How long a write takes. Nothing by default.
+  final Duration writeDelay;
+
+  Future<void> _written() =>
+      writeDelay == Duration.zero ? Future.value() : Future.delayed(writeDelay);
+
   final Map<int, List<Todo>> _byDay = <int, List<Todo>>{};
   final List<Recurrence> _recurrences = <Recurrence>[];
   final Map<int, int> _ignored = <int, int>{};
@@ -114,6 +126,7 @@ class MemoryTodoStore implements TodoStore {
     required Todo todo,
     bool toTop = false,
   }) async {
+    await _written();
     final position = toTop ? _topPosition(toDay) : _nextPosition(toDay);
     if (todo.repeats) {
       await remove(day: fromDay, todo: todo);

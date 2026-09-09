@@ -71,6 +71,15 @@ abstract final class Brand {
   static const quick = Duration(milliseconds: 180);
   static const swap = Duration(milliseconds: 140);
 
+  /// How long a banner at the foot of the list stays before going of its
+  /// own accord. Long enough to read twice, short enough not to sit there.
+  static const noticeDwell = Duration(seconds: 6);
+
+  /// How far a banner has to be pushed before it has faded away altogether.
+  /// Comfortably past the distance that lets it go, so it is still legible
+  /// on the way to being let go of.
+  static const noticeFade = 240.0;
+
   /// One day sliding out and the next sliding in.
   static const turn = Duration(milliseconds: 260);
   static const curve = Curves.easeOut;

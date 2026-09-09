@@ -39,7 +39,7 @@ class TodosController extends AsyncNotifier<List<Todo>> {
 
     if (draft.repeat != null) {
       await _store.insertSeries(
-        day: _day,
+        day: draft.day,
         body: draft.body,
         rule: draft.repeat!,
         due: draft.due,
@@ -50,11 +50,14 @@ class TodosController extends AsyncNotifier<List<Todo>> {
     }
 
     final todo = await _store.insert(
-      day: _day,
+      day: draft.day,
       body: draft.body,
       due: draft.due,
     );
     if (!ref.mounted) return;
+    // Written for another day, it belongs to no list on screen. The banner
+    // is what says where it went.
+    if (draft.day != _day) return _syncDevice();
     _show(_sorted(<Todo>[..._items, todo]));
     await _syncDevice();
   }
@@ -130,11 +133,11 @@ class TodosController extends AsyncNotifier<List<Todo>> {
         due: draft.due,
       );
     } else if (todo.repeats) {
-      // Repeating no more: the series goes, and this day keeps a one-off,
-      // where the task was.
+      // Repeating no more: the series goes, and a one-off takes its place on
+      // the day the editor was left on, where the task was.
       await _store.removeSeries(todo.recurrenceId!);
       await _store.insert(
-        day: _day,
+        day: draft.day,
         body: draft.body,
         due: draft.due,
         position: todo.position,
@@ -143,14 +146,19 @@ class TodosController extends AsyncNotifier<List<Todo>> {
       // A one-off becomes a series starting on this day, where it was.
       await _store.remove(day: _day, todo: todo);
       await _store.insertSeries(
-        day: _day,
+        day: draft.day,
         body: draft.body,
         rule: draft.repeat!,
         due: draft.due,
         position: todo.position,
       );
     } else {
-      await _store.save(todo.withBody(draft.body).withDue(draft.due));
+      final saved = todo.withBody(draft.body).withDue(draft.due);
+      await _store.save(saved);
+      // A day picked in the editor sends it on, the same way Not today does.
+      if (draft.day != _day) {
+        await _store.moveToDay(fromDay: _day, toDay: draft.day, todo: saved);
+      }
     }
 
     await _reload();

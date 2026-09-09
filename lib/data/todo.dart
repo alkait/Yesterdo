@@ -88,13 +88,8 @@ class Todo {
   /// the same key when it goes from projected to stored, so nothing jumps.
   String get key => repeats ? 'r$recurrenceId' : 't$id';
 
-  /// The opening line of words, which is what a notification says. A task
-  /// that is pictures alone has none, and says so.
-  String get firstLine {
-    final wrap = title.indexOf('\n');
-    final line = wrap == -1 ? title : title.substring(0, wrap);
-    return line.isEmpty && body.images.isNotEmpty ? 'Picture' : line;
-  }
+  /// The opening line of words, which is what a notification says.
+  String get firstLine => body.firstLine;
 
   /// Whether the task is calling for attention on [day] at [now]: its
   /// moment has come, the earliest reminder on the day or the time itself,

@@ -8,6 +8,7 @@ import 'widgets/add_task_bar.dart';
 import 'widgets/attention_listener.dart';
 import 'widgets/backlog_row.dart';
 import 'widgets/date_header.dart';
+import 'widgets/day_notice_banner.dart';
 import 'widgets/day_swiper.dart';
 import 'widgets/todo_list_view.dart';
 import 'widgets/wake_refresh.dart';
@@ -43,20 +44,32 @@ class _HomePageState extends ConsumerState<HomePage> {
         child: BrandedScaffold(
           children: [
             Expanded(
-              child: DaySwiper(
-                child: BrandedSlideSwitcher(
-                  pageKey: day,
-                  direction: _direction,
-                  child: Column(
-                    children: [
-                      DateHeader(date: date),
-                      // What was left on earlier days is only raised on
-                      // today, where it is behind you.
-                      if (day == today) const BacklogRow(),
-                      Expanded(child: TodoListView(day: day)),
-                    ],
+              child: Stack(
+                children: [
+                  DaySwiper(
+                    child: BrandedSlideSwitcher(
+                      pageKey: day,
+                      direction: _direction,
+                      child: Column(
+                        children: [
+                          DateHeader(date: date),
+                          // What was left on earlier days is only raised on
+                          // today, where it is behind you.
+                          if (day == today) const BacklogRow(),
+                          Expanded(child: TodoListView(day: day)),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
+                  // Over the foot of the day, so it says its piece without
+                  // shifting anything underneath it.
+                  const Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: DayNoticeBanner(),
+                  ),
+                ],
               ),
             ),
             const AddTaskBar(),

@@ -5,6 +5,7 @@ library;
 export 'brand.dart';
 export 'branded_app.dart';
 export 'branded_app_bar.dart';
+export 'branded_banner.dart';
 export 'branded_bottom_bar.dart';
 export 'branded_card.dart';
 export 'branded_check_box.dart';
