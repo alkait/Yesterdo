@@ -1,5 +1,10 @@
 import '../data/reminder_sound.dart';
 
+/// How a task is named to the system, and read back when the system hands
+/// it to us again: a day and a [Todo.key]. Notifications and widgets both
+/// carry it, so a tap from either lands in the same place.
+String taskPayload(int day, String key) => '$day:$key';
+
 /// One notification to be shown: which task, on which day, and when.
 class PlannedReminder {
   const PlannedReminder({
@@ -37,7 +42,7 @@ class PlannedReminder {
   int get id => Object.hash(day, key, before) & 0x7fffffff;
 
   /// Carried on the notification and read back when it is tapped.
-  String get payload => '$day:$key';
+  String get payload => taskPayload(day, key);
 
   /// The day and key a tapped notification carried, or null for a payload
   /// that is not one of ours.

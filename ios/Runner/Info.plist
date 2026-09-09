@@ -28,6 +28,19 @@
 	<string>Take a picture to keep with a task.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Choose a picture to keep with a task.</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.alkait.yesterdo</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>yesterdo</string>
+			</array>
+		</dict>
+	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>

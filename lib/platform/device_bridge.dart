@@ -22,6 +22,19 @@ abstract class DeviceBridge {
   /// Plays a sound that marks a task done.
   Future<void> playDone(DoneSound sound);
 
+  /// Hands the Lock Screen and Home Screen widgets everything they draw, as
+  /// one piece of JSON. Given whole each time: a widget is never told about
+  /// a single change.
+  Future<void> showOnWidgets(String glance);
+
+  /// The task a tapped widget asked for, as a `day:key` payload, handed over
+  /// once and forgotten. Null when no widget was tapped.
+  Future<String?> takeTappedTask();
+
+  /// Runs [handler] when the device says a widget has been tapped, so the
+  /// task can be fetched with [takeTappedTask].
+  void onWidgetTap(void Function() handler);
+
   Future<ReminderPermission> notificationPermission();
 
   /// Hands a web address to the system to open.
@@ -85,6 +98,21 @@ class MethodChannelDeviceBridge implements DeviceBridge {
   @override
   Future<void> deleteImage(String image) =>
       _channel.invokeMethod('deleteImage', image);
+
+  @override
+  Future<void> showOnWidgets(String glance) =>
+      _channel.invokeMethod('showOnWidgets', glance);
+
+  @override
+  Future<String?> takeTappedTask() =>
+      _channel.invokeMethod<String>('takeTappedTask');
+
+  @override
+  void onWidgetTap(void Function() handler) =>
+      _channel.setMethodCallHandler((call) async {
+        if (call.method == 'widgetTapped') handler();
+        return null;
+      });
 
   @override
   Future<ReminderPermission> notificationPermission() async {

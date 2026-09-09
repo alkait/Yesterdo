@@ -56,7 +56,7 @@ class TodosController extends AsyncNotifier<List<Todo>> {
     );
     if (!ref.mounted) return;
     _show(_sorted(<Todo>[..._items, todo]));
-    await _syncReminders();
+    await _syncDevice();
   }
 
   Future<void> toggle(Todo todo) async {
@@ -74,7 +74,7 @@ class TodosController extends AsyncNotifier<List<Todo>> {
 
     // Flip in place first; re-order only after the strike has been seen.
     _show(_replacing(updated));
-    await _syncReminders();
+    await _syncDevice();
     await Future<void>.delayed(reorderDelay);
     if (!ref.mounted) return;
     _show(_sorted(_items));
@@ -93,7 +93,7 @@ class TodosController extends AsyncNotifier<List<Todo>> {
     await _store.save(updated);
     if (!ref.mounted) return;
     _show(_sorted(_replacing(updated)));
-    await _syncReminders();
+    await _syncDevice();
   }
 
   /// Puts a calling task off until [minute] of the day.
@@ -103,7 +103,7 @@ class TodosController extends AsyncNotifier<List<Todo>> {
     await _store.save(updated);
     if (!ref.mounted) return;
     _show(_sorted(_replacing(updated)));
-    await _syncReminders();
+    await _syncDevice();
   }
 
   /// Waves a calling task away for the day. It keeps its time, but stops
@@ -114,7 +114,7 @@ class TodosController extends AsyncNotifier<List<Todo>> {
     await _store.save(updated);
     if (!ref.mounted) return;
     _show(_sorted(_replacing(updated)));
-    await _syncReminders();
+    await _syncDevice();
   }
 
   /// Applies an edit. Words, time and rule all belong to the series, so
@@ -172,35 +172,35 @@ class TodosController extends AsyncNotifier<List<Todo>> {
     if (toDay == _day) return;
     _show(_without(todo));
     await _store.moveToDay(fromDay: _day, toDay: toDay, todo: todo);
-    await _syncReminders();
+    await _syncDevice();
   }
 
   /// Drops this showing only. A repeating task stays on its other days.
   Future<void> removeOccurrence(Todo todo) async {
     _show(_without(todo));
     await _store.remove(day: _day, todo: todo);
-    await _syncReminders();
+    await _syncDevice();
   }
 
   /// Drops this showing and every one before it, keeping the days after.
   Future<void> removeUpToHere(Todo todo) async {
     _show(_without(todo));
     await _store.startSeriesAfter(recurrenceId: todo.recurrenceId!, day: _day);
-    await _syncReminders();
+    await _syncDevice();
   }
 
   /// Drops this showing and every one after it, keeping the days before.
   Future<void> removeFromHere(Todo todo) async {
     _show(_without(todo));
     await _store.endSeriesFrom(recurrenceId: todo.recurrenceId!, day: _day);
-    await _syncReminders();
+    await _syncDevice();
   }
 
   /// Drops the whole repeating task, on every day.
   Future<void> removeSeries(Todo todo) async {
     _show(_without(todo));
     await _store.removeSeries(todo.recurrenceId!);
-    await _syncReminders();
+    await _syncDevice();
   }
 
   /// Moves an open task. Completed tasks hold their place at the bottom, and
@@ -243,14 +243,16 @@ class TodosController extends AsyncNotifier<List<Todo>> {
     final todos = await _store.todosOn(_day, now: _now);
     if (!ref.mounted) return;
     _show(todos);
-    await _syncReminders();
+    await _syncDevice();
   }
 
-  /// After a write: the reminders and the icon's number follow the store,
-  /// and what is left from earlier days is read again.
-  Future<void> _syncReminders() async {
+  /// After a write: the reminders, the icon's number and the widgets follow
+  /// the store, and what is left from earlier days is read again.
+  Future<void> _syncDevice() async {
     if (!ref.mounted) return;
     await ref.read(reminderSyncProvider).refresh(now: _now);
+    if (!ref.mounted) return;
+    await ref.read(glanceSyncProvider).refresh(now: _now);
     if (!ref.mounted) return;
     ref.invalidate(backlogProvider);
   }

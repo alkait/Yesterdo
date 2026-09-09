@@ -10,6 +10,16 @@ import UserNotifications
 
   private let images = ImageBridge()
 
+  /// The channel into Dart, kept so a tapped widget can be announced. There
+  /// is one engine, so one channel is all there is to hold.
+  private static var channel: FlutterMethodChannel?
+
+  /// Tells Dart a widget has been tapped, so it comes and takes it. Dropped
+  /// harmlessly when nothing is listening yet; Dart asks at launch too.
+  static func nudgeWidgetTap() {
+    DispatchQueue.main.async { channel?.invokeMethod("widgetTapped", arguments: nil) }
+  }
+
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
@@ -27,6 +37,7 @@ import UserNotifications
     // `MethodChannelDeviceBridge`.
     let channel = FlutterMethodChannel(
       name: "remindme/device", binaryMessenger: engineBridge.applicationRegistrar.messenger())
+    AppDelegate.channel = channel
     channel.setMethodCallHandler { [weak self] (call: FlutterMethodCall, result: @escaping FlutterResult) in
       switch call.method {
       case "setAppIcon":
@@ -44,6 +55,11 @@ import UserNotifications
       case "deleteImage":
         if let name = call.arguments as? String { ImageBridge.delete(name) }
         result(nil)
+      case "showOnWidgets":
+        if let json = call.arguments as? String { GlanceBridge.show(json) }
+        result(nil)
+      case "takeTappedTask":
+        result(GlanceBridge.take())
       case "openUrl":
         if let raw = call.arguments as? String, let url = URL(string: raw) {
           UIApplication.shared.open(url)

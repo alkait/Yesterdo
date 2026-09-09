@@ -36,6 +36,16 @@ class _WakeRefreshState extends ConsumerState<WakeRefresh>
     ref.read(todosProvider.notifier).refresh();
     // Permission may have been changed in the system's settings meanwhile.
     ref.invalidate(reminderPermissionProvider);
+    // A widget tapped while the app was away may be waiting to be answered.
+    _takeTappedTask();
+  }
+
+  /// Answers a widget tap that landed while the app was away. Taking it
+  /// clears it, so the same tap is never answered twice.
+  Future<void> _takeTappedTask() async {
+    final payload = await ref.read(deviceBridgeProvider).takeTappedTask();
+    if (!mounted || payload == null) return;
+    ref.read(attentionRequestProvider.notifier).raiseFromPayload(payload);
   }
 
   @override

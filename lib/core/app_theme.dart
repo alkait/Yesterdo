@@ -158,6 +158,13 @@ abstract final class AppTheme {
         ),
       };
 
+  /// The look's accent as a plain number, for the one place a colour has to
+  /// leave Flutter: the Lock Screen and Home Screen widgets, which are drawn
+  /// by the system and follow its brightness rather than the app's.
+  static int accentOf(AppThemeChoice choice, {required bool dark}) =>
+      schemeFor(choice, dark ? Brightness.dark : Brightness.light).primary
+          .toARGB32();
+
   /// The wash behind highlighted words. The same three in every look, since
   /// a highlight is meant to read as a marker pen, not as part of the look;
   /// deeper in the dark so they still show.

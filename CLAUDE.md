@@ -102,6 +102,36 @@ only the rules for working on it.
   new `DoneSound` case. Anything brought in
   under a licence that asks for credit is credited in Settings, under About.
 
+## Widgets
+
+- The Lock Screen and Home Screen widgets are a WidgetKit extension,
+  `ios/YesterdoWidget`. No plugin, and no second copy of the app's rules:
+  Dart works out what they show, Swift only draws it.
+- The app and the extension share one file, `glance.json`, in the app group
+  `group.com.alkait.yesterdo`. It is the only thing that crosses; the
+  extension never opens the database.
+- `GlancePlanner` derives the whole glance from the store and `GlanceSync`
+  hands it over with `showOnWidgets`, after every write, on launch, on
+  return to the front, and when the look changes. A widget is never told
+  about a single change.
+- The glance carries today and tomorrow, so the widgets are still right
+  after midnight without the app being opened.
+- A widget shows the tasks calling for attention and nothing else. What is
+  due later, what has no time, what is done and what was waved away never
+  appear on one; with nothing calling it says so.
+- Whether a task is calling is worked out from the moment being drawn, not
+  from a flag, and the timeline holds an entry at every due moment to come.
+  That is what lets a task fall due on the Lock Screen with the app closed.
+  The glance still carries what is not calling yet, since those moments are
+  what the timeline is built from.
+- Colours reach the widgets as the accent from `AppTheme.schemeFor`, in both
+  brightnesses, since the system decides which a widget is drawn in.
+- A tapped widget opens `yesterdo://task/<day>:<key>`, the payload
+  `taskPayload` names for notifications too. `SceneDelegate` holds it and
+  Dart takes it with `takeTappedTask`; it is handed over once.
+- `GlanceSync` cannot be refreshed from `ThemeChoice`: it is drawn in the
+  chosen look, so it already depends on it. `main` listens instead.
+
 ## UI: the Branded rule
 
 Every visual element is wrapped in a Branded widget, so a change to the look
@@ -172,3 +202,9 @@ lands in one place and shows up everywhere.
 - One widget concern per file. Split a file rather than let it grow.
 - Weigh any new dependency against the offline and performance constraints
   first.
+
+## Answering
+
+- Keep replies short. Answer what was asked and stop.
+- Do not end an answer with an offer, a next step or a question. If a
+  decision is genuinely needed, ask it plainly and on its own.

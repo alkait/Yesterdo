@@ -22,7 +22,9 @@ class ThemeChoice extends Notifier<AppThemeChoice> {
   AppThemeChoice build() => ref.watch(initialThemeChoiceProvider);
 
   /// Applies the look at once, saves it, and swaps the home screen icon to
-  /// match.
+  /// match. The widgets follow through the listener `main` sets up; they
+  /// cannot be redrawn from here, since the glance is drawn in this look and
+  /// so already depends on it.
   Future<void> select(AppThemeChoice choice) async {
     state = choice;
     await ref.read(settingsStoreProvider).write(settingKey, choice.name);

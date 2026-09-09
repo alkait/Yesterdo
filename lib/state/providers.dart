@@ -8,6 +8,8 @@ import '../data/repeat_rule.dart';
 import '../data/settings_store.dart';
 import '../data/todo.dart';
 import '../data/todo_store.dart';
+import '../glance/glance_planner.dart';
+import '../glance/glance_sync.dart';
 import '../platform/device_bridge.dart';
 import '../reminders/reminder_planner.dart';
 import '../reminders/reminder_scheduler.dart';
@@ -74,6 +76,16 @@ final reminderSyncProvider = Provider<ReminderSync>(
     ref.watch(reminderSchedulerProvider),
     ref.watch(todoStoreProvider),
     ref.watch(deviceBridgeProvider),
+  ),
+);
+
+/// Keeps the Lock Screen and Home Screen widgets matching the store. Watches
+/// the look, so a change of theme redraws them in the new accent.
+final glanceSyncProvider = Provider<GlanceSync>(
+  (ref) => GlanceSync(
+    GlancePlanner(ref.watch(todoStoreProvider)),
+    ref.watch(deviceBridgeProvider),
+    ref.watch(themeChoiceProvider),
   ),
 );
 

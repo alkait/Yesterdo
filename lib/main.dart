@@ -67,8 +67,28 @@ Future<void> main() async {
         .raiseFromPayload(launch!.notificationResponse?.payload);
   }
   // Notifications are laid down for a window of days, so the window is
-  // topped up at every launch.
+  // topped up at every launch. The widgets are handed today and tomorrow
+  // at the same time.
   container.read(reminderSyncProvider).refresh();
+  container.read(glanceSyncProvider).refresh();
+
+  // A tapped widget names a task the same way a notification does. Asked
+  // for once at launch, for a tap that started the app, and again whenever
+  // the device says one has landed.
+  Future<void> takeTappedTask() async {
+    container
+        .read(attentionRequestProvider.notifier)
+        .raiseFromPayload(await device.takeTappedTask());
+  }
+
+  device.onWidgetTap(takeTappedTask);
+  await takeTappedTask();
+
+  // The glance is drawn in the chosen look, so a change of look redraws it.
+  container.listen(
+    themeChoiceProvider,
+    (_, _) => container.read(glanceSyncProvider).refresh(),
+  );
 
   runApp(
     UncontrolledProviderScope(container: container, child: const YesterdoApp()),

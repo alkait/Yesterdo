@@ -79,6 +79,30 @@ class MemoryDeviceBridge implements DeviceBridge {
     return Future.value();
   }
 
+  /// Every glance handed to the widgets, in order.
+  final List<String> glances = <String>[];
+
+  /// What the next widget tap hands back, if any.
+  String? tapped;
+
+  void Function()? tapHandler;
+
+  @override
+  Future<void> showOnWidgets(String glance) {
+    glances.add(glance);
+    return Future.value();
+  }
+
+  @override
+  Future<String?> takeTappedTask() {
+    final payload = tapped;
+    tapped = null;
+    return Future.value(payload);
+  }
+
+  @override
+  void onWidgetTap(void Function() handler) => tapHandler = handler;
+
   @override
   Future<ReminderPermission> notificationPermission() => Future.value(status);
 }
