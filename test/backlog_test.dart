@@ -161,6 +161,40 @@ void main() {
     );
   });
 
+  testWidgets('Go to day turns the list to the day it was left on', (
+    tester,
+  ) async {
+    final store = await seeded();
+    await tester.pumpWidget(bootApp(store: store, clock: () => at(9, 0)));
+    await tester.pumpAndSettle();
+
+    await openBacklog(tester);
+    await choose(tester, 't2', 'Go to day');
+
+    // Back out on the day itself, with the task where it was left.
+    expect(find.text('Left behind'), findsNothing);
+    expect(find.text('Pay rent'), findsOneWidget);
+    expect(tileFor(tester, 'Pay rent').todo.done, isFalse);
+  });
+
+  testWidgets('a missed rule goes to the last day it was missed on', (
+    tester,
+  ) async {
+    final store = await seeded();
+    await tester.pumpWidget(bootApp(store: store, clock: () => at(9, 0)));
+    await tester.pumpAndSettle();
+
+    await openBacklog(tester);
+    await tester.tap(find.byKey(const ValueKey('backlog-r1')));
+    await tester.pumpAndSettle();
+    expect(find.text('The last day it was missed on'), findsOneWidget);
+
+    await tester.tap(find.text('Go to day'));
+    await tester.pumpAndSettle();
+    expect(find.text('Left behind'), findsNothing);
+    expect(find.text('Stretch'), findsOneWidget);
+  });
+
   testWidgets('deleting missed showings hides them and keeps the rule', (
     tester,
   ) async {

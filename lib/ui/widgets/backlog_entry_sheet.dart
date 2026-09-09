@@ -24,20 +24,40 @@ String backlogDetail(BacklogEntry entry, {required DateTime now}) {
 
 /// What to do with one entry. A one-off can be done, brought to today, sent
 /// to a day in the future, or deleted. A rule's missed showings are done,
-/// ignored or deleted together; the rule itself goes on.
+/// ignored or deleted together; the rule itself goes on. Either kind can be
+/// gone to and left where it is.
 Future<void> showBacklogEntrySheet(
   BuildContext context,
   WidgetRef ref,
   BacklogEntry entry,
 ) {
   final backlog = ref.read(backlogProvider.notifier);
+  final days = ref.read(selectedDayProvider.notifier);
   final now = ref.read(clockProvider)();
+
+  /// Turns the list to the day the entry was left on, and comes back out to
+  /// it. A rule missed more than once goes to the last of them. Nothing is
+  /// changed: this is a way of going to look.
+  void goToDay() {
+    days.select(dateFromEpochDay(entry.latestDay));
+    Navigator.of(context).popUntil((route) => route.isFirst);
+  }
 
   return showBrandedSheet<void>(context, (sheetContext) {
     void choose(Future<void> Function() action) {
       Navigator.of(sheetContext).pop();
       action();
     }
+
+    final goRow = BrandedOptionRow(
+      key: const ValueKey('backlog-go-to-day'),
+      label: 'Go to day',
+      detail: entry.repeats && entry.count > 1
+          ? 'The last day it was missed on'
+          : null,
+      icon: Icons.arrow_outward_rounded,
+      onTap: () => choose(() async => goToDay()),
+    );
 
     final options = entry.repeats
         ? <Widget>[
@@ -46,6 +66,7 @@ Future<void> showBacklogEntrySheet(
               icon: Icons.check_rounded,
               onTap: () => choose(() => backlog.done(entry)),
             ),
+            goRow,
             BrandedOptionRow(
               label: 'Ignore',
               icon: Icons.visibility_off_outlined,
@@ -64,6 +85,7 @@ Future<void> showBacklogEntrySheet(
               icon: Icons.check_rounded,
               onTap: () => choose(() => backlog.done(entry)),
             ),
+            goRow,
             BrandedOptionRow(
               label: 'Bring to today',
               icon: Icons.today_rounded,
