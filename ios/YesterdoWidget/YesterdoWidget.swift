@@ -10,7 +10,7 @@ struct GlanceEntry: TimelineEntry {
 }
 
 struct GlanceProvider: TimelineProvider {
-  /// How far ahead a due moment is worth an entry of its own.
+  /// How far ahead a task falling due is worth an entry of its own.
   static let ahead: TimeInterval = 36 * 3600
 
   /// The most entries in one timeline.
@@ -31,9 +31,9 @@ struct GlanceProvider: TimelineProvider {
     let now = Date()
     var moments: Set<Date> = [now]
 
-    for task in glance.tasks {
-      guard let due = task.due, due > now, due < now.addingTimeInterval(Self.ahead) else { continue }
-      moments.insert(due)
+    for task in glance.tasks where task.calls > now {
+      guard task.calls < now.addingTimeInterval(Self.ahead) else { continue }
+      moments.insert(task.calls)
     }
     if let midnight = Calendar.current.nextDate(
       after: now, matching: DateComponents(hour: 0, minute: 0, second: 0),

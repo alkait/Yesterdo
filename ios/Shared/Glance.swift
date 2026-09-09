@@ -14,6 +14,10 @@ struct Glance: Codable {
 }
 
 /// One task, with only what a widget can draw.
+///
+/// The app hands over none but the tasks that can call for attention, so
+/// there is nothing here about being done or waved away: such a task never
+/// arrives.
 struct GlanceTask: Codable, Identifiable {
   var key: String
 
@@ -22,26 +26,20 @@ struct GlanceTask: Codable, Identifiable {
   var payload: String
   var title: String
 
-  /// Milliseconds at midnight of its day, local time.
-  var dayStart: Double
+  /// Milliseconds at the moment it starts calling for attention. Worked out
+  /// by the app, which is the one place that decides what calling means.
+  var callsAt: Double
 
-  /// Milliseconds at its due moment, or nothing for a task with no time.
-  var dueAt: Double?
-  var done: Bool
-
-  /// Waved away for the day: it keeps its time but stops asking.
-  var dismissed: Bool
+  /// Milliseconds at its due moment, which is the time shown.
+  var dueAt: Double
 
   var id: String { payload }
-  var day: Date { Date(timeIntervalSince1970: dayStart / 1000) }
-  var due: Date? { dueAt.map { Date(timeIntervalSince1970: $0 / 1000) } }
+  var due: Date { Date(timeIntervalSince1970: dueAt / 1000) }
+  var calls: Date { Date(timeIntervalSince1970: callsAt / 1000) }
 
-  /// Whether it is calling for attention: its moment has come, it is still
-  /// open, and nobody has waved it away. The same rule the app's cards use.
-  func isCalling(at now: Date) -> Bool {
-    guard let due = due, !done, !dismissed else { return false }
-    return due <= now
-  }
+  /// Whether it is calling at a given moment. Its moment has come, and the
+  /// app would not have sent it if there were any other reason to keep quiet.
+  func isCalling(at now: Date) -> Bool { calls <= now }
 }
 
 /// The one file the app and the widgets share, in the group container both
@@ -76,13 +74,12 @@ extension Glance {
   /// The tasks calling for attention at a moment, earliest first.
   ///
   /// This is the whole of what a widget draws. The widget is for what is due
-  /// now, not a list of the day, so a task with no time, one whose moment has
-  /// not come, one already done and one waved away are all alike to it:
-  /// nothing to show. The day is not filtered on either, since a task cannot
-  /// call before its own moment.
+  /// now, not a list of the day, so anything whose moment has not come is
+  /// held back until it has. Days are not filtered on: a task left calling
+  /// from yesterday is still calling today, which is the point of it.
   func calling(at date: Date) -> [GlanceTask] {
     tasks
       .filter { $0.isCalling(at: date) }
-      .sorted { ($0.due ?? .distantPast) < ($1.due ?? .distantPast) }
+      .sorted { $0.due < $1.due }
   }
 }

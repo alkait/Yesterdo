@@ -23,44 +23,90 @@ void main() {
     planner = GlancePlanner(store);
   });
 
-  test('a task with a time carries its due moment', () async {
+  test('a task with a time carries when it calls and when it is due', () async {
     await store.insert(
       day: today,
       title: 'Call Sam\nabout the invoice',
-      due: const Due(minute: 14 * 60 + 30),
+      due: const Due(minute: 14 * 60 + 30, reminders: {15}),
     );
     final tasks = await planner.plan(now: nine);
     expect(tasks, hasLength(1));
     expect(tasks.single.key, 't1');
     expect(tasks.single.title, 'Call Sam', reason: 'the first line only');
+    expect(tasks.single.day, today);
+    expect(tasks.single.payload, '$today:t1');
     expect(
       tasks.single.dueAt,
       DateTime(2026, 9, 4, 14, 30).millisecondsSinceEpoch,
     );
     expect(
-      tasks.single.dayStart,
-      DateTime(2026, 9, 4).millisecondsSinceEpoch,
+      tasks.single.callsAt,
+      DateTime(2026, 9, 4, 14, 15).millisecondsSinceEpoch,
+      reason: 'its earliest reminder on the day, as a card would',
     );
-    expect(tasks.single.done, isFalse);
-    expect(tasks.single.dismissed, isFalse);
   });
 
-  test('a task with no time carries none', () async {
+  test('a task with no time is no use to a widget', () async {
     await store.insert(day: today, title: 'Buy milk');
-    final tasks = await planner.plan(now: nine);
-    expect(tasks.single.dueAt, isNull);
+    expect(await planner.plan(now: nine), isEmpty);
+  });
+
+  test('a done or waved-away task never crosses', () async {
+    final done = await store.insert(
+      day: today,
+      title: 'Done',
+      due: const Due(minute: 8 * 60),
+    );
+    await store.save(done.toggled(nine.millisecondsSinceEpoch));
+    final waved = await store.insert(
+      day: today,
+      title: 'Waved',
+      due: const Due(minute: 8 * 60),
+    );
+    await store.save(waved.dismiss());
+
+    expect(await planner.plan(now: nine), isEmpty);
+  });
+
+  test('a task left calling on an earlier day is still carried', () async {
+    await store.insert(
+      day: today - 1,
+      title: 'Yesterday',
+      due: const Due(minute: 9 * 60),
+    );
+    await store.insert(
+      day: today - GlancePlanner.daysBehind,
+      title: 'Weeks ago',
+      due: const Due(minute: 9 * 60),
+    );
+    await store.insert(
+      day: today - GlancePlanner.daysBehind - 1,
+      title: 'Older than the backlog',
+      due: const Due(minute: 9 * 60),
+    );
+
+    final titles = [
+      for (final task in await planner.plan(now: nine)) task.title,
+    ];
+    expect(titles, containsAll(<String>['Yesterday', 'Weeks ago']));
+    expect(titles, isNot(contains('Older than the backlog')));
   });
 
   test('tomorrow rides along, so midnight needs no app', () async {
-    await store.insert(day: today, title: 'Today');
-    await store.insert(day: today + 1, title: 'Tomorrow');
-    await store.insert(day: today + 2, title: 'Later');
-    final tasks = await planner.plan(now: nine);
-    expect(tasks.map((task) => task.title), ['Today', 'Tomorrow']);
-    expect(
-      tasks.last.dayStart,
-      DateTime(2026, 9, 5).millisecondsSinceEpoch,
+    await store.insert(
+      day: today + 1,
+      title: 'Tomorrow',
+      due: const Due(minute: 9 * 60),
     );
+    await store.insert(
+      day: today + 2,
+      title: 'Later',
+      due: const Due(minute: 9 * 60),
+    );
+    final titles = [
+      for (final task in await planner.plan(now: nine)) task.title,
+    ];
+    expect(titles, ['Tomorrow']);
   });
 
   test('a repeating task is carried on every day it shows', () async {
@@ -72,37 +118,46 @@ void main() {
     );
     final tasks = await planner.plan(now: nine);
     expect(tasks.map((task) => task.title), ['Stretch', 'Stretch']);
-    expect(tasks.map((task) => task.key).toSet(), hasLength(1),
-        reason: 'the same rule, on two days');
     expect(
-      tasks.last.dueAt,
-      DateTime(2026, 9, 5, 7, 0).millisecondsSinceEpoch,
+      tasks.map((task) => task.key).toSet(),
+      hasLength(1),
+      reason: 'the same rule, on two days',
     );
+    expect(tasks.map((task) => task.day), [
+      today + 1,
+      today,
+    ], reason: 'newest first');
   });
 
-  test('a done or waved-away task is carried, and says which', () async {
-    final done = await store.insert(day: today, title: 'Done');
-    await store.save(done.toggled(nine.millisecondsSinceEpoch));
-    final waved = await store.insert(
-      day: today,
-      title: 'Waved',
-      due: const Due(minute: 8 * 60),
+  test('a missed showing that was let go is not raised again', () async {
+    await store.insertSeries(
+      day: today - 3,
+      title: 'Stretch',
+      rule: RepeatRule(kind: RepeatKind.daily, startDay: today - 3),
+      due: const Due(minute: 7 * 60),
     );
-    await store.save(waved.dismiss());
+    final before = await planner.plan(now: nine);
+    expect(before.where((task) => task.day < today), isNotEmpty);
 
-    final tasks = await planner.plan(now: nine);
-    final byTitle = {for (final task in tasks) task.title: task};
-    expect(byTitle['Done']!.done, isTrue);
-    expect(byTitle['Waved']!.dismissed, isTrue);
-    expect(byTitle['Waved']!.done, isFalse);
+    await store.ignoreMissed(recurrenceId: 1, day: today - 1);
+    final after = await planner.plan(now: nine);
+    expect(
+      after.where((task) => task.day < today),
+      isEmpty,
+      reason: 'left where they are, and passed over',
+    );
+    expect(after.where((task) => task.day >= today), isNotEmpty);
   });
 
-  test('a day hands over no more than it can draw', () async {
-    for (var index = 0; index < GlancePlanner.perDay + 5; index++) {
-      await store.insert(day: today, title: 'Task $index');
+  test('no more is carried than the widgets can hold', () async {
+    for (var index = 0; index < GlancePlanner.cap + 10; index++) {
+      await store.insert(
+        day: today,
+        title: 'Task $index',
+        due: const Due(minute: 9 * 60),
+      );
     }
-    final tasks = await planner.plan(now: nine);
-    expect(tasks, hasLength(GlancePlanner.perDay));
+    expect(await planner.plan(now: nine), hasLength(GlancePlanner.cap));
   });
 
   test('the sync hands the widgets the whole thing, with the accent', () async {
@@ -115,8 +170,7 @@ void main() {
     await GlanceSync(planner, device, AppThemeChoice.ocean).refresh(now: nine);
 
     expect(device.glances, hasLength(1));
-    final glance =
-        jsonDecode(device.glances.single) as Map<String, Object?>;
+    final glance = jsonDecode(device.glances.single) as Map<String, Object?>;
     expect(glance['accentLight'], '#1F5FBF');
     expect(glance['accentDark'], isA<String>());
     final tasks = glance['tasks']! as List<Object?>;

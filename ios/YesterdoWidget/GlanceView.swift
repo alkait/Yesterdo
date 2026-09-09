@@ -59,7 +59,7 @@ struct InlineGlance: View {
 
   var body: some View {
     if let task = calling.first {
-      Text(task.due.map { "\(timeLabel($0)) \(task.title)" } ?? task.title)
+      Text("\(timeLabel(task.due)) \(task.title)")
     } else {
       Text(nothingDue)
     }
@@ -119,9 +119,9 @@ struct SmallGlance: View {
       Text(dayLabel(entry.date)).font(.caption2).foregroundStyle(.secondary)
       Spacer(minLength: 0)
       if let task = calling.first {
-        if let due = task.due {
-          Text("Due \(timeLabel(due))").font(.caption).foregroundStyle(accent)
-        }
+        Text("Due \(timeLabel(task.due))")
+          .font(.caption)
+          .foregroundStyle(accent)
         Text(task.title).font(.headline).lineLimit(3)
       } else {
         Text(nothingDue).font(.headline)
@@ -163,9 +163,7 @@ struct MediumGlance: View {
             Circle().fill(accent).frame(width: 6, height: 6)
             Text(task.title).font(.subheadline).lineLimit(1)
             Spacer(minLength: 4)
-            if let due = task.due {
-              Text(timeLabel(due)).font(.caption2).foregroundStyle(accent)
-            }
+            Text(timeLabel(task.due)).font(.caption2).foregroundStyle(accent)
           }
         }
         Spacer(minLength: 0)
@@ -181,9 +179,9 @@ let nothingDue = "Nothing due"
 
 /// `Due 9:30 AM`, and `· 2 more` when others are waiting behind it.
 private func detail(for task: GlanceTask, of count: Int) -> String {
-  let when = task.due.map { "Due \(timeLabel($0))" } ?? ""
+  let when = "Due \(timeLabel(task.due))"
   guard let more = moreLabel(count, shown: 1) else { return when }
-  return when.isEmpty ? more : "\(when) · \(more)"
+  return "\(when) · \(more)"
 }
 
 /// `2 more`, or nothing when everything calling is already on show.

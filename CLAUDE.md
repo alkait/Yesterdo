@@ -114,16 +114,19 @@ only the rules for working on it.
   hands it over with `showOnWidgets`, after every write, on launch, on
   return to the front, and when the look changes. A widget is never told
   about a single change.
-- The glance carries today and tomorrow, so the widgets are still right
-  after midnight without the app being opened.
-- A widget shows the tasks calling for attention and nothing else. What is
-  due later, what has no time, what is done and what was waved away never
-  appear on one; with nothing calling it says so.
-- Whether a task is calling is worked out from the moment being drawn, not
-  from a flag, and the timeline holds an entry at every due moment to come.
-  That is what lets a task fall due on the Lock Screen with the app closed.
-  The glance still carries what is not calling yet, since those moments are
-  what the timeline is built from.
+- The glance reaches from the backlog's own window back to tomorrow, so a
+  task left calling from an earlier day still shows and the widgets are
+  still right after midnight without the app being opened.
+- Only tasks that can call cross over. A task with no time, one already
+  done, one waved away and a missed showing that was let go are no use to a
+  widget and are never sent.
+- A widget shows the tasks calling for attention and nothing else; with
+  nothing calling it says so.
+- `Todo.isCallingOn` stays the one place that decides what calling means.
+  The planner turns it into a moment, `callsAt`, and the widget only ever
+  compares that with the moment being drawn. The timeline holds an entry at
+  every `callsAt` to come, which is what lets a task fall due on the Lock
+  Screen with the app closed.
 - Colours reach the widgets as the accent from `AppTheme.schemeFor`, in both
   brightnesses, since the system decides which a widget is drawn in.
 - A tapped widget opens `yesterdo://task/<day>:<key>`, the payload

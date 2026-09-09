@@ -15,8 +15,6 @@ class GlanceSync {
 
   Future<void> refresh({DateTime? now}) async {
     final tasks = await _planner.plan(now: now ?? DateTime.now());
-    await _device.showOnWidgets(
-      Glance(tasks: tasks, choice: _choice).encode(),
-    );
+    await _device.showOnWidgets(Glance(tasks: tasks, choice: _choice).encode());
   }
 }

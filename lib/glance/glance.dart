@@ -10,10 +10,8 @@ class GlanceTask {
     required this.day,
     required this.key,
     required this.title,
-    required this.dayStart,
-    required this.done,
-    required this.dismissed,
-    this.dueAt,
+    required this.callsAt,
+    required this.dueAt,
   });
 
   /// The day it sits on, as a count of days since the epoch.
@@ -28,26 +26,20 @@ class GlanceTask {
   /// The first line of words, which is all a widget has room for.
   final String title;
 
-  /// Milliseconds at midnight of the day it sits on, local time.
-  final int dayStart;
+  /// Milliseconds at the moment it starts calling for attention: its
+  /// earliest reminder on the day, or its time itself. A widget draws it
+  /// from this moment on, and nothing before.
+  final int callsAt;
 
-  /// Milliseconds at its due moment, or null for a task with no time.
-  final int? dueAt;
-
-  final bool done;
-
-  /// Waved away for the day: it keeps its time but stops asking, so a widget
-  /// does not put it forward.
-  final bool dismissed;
+  /// Milliseconds at its due moment, which is the time a widget shows.
+  final int dueAt;
 
   Map<String, Object?> toJson() => <String, Object?>{
     'key': key,
     'payload': payload,
     'title': title,
-    'dayStart': dayStart,
+    'callsAt': callsAt,
     'dueAt': dueAt,
-    'done': done,
-    'dismissed': dismissed,
   };
 }
 
