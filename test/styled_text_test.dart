@@ -186,4 +186,36 @@ void main() {
       expect(back.plainText, 'Call Sam\nMilk');
     });
   });
+
+  group('capitalized', () {
+    test('lifts the first letter of the first words', () {
+      final body = TaskBody.plain('buy milk').capitalized();
+      expect(body.plainText, 'Buy milk');
+    });
+
+    test('leaves a word that carries a capital of its own', () {
+      expect(TaskBody.plain('iPhone repair').capitalized().plainText,
+          'iPhone repair');
+      expect(TaskBody.plain('eBay parcel').capitalized().plainText,
+          'eBay parcel');
+    });
+
+    test('leaves words that already read right', () {
+      expect(TaskBody.plain('Buy milk').capitalized().plainText, 'Buy milk');
+      expect(TaskBody.plain('').capitalized().plainText, '');
+      expect(TaskBody.plain('3 eggs').capitalized().plainText, '3 eggs');
+    });
+
+    test('the styles stay where they were', () {
+      final body = TaskBody([
+        Block(
+          kind: BlockKind.paragraph,
+          content: StyledText('buy milk', [run(4, 8)]),
+        ),
+      ]).capitalized();
+      expect(body.first.content.text, 'Buy milk');
+      expect(body.first.content.runs.single.start, 4);
+      expect(body.first.content.runs.single.end, 8);
+    });
+  });
 }

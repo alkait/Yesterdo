@@ -147,14 +147,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     value: appVersion,
                   ),
                 ),
-                // The done sounds are Headphaze's, under CC BY 4.0, which
-                // asks for a credit, and Universfield's, under the Pixabay
-                // Content Licence.
-                const BrandedFieldRow(
-                  label: 'Sounds by',
-                  value: 'Headphaze, Universfield',
-                  detail: 'Freesound CC BY 4.0, Pixabay licence',
-                ),
                 if (developer)
                   BrandedTextButton(
                     key: const ValueKey('settings-developer'),

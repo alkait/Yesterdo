@@ -98,6 +98,36 @@ class TaskBody {
       .join('\n');
 
   /// Whether there is anything worth keeping: words, or a picture.
+  /// The same words with the first letter made a capital, which is how a
+  /// task reads on a card. The keyboard offers this while typing, but a
+  /// hardware keyboard does not, so it is settled here rather than left to
+  /// chance.
+  ///
+  /// A first word that already carries a capital of its own is left alone,
+  /// so `iPhone` does not become `IPhone`. Only one character changes, so
+  /// no style run moves.
+  TaskBody capitalized() {
+    final index = blocks.indexWhere((block) => block.hasText);
+    if (index == -1) return this;
+    final content = blocks[index].content;
+    final text = content.text;
+    if (text.isEmpty) return this;
+
+    final first = text.substring(0, 1);
+    final upper = first.toUpperCase();
+    if (upper == first) return this;
+    final word = text.split(RegExp(r'\s')).first;
+    if (word != word.toLowerCase()) return this;
+
+    return TaskBody([
+      for (final (at, block) in blocks.indexed)
+        if (at == index)
+          block.copyWith(content: content.replaced(0, 1, upper))
+        else
+          block,
+    ]);
+  }
+
   bool get hasWords =>
       blocks.any((block) => block.isImage || block.text.trim().isNotEmpty);
 

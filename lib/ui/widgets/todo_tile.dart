@@ -51,15 +51,17 @@ class TodoTile extends ConsumerWidget {
           label: 'Edit',
           onTap: () => editTask(context, ref, todo),
         ),
-      ],
-      trailing: [
-        // Only an open task has anywhere to go.
+        // Only an open task has anywhere to go. It sits beside Edit rather
+        // than beside Delete, since sending a task on is a kindness to it,
+        // not a way of getting rid of it.
         if (!todo.done)
           BrandedSwipeAction.words(
             ('NOT', 'TODAY'),
             label: 'Not today',
             onTap: () => moveTask(context, ref, todo),
           ),
+      ],
+      trailing: [
         // For developers: rings this task's reminder ten seconds from now.
         if (ref.watch(developerModeProvider))
           BrandedSwipeAction(

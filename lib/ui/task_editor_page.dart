@@ -89,7 +89,7 @@ class _TaskEditorPageState extends ConsumerState<TaskEditorPage> {
   void _save() {
     if (!_hasWords) return;
     Navigator.of(context)
-        .pop(TaskDraft(body: _body, due: _due, repeat: _repeat));
+        .pop(TaskDraft(body: _body.capitalized(), due: _due, repeat: _repeat));
   }
 
   Future<void> _pickDue() async {

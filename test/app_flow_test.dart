@@ -292,6 +292,45 @@ void main() {
     expect(find.text('Save'), findsOneWidget);
   });
 
+  testWidgets('the empty editor prompts for words', (tester) async {
+    await tester.pumpWidget(bootApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Add a task'));
+    await tester.pumpAndSettle();
+    expect(find.text('What needs doing?'), findsOneWidget);
+
+    // The prompt goes as soon as there are words, and the guard character
+    // the field carries does not count as any.
+    await tester.enterText(find.byType(TextField), 'B');
+    await tester.pump();
+    expect(find.text('What needs doing?'), findsNothing);
+
+    await tester.enterText(find.byType(TextField), '');
+    await tester.pump();
+    expect(find.text('What needs doing?'), findsOneWidget);
+  });
+
+  testWidgets('a task saved in lower case starts with a capital', (
+    tester,
+  ) async {
+    await tester.pumpWidget(bootApp());
+    await tester.pumpAndSettle();
+
+    await addTask(tester, 'buy milk');
+    expect(find.text('Buy milk'), findsOneWidget);
+  });
+
+  testWidgets('a word with a capital of its own is left alone', (
+    tester,
+  ) async {
+    await tester.pumpWidget(bootApp());
+    await tester.pumpAndSettle();
+
+    await addTask(tester, 'iPhone to the shop');
+    expect(find.text('iPhone to the shop'), findsOneWidget);
+  });
+
   testWidgets('cancelling the editor adds nothing', (tester) async {
     await tester.pumpWidget(bootApp());
     await tester.pumpAndSettle();
@@ -1693,12 +1732,30 @@ void main() {
   group('not today', () {
     final today = todayDate().epochDay;
 
-    /// Swipes a card open on the trailing side and taps the NOT TODAY glyph.
+    /// Swipes a card open on the leading side and taps the NOT TODAY glyph,
+    /// which sits there beside Edit.
     Future<void> notToday(WidgetTester tester, String title) async {
-      await swipe(tester, title, const Offset(-200, 0));
+      await swipe(tester, title, const Offset(260, 0));
       await tester.tap(find.text('NOT'));
       await tester.pumpAndSettle();
     }
+
+    testWidgets('the button sits on the leading side, beside edit', (
+      tester,
+    ) async {
+      await tester.pumpWidget(bootApp(clock: () => at(9, 0)));
+      await tester.pumpAndSettle();
+      await addTask(tester, 'Buy milk');
+
+      await swipe(tester, 'Buy milk', const Offset(260, 0));
+      expect(find.text('NOT'), findsOneWidget);
+      expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
+
+      // Delete keeps the trailing side to itself.
+      await swipe(tester, 'Buy milk', const Offset(-200, 0));
+      expect(find.text('NOT'), findsNothing);
+      expect(find.byIcon(Icons.delete_outline_rounded), findsOneWidget);
+    });
 
     testWidgets('sends a task to a day picked on the grid', (tester) async {
       await tester.pumpWidget(bootApp(clock: () => at(9, 0)));
