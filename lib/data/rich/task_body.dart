@@ -97,6 +97,19 @@ class TaskBody {
       .map((block) => block.text)
       .join('\n');
 
+  /// The words as they are handed to another app: a line per block, a
+  /// checklist item headed by its box, pictures left out. Only the words
+  /// cross, never the day, the time or the repeat.
+  String get shareText => blocks
+      .where((block) => block.hasText)
+      .map(
+        (block) => switch (block.kind) {
+          BlockKind.check => '${block.checked ? '☑' : '☐'} ${block.text}',
+          _ => block.text,
+        },
+      )
+      .join('\n');
+
   /// Whether there is anything worth keeping: words, or a picture.
   bool get hasWords =>
       blocks.any((block) => block.isImage || block.text.trim().isNotEmpty);

@@ -11,11 +11,12 @@ import '../branded/branded.dart';
 
 /// The word at the foot of the list when a task was saved onto another day:
 /// which task, which day, and a way to go there. Going there points the
-/// task's card out, the way a search result does.
+/// task's card out, the way a search result does, and comes out to the list
+/// from whatever screen the banner was on, since it also floats over Left
+/// behind.
 ///
 /// It floats over the day rather than pushing it up. It goes of its own
-/// accord after a while, when pushed away, or the moment the day it names is
-/// the day being looked at, since by then it has nothing left to say.
+/// accord after a while, or when pushed away.
 class DayNoticeBanner extends ConsumerStatefulWidget {
   const DayNoticeBanner({super.key});
 
@@ -50,6 +51,7 @@ class _DayNoticeBannerState extends ConsumerState<DayNoticeBanner> {
     ref.read(spotlightProvider.notifier).raise(notice.day, notice.key);
     ref.read(selectedDayProvider.notifier).select(dateFromEpochDay(notice.day));
     _clear();
+    Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
   @override

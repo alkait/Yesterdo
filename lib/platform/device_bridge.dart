@@ -40,6 +40,9 @@ abstract class DeviceBridge {
   /// Hands a web address to the system to open.
   Future<void> openUrl(String url);
 
+  /// Puts words up on the system's share sheet.
+  Future<void> share(String text);
+
   /// The folder pictures are kept in, under the app's own documents.
   Future<String> imagesDirectory();
 
@@ -83,6 +86,9 @@ class MethodChannelDeviceBridge implements DeviceBridge {
 
   @override
   Future<void> openUrl(String url) => _channel.invokeMethod('openUrl', url);
+
+  @override
+  Future<void> share(String text) => _channel.invokeMethod('share', text);
 
   @override
   Future<String> imagesDirectory() async =>

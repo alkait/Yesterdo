@@ -79,6 +79,15 @@ class MemoryDeviceBridge implements DeviceBridge {
     return Future.value();
   }
 
+  /// Every text put on the share sheet, in order.
+  final List<String> shared = <String>[];
+
+  @override
+  Future<void> share(String text) {
+    shared.add(text);
+    return Future.value();
+  }
+
   /// Every glance handed to the widgets, in order.
   final List<String> glances = <String>[];
 

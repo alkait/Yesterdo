@@ -12,7 +12,7 @@ import 'widgets/task_actions.dart';
 
 /// A task read in full: its words with their styles, its checklist with
 /// boxes that tick, its links that open. Reached by tapping a card. Edit
-/// leads on to the editor.
+/// leads on to the editor, and Share hands the words alone to another app.
 ///
 /// Given a task outright, through [TaskViewPage.of], it shows that one as
 /// it stands: a task left on an earlier day, looked at from the backlog.
@@ -61,12 +61,23 @@ class TaskViewPage extends ConsumerWidget {
             role: BrandedTextRole.title,
             align: TextAlign.center,
           ),
-          trailing: given == null
-              ? BrandedTextButton(
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              BrandedIconButton(
+                icon: Icons.ios_share,
+                label: 'Share',
+                size: BrandedIconSize.medium,
+                onTap: () =>
+                    ref.read(deviceBridgeProvider).share(todo.body.shareText),
+              ),
+              if (given == null)
+                BrandedTextButton(
                   label: 'Edit',
                   onTap: () => editTask(context, ref, todo),
-                )
-              : null,
+                ),
+            ],
+          ),
         ),
         Expanded(
           child: SingleChildScrollView(

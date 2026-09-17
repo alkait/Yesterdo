@@ -44,16 +44,18 @@ class BacklogController extends AsyncNotifier<Backlog> {
   }
 
   /// Puts a one-off on today, or on a later [day], above everything there:
-  /// what was brought back is the thing to see first.
-  Future<void> bring(BacklogEntry entry, {int? day}) async {
+  /// what was brought back is the thing to see first. Says which task it is
+  /// there, by key.
+  Future<String> bring(BacklogEntry entry, {int? day}) async {
     final item = entry.items.single;
-    await _store.moveToDay(
+    final moved = await _store.moveToDay(
       fromDay: item.day,
       toDay: day ?? _today,
       todo: item.todo,
       toTop: true,
     );
     await _settle();
+    return moved.key;
   }
 
   /// Removes a one-off outright.

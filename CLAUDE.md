@@ -199,6 +199,11 @@ lands in one place and shows up everywhere.
   sheet.
 - A card that changes place in the order flies there through `TodoFlight`.
   Do not let a card jump.
+- The banner that says where a task went floats over Left behind as well
+  as over the day, so a task brought to today or sent on from there is
+  announced where the sending was done. Its Go comes out to the list.
+  Left behind never turns the list or leaves on its own, even once it is
+  empty: Back or Go is the way out.
 - A card pointed out, as one a search found or one the banner's Go leads
   to, is `spotlit`: it takes the calling card's breath a couple of times
   and settles. It is asked for through `spotlightProvider` and the list
@@ -208,6 +213,10 @@ lands in one place and shows up everywhere.
 - Words pasted into the editor make a block per line, and a line headed by
   a bullet or a box becomes a checklist item. `LineMarker` is the one place
   that knows the marks; the controller only cuts at the breaks.
+- Share, on the read view, hands over the words alone through
+  `TaskBody.shareText`: a line per block, a box before a checklist item,
+  pictures left out. No day, time or repeat crosses. The sheet is the
+  system's, reached through `DeviceBridge.share`.
 - The task actions are named once in `task_actions.dart`, so their icons and
   labels cannot drift.
 - Developer mode only ever adds tools, never changes behaviour.

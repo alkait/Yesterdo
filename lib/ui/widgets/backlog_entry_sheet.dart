@@ -25,7 +25,8 @@ String backlogDetail(BacklogEntry entry, {required DateTime now}) {
 /// What to do with one entry. A one-off can be done, brought to today, sent
 /// to a day in the future, or deleted. A rule's missed showings are done,
 /// ignored or deleted together; the rule itself goes on. Either kind can be
-/// gone to and left where it is.
+/// gone to and left where it is. A task sent on is announced by the banner,
+/// which offers to go to it.
 Future<void> showBacklogEntrySheet(
   BuildContext context,
   WidgetRef ref,
@@ -93,7 +94,7 @@ Future<void> showBacklogEntrySheet(
             BrandedOptionRow(
               label: 'Bring to today',
               icon: Icons.today_rounded,
-              onTap: () => choose(() => backlog.bring(entry)),
+              onTap: () => choose(() => _sendOn(ref, entry, now.epochDay)),
             ),
             BrandedOptionRow(
               label: 'Send to future',
@@ -151,5 +152,16 @@ Future<void> _sendToFuture(
     isAllowed: (date) => date.epochDay > today,
   );
   if (picked == null) return;
-  await ref.read(backlogProvider.notifier).bring(entry, day: picked.epochDay);
+  await _sendOn(ref, entry, picked.epochDay);
+}
+
+/// Moves the task to [day] and says so through the banner, which offers to
+/// go to it. The list is not turned: the screen stays, so the rest can be
+/// seen to, and the banner is the way there. The notifiers are taken first,
+/// since the sheet this was chosen on is down before the move lands.
+Future<void> _sendOn(WidgetRef ref, BacklogEntry entry, int day) async {
+  final backlog = ref.read(backlogProvider.notifier);
+  final notices = ref.read(dayNoticeProvider.notifier);
+  final key = await backlog.bring(entry, day: day);
+  notices.raise(line: entry.todo.firstLine, day: day, key: key);
 }

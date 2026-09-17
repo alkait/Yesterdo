@@ -65,6 +65,8 @@ import UserNotifications
           UIApplication.shared.open(url)
         }
         result(nil)
+      case "share":
+        self?.share(call.arguments as? String ?? "", result: result)
       case "notificationPermission":
         UNUserNotificationCenter.current().getNotificationSettings { settings in
           let status: String
@@ -104,6 +106,29 @@ import UserNotifications
   /// allowed before badges were asked for is granted them here without a
   /// prompt, since the system never asks twice. Never asked, nothing is
   /// done: the question is put when a reminder is first chosen, not here.
+  /// Puts words up on the system's share sheet, over whatever is in front.
+  /// On an iPad the sheet is a popover and has to be told where to point,
+  /// so it is anchored to the middle of the screen with no arrow.
+  private func share(_ text: String, result: @escaping FlutterResult) {
+    let root = UIApplication.shared.connectedScenes
+      .compactMap { $0 as? UIWindowScene }
+      .flatMap { $0.windows }
+      .first { $0.isKeyWindow }?
+      .rootViewController
+    guard let root else { result(nil); return }
+    var front = root
+    while let presented = front.presentedViewController { front = presented }
+    let sheet = UIActivityViewController(activityItems: [text], applicationActivities: nil)
+    if let popover = sheet.popoverPresentationController {
+      popover.sourceView = front.view
+      popover.sourceRect = CGRect(
+        x: front.view.bounds.midX, y: front.view.bounds.midY, width: 0, height: 0)
+      popover.permittedArrowDirections = []
+    }
+    front.present(sheet, animated: true)
+    result(nil)
+  }
+
   private func setBadge(_ count: Int, result: @escaping FlutterResult) {
     let centre = UNUserNotificationCenter.current()
     centre.getNotificationSettings { settings in

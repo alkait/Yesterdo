@@ -128,9 +128,13 @@ void main() {
 
     await openBacklog(tester);
     await choose(tester, 't1', 'Bring to today');
-    // The screen stays, one card shorter, so the rest can be seen to.
+    // The screen stays, one card shorter, so the rest can be seen to, and
+    // the banner says where the task went.
     expect(find.text('Left behind'), findsOneWidget);
     expect(find.byKey(const ValueKey('backlog-t1')), findsNothing);
+    expect(find.byKey(const ValueKey('day-notice')), findsOneWidget);
+    expect(find.text('Call Sam'), findsOneWidget);
+    expect(find.text('Go'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('backlog-t2')));
     await tester.pumpAndSettle();
@@ -141,10 +145,15 @@ void main() {
     expect(find.byKey(const ValueKey('backlog-t2')), findsNothing);
     final tomorrow = await store.todosOn(today + 1);
     expect(tomorrow.first.title, 'Pay rent', reason: 'on top of the day');
+    expect(find.text('Pay rent'), findsOneWidget, reason: 'the banner');
 
-    // Done on a rule's line takes every missed showing, and the sheet comes
-    // down by itself once nothing is left.
+    // Done on a rule's line takes every missed showing. The screen stays,
+    // saying it is empty, until Back.
     await choose(tester, 'r1', 'Done');
+    expect(find.text('Left behind'), findsOneWidget);
+    expect(find.text('Nothing left behind'), findsOneWidget);
+    await tester.tap(find.text('Back'));
+    await tester.pumpAndSettle();
     expect(find.text('Left behind'), findsNothing);
     expect(find.byKey(const ValueKey('backlog-row')), findsNothing);
     for (var day = today - 3; day < today; day++) {
@@ -270,5 +279,29 @@ void main() {
     final later = await Backlog.read(store, today: today + 1);
     expect(later.count, 1);
     expect(later.entries.single.latestDay, today);
+  });
+
+  testWidgets('Go on the banner comes out to the day, the card lit', (
+    tester,
+  ) async {
+    final store = await seeded();
+    await tester.pumpWidget(bootApp(store: store, clock: () => at(9, 0)));
+    await tester.pumpAndSettle();
+
+    await openBacklog(tester);
+    await tester.tap(find.byKey(const ValueKey('backlog-t2')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Send to future'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(ValueKey('pick-day-${today + 2}')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Go'));
+    await pumpUntilTile(tester, 'Pay rent');
+    expect(tileFor(tester, 'Pay rent').spotlit, isTrue);
+    await tester.pumpAndSettle();
+    expect(find.text('Left behind'), findsNothing);
+    expect(find.byKey(const ValueKey('day-notice')), findsNothing);
+    expect(tileFor(tester, 'Pay rent').todo.done, isFalse);
   });
 }
