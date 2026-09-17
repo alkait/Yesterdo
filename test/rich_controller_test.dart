@@ -142,16 +142,48 @@ void main() {
     });
 
     test('hands the words after a line break to a new block', () {
-      StyledText? handed;
+      List<StyledText>? handed;
+      int? landed;
+      bool? wasPasted;
       final c = BrandedRichController(
         content: StyledText('hello world', [run(6, 11)]),
         guarded: true,
-        onSplit: (after) => handed = after,
+        onSplit: (pieces, {required caret, required pasted}) {
+          handed = pieces;
+          landed = caret;
+          wasPasted = pasted;
+        },
       );
       type(c, '${guard}hello\nworld', 7);
       expect(c.content, StyledText('hello'));
       expect(c.selection.extentOffset, 6);
-      expect(handed, StyledText('world', [run(0, 5)]));
+      expect(handed, [
+        StyledText('world', [run(0, 5)]),
+      ]);
+      expect(landed, 0, reason: 'a return lands at the start of the new block');
+      expect(wasPasted, isFalse);
+    });
+
+    test('a paste with several breaks hands over a piece per line', () {
+      List<StyledText>? handed;
+      int? landed;
+      bool? wasPasted;
+      final c = BrandedRichController(
+        content: StyledText('ab'),
+        guarded: true,
+        onSplit: (pieces, {required caret, required pasted}) {
+          handed = pieces;
+          landed = caret;
+          wasPasted = pasted;
+        },
+      );
+      // Pasted between a and b: the last piece carries the b along, and the
+      // caret lands before it, right after what was pasted.
+      type(c, '${guard}a1\r\n22\n\n3b', 9);
+      expect(c.content, StyledText('a1'));
+      expect(handed, [StyledText('22'), StyledText(''), StyledText('3b')]);
+      expect(landed, 1);
+      expect(wasPasted, isTrue);
     });
 
     test('without a split handler a line break is just a character', () {

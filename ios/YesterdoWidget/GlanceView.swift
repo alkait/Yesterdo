@@ -21,11 +21,9 @@ struct GlanceView: View {
 
   /// Tapping opens the app on the task in front, the same address a
   /// notification hands over. With nothing calling there is nothing to open
-  /// on, so the app opens as it usually would.
-  private var address: URL? {
-    guard let first = calling.first else { return nil }
-    return URL(string: "yesterdo://task/\(first.payload)")
-  }
+  /// on, so the app opens as it usually would. A shape that lists several
+  /// gives each row its own address on top of this one.
+  private var address: URL? { calling.first.flatMap(addressOf) }
 
   var body: some View {
     shape.widgetURL(address)
@@ -161,13 +159,17 @@ struct MediumGlance: View {
         Text(nothingDue).font(.headline)
         Spacer(minLength: 0)
       } else {
+        // Each row opens its own task; the space around them opens the
+        // first, through the widget's own address.
         ForEach(calling.prefix(Self.rows)) { task in
-          HStack(spacing: 6) {
-            Circle().fill(accent).frame(width: 6, height: 6)
-            Text(task.title).font(.subheadline).lineLimit(1)
-            Spacer(minLength: 4)
-            Text(whenLabel(task.due, drawnAt: entry.date))
-              .font(.caption2).foregroundStyle(accent)
+          Link(destination: addressOf(task) ?? fallbackAddress) {
+            HStack(spacing: 6) {
+              Circle().fill(accent).frame(width: 6, height: 6)
+              Text(task.title).font(.subheadline).lineLimit(1)
+              Spacer(minLength: 4)
+              Text(whenLabel(task.due, drawnAt: entry.date))
+                .font(.caption2).foregroundStyle(accent)
+            }
           }
         }
         Spacer(minLength: 0)
@@ -180,6 +182,16 @@ struct MediumGlance: View {
 /// What a widget says with nothing calling. It is not "nothing to do": the
 /// day may be full, and none of it due yet.
 let nothingDue = "Nothing due"
+
+/// Where a tap on a task lands: the app, on that task, by the same payload
+/// a notification carries.
+func addressOf(_ task: GlanceTask) -> URL? {
+  URL(string: "yesterdo://task/\(task.payload)")
+}
+
+/// The app, on nothing in particular, for a payload that will not make an
+/// address. It never should, but a Link has to point somewhere.
+let fallbackAddress = URL(string: "yesterdo://")!
 
 /// `Due 9:30 AM`, and `· 2 more` when others are waiting behind it.
 private func detail(for task: GlanceTask, of count: Int, drawnAt now: Date) -> String {

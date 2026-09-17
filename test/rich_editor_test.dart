@@ -349,4 +349,72 @@ void main() {
     ]);
     expect(addTask, isNotNull);
   });
+
+  testWidgets('pasted lines become blocks of their own', (tester) async {
+    await tester.pumpWidget(bootApp());
+    await tester.pumpAndSettle();
+    await openEditor(tester);
+    await typeInto(tester, 0, 'Plan\r\nMilk\n\nBread');
+    await tester.pumpAndSettle();
+    // Three lines, the blank one left out, and the caret at the end of the
+    // last.
+    expect(fields(tester), hasLength(3));
+    expect(fields(tester)[2].controller!.selection.baseOffset, 6);
+
+    await save(tester);
+    final body = tileFor(tester, 'Plan').todo.body;
+    expect(body.blocks.map((b) => b.text), ['Plan', 'Milk', 'Bread']);
+    expect(body.blocks.every((b) => b.kind == BlockKind.paragraph), isTrue);
+  });
+
+  testWidgets('a pasted list becomes a checklist, ticks and all', (
+    tester,
+  ) async {
+    await tester.pumpWidget(bootApp());
+    await tester.pumpAndSettle();
+    await openEditor(tester);
+    await typeInto(tester, 0, 'Shopping\n• Milk\n  - Bread\n[x] Eggs\n[ ] Jam');
+    await tester.pumpAndSettle();
+    expect(fields(tester), hasLength(5));
+    expect(find.byType(BrandedCheckBox), findsNWidgets(4));
+
+    await save(tester);
+    final body = tileFor(tester, 'Shopping').todo.body;
+    expect(body.blocks.map((b) => b.text), [
+      'Shopping',
+      'Milk',
+      'Bread',
+      'Eggs',
+      'Jam',
+    ]);
+    expect(body.blocks.first.kind, BlockKind.paragraph);
+    expect(body.checklistProgress, (1, 4));
+    expect(body.blocks[3].checked, isTrue);
+  });
+
+  testWidgets('a list pasted into an empty block starts with an item', (
+    tester,
+  ) async {
+    await tester.pumpWidget(bootApp());
+    await tester.pumpAndSettle();
+    await openEditor(tester);
+    await typeInto(tester, 0, '- Milk\n- Bread');
+    await tester.pumpAndSettle();
+    expect(find.byType(BrandedCheckBox), findsNWidgets(2));
+    await save(tester);
+    final body = tileFor(tester, 'Milk').todo.body;
+    expect(body.blocks.map((b) => b.text), ['Milk', 'Bread']);
+    expect(body.checklistProgress, (0, 2));
+  });
+
+  testWidgets('a typed dash is left alone', (tester) async {
+    await tester.pumpWidget(bootApp());
+    await tester.pumpAndSettle();
+    await openEditor(tester);
+    await typeInto(tester, 0, '- Milk');
+    await typeInto(tester, 0, '- Milk\n');
+    await tester.pumpAndSettle();
+    expect(find.byType(BrandedCheckBox), findsNothing);
+    expect(fields(tester)[0].controller!.text, '$guard- Milk');
+  });
 }

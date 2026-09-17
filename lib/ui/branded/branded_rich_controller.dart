@@ -30,9 +30,9 @@ class BrandedRichController extends TextEditingController {
 
   final bool guarded;
 
-  /// Called instead of putting a line break into the words: the words after
-  /// the break are handed over for a new block.
-  final ValueChanged<StyledText>? onSplit;
+  /// Called instead of putting a line break into the words: what follows
+  /// each break is handed over, one piece per new block.
+  final SplitHandler? onSplit;
 
   /// Called when backspace is pressed at the very start of a guarded field.
   final VoidCallback? onBackspaceAtStart;
@@ -115,21 +115,14 @@ class BrandedRichController extends TextEditingController {
       );
     }
     if (newValue.text != old.text) {
-      final (start, end, inserted) = _diff(old.text, newValue.text);
+      final (start, end, raw) = _diff(old.text, newValue.text);
       final from = start - _lead;
       final to = end - _lead;
-      final split = onSplit == null ? -1 : inserted.indexOf('\n');
-      if (split != -1) {
-        // A line break: everything from it on goes to a new block.
-        final whole = _content.replaced(
-          from,
-          to,
-          inserted.replaceAll('\n', ''),
-          typed: _typed,
-        );
-        final at = from + split;
-        setContent(whole.slice(0, at), caret: at);
-        onSplit!(whole.slice(at));
+      // Other systems end their lines differently; pasted in, they all
+      // mean the same break.
+      final inserted = raw.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+      if (onSplit != null && inserted.contains('\n')) {
+        _split(from, to, inserted);
         return;
       }
       _content = _content.replaced(from, to, inserted, typed: _typed);
@@ -140,6 +133,35 @@ class BrandedRichController extends TextEditingController {
       _typed = null;
     }
     super.value = _guardedSelection(newValue);
+  }
+
+  /// Line breaks came in: one from the return key, or any number in a
+  /// paste. The words are cut at each, the first piece stays here and the
+  /// rest are handed over, with where the caret lands in the last of them:
+  /// after the pasted words, which is the start for a plain return.
+  void _split(int from, int to, String inserted) {
+    final whole = _content.replaced(
+      from,
+      to,
+      inserted.replaceAll('\n', ''),
+      typed: _typed,
+    );
+    final cuts = <int>[];
+    for (
+      var at = inserted.indexOf('\n');
+      at != -1;
+      at = inserted.indexOf('\n', at + 1)
+    ) {
+      // Each break before this one is already gone from the words.
+      cuts.add(from + at - cuts.length);
+    }
+    final pieces = [
+      for (final (index, cut) in cuts.indexed)
+        whole.slice(cut, index + 1 < cuts.length ? cuts[index + 1] : null),
+    ];
+    final caret = from + inserted.length - cuts.length - cuts.last;
+    setContent(whole.slice(0, cuts.first), caret: cuts.first);
+    onSplit!(pieces, caret: caret, pasted: inserted.length > 1);
   }
 
   /// The caret is never let in front of the guard.
@@ -295,6 +317,15 @@ class BrandedRichController extends TextEditingController {
       if (run.styles.link != null) run.styles.link!,
   ];
 }
+
+/// What a controller hands over at a line break: the words after each
+/// break, one piece per block, where the caret goes in the last piece, and
+/// whether they came in a paste rather than from the return key.
+typedef SplitHandler = void Function(
+  List<StyledText> pieces, {
+  required int caret,
+  required bool pasted,
+});
 
 /// What the rich field shares with [BrandedText]: the ramp.
 TextStyle richStyleFor(BrandedTextRole role) => BrandedText.styleFor(role);

@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
 
+import '../../data/rich/line_marker.dart';
 import '../../data/rich/style_run.dart';
 import '../../data/rich/styled_text.dart';
 import '../../data/rich/task_body.dart';
 import '../branded/branded.dart';
 
 /// The writing surface: one styled field per block, stacked, with pictures
-/// between. Return at the
-/// end of a block starts a new one of the same kind; on an empty checklist
-/// item it ends the list instead. Backspace at the start of a block joins
-/// it onto the one above. The format bar drives whichever block has the
-/// caret, through [BodyEditorState].
+/// between. Return at the end of a block starts a new one of the same kind;
+/// on an empty checklist item it ends the list instead. Words pasted in
+/// make a block per line, and a line headed by a bullet or a box makes a
+/// checklist item. Backspace at the start of a block joins it onto the one
+/// above. The format bar drives whichever block has the caret, through
+/// [BodyEditorState].
 class BodyEditor extends StatefulWidget {
   const BodyEditor({
     super.key,
@@ -98,7 +100,8 @@ class BodyEditorState extends State<BodyEditor> {
       controller: BrandedRichController(
         content: block.content,
         guarded: true,
-        onSplit: (after) => _split(entry, after),
+        onSplit: (pieces, {required caret, required pasted}) =>
+            _split(entry, pieces, caret: caret, pasted: pasted),
         onBackspaceAtStart: () => _join(entry),
       ),
     );
@@ -207,13 +210,23 @@ class BodyEditorState extends State<BodyEditor> {
     _announce();
   }
 
-  /// Return was pressed: the words after the caret go into a new block
-  /// below, of the same kind. On an empty checklist item, the list ends and
-  /// the item becomes a paragraph instead.
-  void _split(_Entry entry, StyledText after) {
-    if (entry.kind == BlockKind.check &&
+  /// Return was pressed, or lines were pasted: the words after each break
+  /// go into new blocks below, of the same kind. On an empty checklist
+  /// item, return ends the list and the item becomes a paragraph instead.
+  ///
+  /// Pasted lines are read for what they are: one headed by a bullet or a
+  /// box is a checklist item, the line the paste began on included, and a
+  /// blank line between is left out rather than kept as an empty block.
+  void _split(
+    _Entry entry,
+    List<StyledText> pieces, {
+    required int caret,
+    required bool pasted,
+  }) {
+    if (!pasted &&
+        entry.kind == BlockKind.check &&
         entry.controller.content.text.isEmpty &&
-        after.text.isEmpty) {
+        pieces.single.text.isEmpty) {
       setState(() {
         entry.kind = BlockKind.paragraph;
         entry.checked = false;
@@ -221,16 +234,49 @@ class BodyEditorState extends State<BodyEditor> {
       _announce();
       return;
     }
+    if (pasted) _readMarker(entry);
     final index = _entries.indexOf(entry);
-    final next = _entryFor(
-      Block(kind: entry.kind, content: after, checked: false),
-    );
-    setState(() => _entries.insert(index + 1, next));
+    final kept = [
+      for (final (at, piece) in pieces.indexed)
+        if (!pasted || at == pieces.length - 1 || piece.text.trim().isNotEmpty)
+          piece,
+    ];
+    var landing = caret;
+    final made = <_Entry>[];
+    for (final piece in kept) {
+      final marker = pasted ? LineMarker.of(piece.text) : null;
+      final content = marker == null ? piece : piece.slice(marker.length);
+      if (piece == kept.last && marker != null) landing -= marker.length;
+      made.add(
+        _entryFor(
+          Block(
+            kind: marker == null ? entry.kind : BlockKind.check,
+            content: content,
+            checked: marker?.checked ?? false,
+          ),
+        ),
+      );
+    }
+    setState(() => _entries.insertAll(index + 1, made));
+    final last = made.last;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      next.focus.requestFocus();
-      next.controller.setContent(after, caret: 0);
+      last.focus.requestFocus();
+      last.controller.setContent(last.controller.content, caret: landing);
     });
     _announce();
+  }
+
+  /// A pasted line that begins a block: a bullet or a box at its head makes
+  /// the block a checklist item and comes off the words.
+  void _readMarker(_Entry entry) {
+    final content = entry.controller.content;
+    final marker = LineMarker.of(content.text);
+    if (marker == null) return;
+    setState(() {
+      entry.kind = BlockKind.check;
+      entry.checked = marker.checked;
+    });
+    entry.controller.setContent(content.slice(marker.length));
   }
 
   /// Backspace at the very start: the block's words join the end of the

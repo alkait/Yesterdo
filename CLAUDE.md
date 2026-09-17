@@ -142,7 +142,9 @@ only the rules for working on it.
 - Colours reach the widgets as the accent from `AppTheme.schemeFor`, in both
   brightnesses, since the system decides which a widget is drawn in.
 - A tapped widget opens `yesterdo://task/<day>:<key>`, the payload
-  `taskPayload` names for notifications too. `SceneDelegate` holds it and
+  `taskPayload` names for notifications too. A shape that lists several
+  tasks gives each row its own `Link`; `widgetURL` alone opens the first
+  whatever was tapped. `SceneDelegate` holds it and
   Dart takes it with `takeTappedTask`; it is handed over once.
 - `GlanceSync` cannot be refreshed from `ThemeChoice`: it is drawn in the
   chosen look, so it already depends on it. `main` listens instead.
@@ -203,6 +205,9 @@ lands in one place and shows up everywhere.
   answers it once. Do not invent a second way of drawing the eye to a card.
 - A swipe never acts on its own. It uncovers buttons and nothing happens
   until one is tapped.
+- Words pasted into the editor make a block per line, and a line headed by
+  a bullet or a box becomes a checklist item. `LineMarker` is the one place
+  that knows the marks; the controller only cuts at the breaks.
 - The task actions are named once in `task_actions.dart`, so their icons and
   labels cannot drift.
 - Developer mode only ever adds tools, never changes behaviour.
