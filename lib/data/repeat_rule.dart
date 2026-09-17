@@ -132,6 +132,35 @@ class RepeatRule {
     return last == null || last - day > _widestGap;
   }
 
+  /// The first day on or after [day] the rule shows up on, or null when
+  /// there is none left.
+  int? occurrenceOnOrAfter(int day) {
+    if (kind == RepeatKind.custom) {
+      return chosenDays.where((each) => each >= day).firstOrNull;
+    }
+    final from = day < startDay ? startDay : day;
+    if (endDay != null && from > endDay!) return null;
+    for (var each = from; each <= from + _widestGap; each++) {
+      if (fallsOn(each)) return each;
+    }
+    return null;
+  }
+
+  /// The last day before [day] the rule showed up on, or null when it never
+  /// had.
+  int? occurrenceBefore(int day) {
+    if (kind == RepeatKind.custom) {
+      return chosenDays.where((each) => each < day).lastOrNull;
+    }
+    var from = day - 1;
+    if (endDay != null && endDay! < from) from = endDay!;
+    if (from < startDay) return null;
+    for (var each = from; each >= from - _widestGap; each--) {
+      if (fallsOn(each)) return each;
+    }
+    return null;
+  }
+
   /// What the editor and the picker show, such as `Every Tuesday`.
   String get label => switch (kind) {
     RepeatKind.daily => 'Every day',
@@ -218,8 +247,7 @@ class RepeatRule {
 
   static Set<int> daysFromColumn(String? column) => {
     if (column != null)
-      for (final part in column.split(','))
-        if (int.tryParse(part) case final day?) day,
+      for (final part in column.split(',')) ?int.tryParse(part),
   };
 }
 

@@ -1,6 +1,7 @@
 import 'package:remind_me/data/due.dart';
 import 'package:remind_me/data/repeat_rule.dart';
 import 'package:remind_me/data/rich/task_body.dart';
+import 'package:remind_me/data/search.dart';
 import 'package:remind_me/data/todo.dart';
 import 'package:remind_me/data/todo_store.dart';
 
@@ -60,7 +61,7 @@ class MemoryTodoStore implements TodoStore {
   }
 
   @override
-  Future<void> insertSeries({
+  Future<int> insertSeries({
     required int day,
     String? title,
     TaskBody? body,
@@ -68,16 +69,17 @@ class MemoryTodoStore implements TodoStore {
     Due? due,
     int? position,
   }) {
+    final id = _nextRecurrenceId++;
     _recurrences.add(
       Recurrence(
-        id: _nextRecurrenceId++,
+        id: id,
         body: TodoStore.bodyOf(title, body),
         rule: rule,
         position: position ?? _topPosition(day),
         due: due,
       ),
     );
-    return Future.value();
+    return Future.value(id);
   }
 
   @override
@@ -120,7 +122,7 @@ class MemoryTodoStore implements TodoStore {
   }
 
   @override
-  Future<void> moveToDay({
+  Future<Todo> moveToDay({
     required int fromDay,
     required int toDay,
     required Todo todo,
@@ -130,16 +132,17 @@ class MemoryTodoStore implements TodoStore {
     final position = toTop ? _topPosition(toDay) : _nextPosition(toDay);
     if (todo.repeats) {
       await remove(day: fromDay, todo: todo);
-      await insert(
+      return insert(
         day: toDay,
         body: todo.body,
         due: todo.due,
         position: position,
       );
-      return;
     }
     _dayOf(fromDay).removeWhere((each) => each.id == todo.id);
-    _dayOf(toDay).add(todo.repositioned(position).copyWith(dismissed: false));
+    final moved = todo.repositioned(position).copyWith(dismissed: false);
+    _dayOf(toDay).add(moved);
+    return moved;
   }
 
   @override
@@ -248,6 +251,30 @@ class MemoryTodoStore implements TodoStore {
   @override
   Future<Map<int, int>> ignoredMissed() =>
       Future.value(Map<int, int>.of(_ignored));
+
+  @override
+  Future<List<SearchHit>> oneOffsMatching(String query) => Future.value([
+    for (final entry in _byDay.entries)
+      for (final todo in entry.value)
+        if (!todo.hidden && !todo.repeats && matchesSearch(todo.title, query))
+          SearchHit(day: entry.key, todo: todo),
+  ]);
+
+  @override
+  Future<List<Recurrence>> recurrencesMatching(String query) => Future.value([
+    for (final each in _recurrences)
+      if (matchesSearch(each.title, query)) each,
+  ]);
+
+  @override
+  Future<List<SearchHit>> search(String query, {required int today}) async =>
+      query.trim().isEmpty
+      ? const []
+      : composeSearch(
+          oneOffs: await oneOffsMatching(query),
+          recurrences: await recurrencesMatching(query),
+          today: today,
+        );
 
   @override
   Future<Set<String>> allImages() => Future.value({

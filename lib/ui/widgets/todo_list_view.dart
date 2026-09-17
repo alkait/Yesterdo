@@ -47,6 +47,9 @@ class _TodoListViewState extends ConsumerState<TodoListView>
   /// itself.
   bool _dragging = false;
 
+  /// The key of a card to point out on this build, if one was asked for.
+  String? _spotlight;
+
   @override
   void dispose() {
     _swipeGroup.dispose();
@@ -60,6 +63,8 @@ class _TodoListViewState extends ConsumerState<TodoListView>
     final live = ref.watch(todosProvider).value;
     // Judged once per build, so every card agrees on the moment.
     final now = ref.watch(clockProvider)();
+    final spotlight = ref.watch(spotlightProvider);
+    _spotlight = spotlight?.day == widget.day ? spotlight?.key : null;
     if (current == widget.day && live != null && !identical(live, _shown)) {
       _adopt(live, now: now);
     }
@@ -89,16 +94,39 @@ class _TodoListViewState extends ConsumerState<TodoListView>
     );
   }
 
-  Widget _tile(Todo todo, int index, {required DateTime now}) => TodoTile(
-    // The key must be the stable one. A projected occurrence has no row
-    // id, so keying on that gave every one of them the same null key and
-    // the list kept only the last.
-    key: _tileKeys.putIfAbsent(todo.key, GlobalKey.new),
-    todo: todo,
-    index: index,
-    swipeGroup: _swipeGroup,
-    calling: todo.isCallingOn(day: widget.day, now: now),
-  );
+  Widget _tile(Todo todo, int index, {required DateTime now}) {
+    final spotlit = todo.key == _spotlight;
+    if (spotlit) _pointOut(todo.key);
+    return TodoTile(
+      // The key must be the stable one. A projected occurrence has no row
+      // id, so keying on that gave every one of them the same null key and
+      // the list kept only the last.
+      key: _tileKeys.putIfAbsent(todo.key, GlobalKey.new),
+      todo: todo,
+      index: index,
+      swipeGroup: _swipeGroup,
+      calling: todo.isCallingOn(day: widget.day, now: now),
+      spotlit: spotlit,
+    );
+  }
+
+  /// The card starts its spotlight on being built with the flag; the ask
+  /// is answered once that frame is out, and the card is brought into
+  /// view if it was off the screen.
+  void _pointOut(String key) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_tileKeys[key]?.currentContext case final context?) {
+        Scrollable.ensureVisible(
+          context,
+          alignment: 0.5,
+          duration: Brand.turn,
+          curve: Brand.curve,
+        );
+      }
+      ref.read(spotlightProvider.notifier).clear();
+    });
+  }
 
   /// Takes the new order in, and sets a flight going if exactly one card
   /// changed place and it can be seen.

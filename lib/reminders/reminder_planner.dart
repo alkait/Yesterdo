@@ -37,7 +37,7 @@ class ReminderPlanner {
               day: day,
               key: todo.key,
               title: todo.firstLine,
-              dueLabel: 'Due ${due.label()}',
+              dueLabel: due.noticeLine(day),
               fireAt: fireAt,
               before: before,
               sound: due.sound,

@@ -34,11 +34,13 @@ class TodosController extends AsyncNotifier<List<Todo>> {
   /// Reads the day afresh, as after time has passed while the app was away.
   Future<void> refresh() => _reload();
 
-  Future<void> add(TaskDraft draft) async {
-    if (!draft.body.hasWords) return;
+  /// Writes a task from a draft, and says which it is by its key, so it
+  /// can be pointed out. Null when there were no words to write.
+  Future<String?> add(TaskDraft draft) async {
+    if (!draft.body.hasWords) return null;
 
     if (draft.repeat != null) {
-      await _store.insertSeries(
+      final id = await _store.insertSeries(
         day: draft.day,
         body: draft.body,
         rule: draft.repeat!,
@@ -46,7 +48,8 @@ class TodosController extends AsyncNotifier<List<Todo>> {
       );
       // A weekly rule may not fire on the day it was written on, so the day is
       // read afresh rather than guessed at.
-      return _reload();
+      await _reload();
+      return Todo.seriesKey(id);
     }
 
     final todo = await _store.insert(
@@ -54,12 +57,12 @@ class TodosController extends AsyncNotifier<List<Todo>> {
       body: draft.body,
       due: draft.due,
     );
-    if (!ref.mounted) return;
+    if (!ref.mounted) return todo.key;
     // Written for another day, it belongs to no list on screen. The banner
     // is what says where it went.
-    if (draft.day != _day) return _syncDevice();
-    _show(_sorted(<Todo>[..._items, todo]));
+    if (draft.day == _day) _show(_sorted(<Todo>[..._items, todo]));
     await _syncDevice();
+    return todo.key;
   }
 
   Future<void> toggle(Todo todo) async {
@@ -121,10 +124,14 @@ class TodosController extends AsyncNotifier<List<Todo>> {
   }
 
   /// Applies an edit. Words, time and rule all belong to the series, so
-  /// editing a repeating task changes every day it appears on.
-  Future<void> apply(Todo todo, TaskDraft draft) async {
-    if (!draft.body.hasWords) return;
+  /// editing a repeating task changes every day it appears on. Says which
+  /// task it is afterwards, by key: an edit can make a one-off of a rule or
+  /// a rule of a one-off, and then it is not the task it was. Null when
+  /// there were no words.
+  Future<String?> apply(Todo todo, TaskDraft draft) async {
+    if (!draft.body.hasWords) return null;
 
+    var key = todo.key;
     if (todo.repeats && draft.repeat != null) {
       await _store.saveSeries(
         recurrenceId: todo.recurrenceId!,
@@ -136,22 +143,24 @@ class TodosController extends AsyncNotifier<List<Todo>> {
       // Repeating no more: the series goes, and a one-off takes its place on
       // the day the editor was left on, where the task was.
       await _store.removeSeries(todo.recurrenceId!);
-      await _store.insert(
+      final written = await _store.insert(
         day: draft.day,
         body: draft.body,
         due: draft.due,
         position: todo.position,
       );
+      key = written.key;
     } else if (draft.repeat != null) {
       // A one-off becomes a series starting on this day, where it was.
       await _store.remove(day: _day, todo: todo);
-      await _store.insertSeries(
+      final id = await _store.insertSeries(
         day: draft.day,
         body: draft.body,
         rule: draft.repeat!,
         due: draft.due,
         position: todo.position,
       );
+      key = Todo.seriesKey(id);
     } else {
       final saved = todo.withBody(draft.body).withDue(draft.due);
       await _store.save(saved);
@@ -162,6 +171,7 @@ class TodosController extends AsyncNotifier<List<Todo>> {
     }
 
     await _reload();
+    return key;
   }
 
   /// Ticks or unticks one item on a task's checklist, from the read view.
@@ -175,12 +185,19 @@ class TodosController extends AsyncNotifier<List<Todo>> {
     _show(_replacing(updated));
   }
 
-  /// Sends a task to another day. It leaves this list at once.
-  Future<void> moveToDay(Todo todo, int toDay) async {
-    if (toDay == _day) return;
+  /// Sends a task to another day. It leaves this list at once. Says which
+  /// task it is there, by key: a rule's showing goes as a one-off copy.
+  /// Null when it was going nowhere.
+  Future<String?> moveToDay(Todo todo, int toDay) async {
+    if (toDay == _day) return null;
     _show(_without(todo));
-    await _store.moveToDay(fromDay: _day, toDay: toDay, todo: todo);
+    final moved = await _store.moveToDay(
+      fromDay: _day,
+      toDay: toDay,
+      todo: todo,
+    );
     await _syncDevice();
+    return moved.key;
   }
 
   /// Drops this showing only. A repeating task stays on its other days.

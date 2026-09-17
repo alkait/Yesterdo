@@ -1,6 +1,7 @@
 import 'due.dart';
 import 'repeat_rule.dart';
 import 'rich/task_body.dart';
+import 'search.dart';
 import 'todo.dart';
 
 /// Everything the app needs from storage. One implementation ships with the
@@ -26,11 +27,11 @@ abstract class TodoStore {
   });
 
   /// Starts a repeating task, at the top of [day] unless a [position] is
-  /// given.
+  /// given, and returns the rule's id.
   ///
-  /// Returns nothing on purpose: a rule need not fire on the day it was made,
+  /// Nothing more on purpose: a rule need not fire on the day it was made,
   /// so what the day holds afterwards is [mergeDay]'s to say, not this call's.
-  Future<void> insertSeries({
+  Future<int> insertSeries({
     required int day,
     String? title,
     TaskBody? body,
@@ -54,8 +55,9 @@ abstract class TodoStore {
   /// above everything on it with [toTop]. A one-off simply changes day. A
   /// rule cannot have one showing moved, so its showing on [fromDay] is
   /// hidden and a one-off copy of the words and time is written on [toDay];
-  /// the copy is no longer part of the series.
-  Future<void> moveToDay({
+  /// the copy is no longer part of the series. Returns the task as it now
+  /// stands on [toDay].
+  Future<Todo> moveToDay({
     required int fromDay,
     required int toDay,
     required Todo todo,
@@ -98,6 +100,14 @@ abstract class TodoStore {
   /// history. Null for a rule since gone.
   Future<SeriesRows?> readSeries(int recurrenceId);
 
+  /// One-off rows whose words answer to [query], each with its day. Hidden
+  /// rows are left out, and so are a rule's written-down showings: the rule
+  /// stands for those, through [recurrencesMatching].
+  Future<List<SearchHit>> oneOffsMatching(String query);
+
+  /// Rules whose words answer to [query].
+  Future<List<Recurrence>> recurrencesMatching(String query);
+
   /// The body meant by a pair of shorthand arguments.
   static TaskBody bodyOf(String? title, TaskBody? body) =>
       body ?? TaskBody.plain(title ?? '');
@@ -110,6 +120,17 @@ abstract class TodoStore {
     day: day,
     now: now,
   );
+
+  /// Everything answering to [query], latest day first. Composed once, in
+  /// [composeSearch], so both stores answer alike.
+  Future<List<SearchHit>> search(String query, {required int today}) async =>
+      query.trim().isEmpty
+      ? const []
+      : composeSearch(
+          oneOffs: await oneOffsMatching(query),
+          recurrences: await recurrencesMatching(query),
+          today: today,
+        );
 }
 
 /// A rule and its written-down showings, keyed by day. What the history is

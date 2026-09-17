@@ -18,6 +18,7 @@ class TodoTile extends ConsumerWidget {
     required this.index,
     required this.swipeGroup,
     this.calling = false,
+    this.spotlit = false,
   });
 
   final Todo todo;
@@ -30,11 +31,15 @@ class TodoTile extends ConsumerWidget {
   /// Its time has come and nobody has answered yet.
   final bool calling;
 
+  /// Points itself out once, as when a search found it.
+  final bool spotlit;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final card = TodoCard(
       todo: todo,
       calling: calling,
+      spotlit: spotlit,
       // A calling card answers with its sheet; any other opens to be read.
       onTap: calling
           ? () => showAttentionSheet(context, ref, todo)

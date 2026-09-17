@@ -86,7 +86,10 @@ class Todo {
 
   /// Identity for sorting, widget keys and swipe state. A repeating task keeps
   /// the same key when it goes from projected to stored, so nothing jumps.
-  String get key => repeats ? 'r$recurrenceId' : 't$id';
+  String get key => repeats ? seriesKey(recurrenceId!) : 't$id';
+
+  /// The key every showing of a rule has, before any of them is a [Todo].
+  static String seriesKey(int recurrenceId) => 'r$recurrenceId';
 
   /// The opening line of words, which is what a notification says.
   String get firstLine => body.firstLine;

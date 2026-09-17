@@ -9,12 +9,14 @@ import '../data/rich/task_body.dart';
 import '../state/providers.dart';
 import '../state/task_draft.dart';
 import 'branded/branded.dart';
+import 'widgets/arrival_focus.dart';
 import 'widgets/body_editor.dart';
-import 'widgets/due_picker_sheet.dart';
 import 'widgets/image_source_sheet.dart';
 import 'widgets/link_sheet.dart';
 import 'widgets/month_picker_sheet.dart';
+import 'widgets/reminder_picker_sheet.dart';
 import 'widgets/repeat_picker_sheet.dart';
+import 'widgets/time_picker_sheet.dart';
 
 /// The full screen where a task's words are written and its time and repeat
 /// are chosen. Adding and editing both land here, and it hands the draft
@@ -52,40 +54,28 @@ class _TaskEditorPageState extends ConsumerState<TaskEditorPage> {
   late int _day = widget.anchorDay;
   late Due? _due = widget.initialDue;
   late RepeatRule? _repeat = widget.initialRepeat;
-  Animation<double>? _arrival;
+  late final _arrival = ArrivalFocus(_focusEditor);
 
   /// Whether there is anything to save. Save stays greyed until there is.
   bool get _hasWords => _body.hasWords;
 
   /// The keyboard is asked for only once the screen has finished sliding
-  /// in. Raised during the transition, it fights the slide and the whole
-  /// thing judders. The route's animation is read after the first frame,
-  /// since during the first build it has not yet been started.
+  /// in, at the end of the words.
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _focusOnArrival());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _arrival.arm(context);
+    });
   }
 
-  void _focusOnArrival() {
-    if (!mounted) return;
-    final arrival = ModalRoute.of(context)?.animation;
-    if (arrival == null || arrival.isCompleted) {
-      _editor.currentState?.focusEnd();
-      return;
-    }
-    _arrival = arrival..addStatusListener(_onArrival);
-  }
-
-  void _onArrival(AnimationStatus status) {
-    if (status != AnimationStatus.completed) return;
-    _arrival?.removeStatusListener(_onArrival);
+  void _focusEditor() {
     if (mounted) _editor.currentState?.focusEnd();
   }
 
   @override
   void dispose() {
-    _arrival?.removeStatusListener(_onArrival);
+    _arrival.dispose();
     super.dispose();
   }
 
@@ -95,27 +85,37 @@ class _TaskEditorPageState extends ConsumerState<TaskEditorPage> {
 
   void _save() {
     if (!_hasWords) return;
-    Navigator.of(context).pop(
-      TaskDraft(
-        day: _day,
-        body: _body,
-        due: _due,
-        repeat: _repeat,
-      ),
+    Navigator.of(context)
+        .pop(TaskDraft(day: _day, body: _body, due: _due, repeat: _repeat));
+  }
+
+  /// A fresh time carries no reminder yet, and the sound chosen last time,
+  /// so a reminder added after starts from it. A cleared time takes its
+  /// reminders with it, since they hang off it.
+  Future<void> _pickTime() async {
+    final pick = await showTimeSheet(context, current: _due?.minute);
+    if (!mounted || pick == null) return;
+    setState(
+      () => _due = switch (pick.minute) {
+        null => null,
+        final minute =>
+          _due?.copyWith(minute: minute) ??
+              Due(minute: minute, sound: ref.read(lastSoundProvider)),
+      },
     );
   }
 
-  Future<void> _pickDue() async {
-    final pick = await showDuePicker(context, current: _due);
-    if (!mounted || pick == null) return;
-    setState(() => _due = pick.due);
-    if (pick.due case final due?) {
-      await ref.read(lastSoundProvider.notifier).remember(due.sound);
-      // The system is asked the first time a reminder is wanted, not at
-      // launch, so the ask arrives with its reason in view.
-      if (due.hasReminder) {
-        await ref.read(reminderSchedulerProvider).requestPermission();
-      }
+  Future<void> _pickReminder() async {
+    final due = _due;
+    if (due == null) return;
+    final chosen = await showReminderSheet(context, current: due);
+    if (!mounted || chosen == null) return;
+    setState(() => _due = chosen);
+    await ref.read(lastSoundProvider.notifier).remember(chosen.sound);
+    // The system is asked the first time a reminder is wanted, not at
+    // launch, so the ask arrives with its reason in view.
+    if (chosen.hasReminder) {
+      await ref.read(reminderSchedulerProvider).requestPermission();
     }
   }
 
@@ -195,6 +195,7 @@ class _TaskEditorPageState extends ConsumerState<TaskEditorPage> {
                 if (_repeat == null) ...[
                   BrandedFieldRow(
                     label: 'Date',
+                    icon: Icons.calendar_today_outlined,
                     value: dayHeadline(
                       dateFromEpochDay(_day),
                       now: ref.watch(clockProvider)(),
@@ -205,7 +206,8 @@ class _TaskEditorPageState extends ConsumerState<TaskEditorPage> {
                   const BrandedDivider(),
                 ],
                 BrandedFieldRow(
-                  label: 'Due',
+                  label: 'Time',
+                  icon: Icons.schedule_outlined,
                   value:
                       _due?.label(
                         twentyFourHour: MediaQuery.alwaysUse24HourFormatOf(
@@ -213,18 +215,29 @@ class _TaskEditorPageState extends ConsumerState<TaskEditorPage> {
                         ),
                       ) ??
                       'None',
-                  detail: _due?.hasReminder ?? false
-                      ? _due!.remindersLabel(
-                          twentyFourHour: MediaQuery.alwaysUse24HourFormatOf(
-                            context,
-                          ),
-                        )
-                      : null,
-                  onTap: _pickDue,
+                  onTap: _pickTime,
+                ),
+                const BrandedDivider(),
+                // A reminder hangs off the time, so until there is one the
+                // row only says so.
+                BrandedFieldRow(
+                  label: 'Reminder',
+                  icon: Icons.notifications_none_rounded,
+                  value: switch (_due) {
+                    null => 'Set a time first',
+                    final due when due.hasReminder => due.remindersLabel(
+                      twentyFourHour: MediaQuery.alwaysUse24HourFormatOf(
+                        context,
+                      ),
+                    ),
+                    _ => 'None',
+                  },
+                  onTap: _due == null ? null : _pickReminder,
                 ),
                 const BrandedDivider(),
                 BrandedFieldRow(
                   label: 'Repeat',
+                  icon: Icons.repeat_rounded,
                   value: _repeat?.label ?? 'Never',
                   detail: _repeat?.detail,
                   onTap: _pickRepeat,

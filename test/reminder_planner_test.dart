@@ -31,7 +31,7 @@ void main() {
     expect(plan, hasLength(1));
     expect(plan.single.fireAt, DateTime(2026, 9, 4, 14, 15));
     expect(plan.single.title, 'Call Sam', reason: 'the first line only');
-    expect(plan.single.dueLabel, 'Due 2:30 PM');
+    expect(plan.single.dueLabel, 'Due 2:30 PM on Friday, Sep 4');
     expect(plan.single.day, today);
     expect(plan.single.key, 't1');
     expect(plan.single.before, 15);

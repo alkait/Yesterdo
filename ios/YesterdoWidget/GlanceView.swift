@@ -35,12 +35,12 @@ struct GlanceView: View {
   private var shape: some View {
     switch family {
     case .accessoryInline:
-      InlineGlance(calling: calling)
+      InlineGlance(entry: entry, calling: calling)
     case .accessoryCircular:
       CircularGlance(calling: calling)
         .glanceBackground(plain: true)
     case .accessoryRectangular:
-      RectangularGlance(calling: calling)
+      RectangularGlance(entry: entry, calling: calling)
         .glanceBackground(plain: true)
     case .systemMedium:
       MediumGlance(entry: entry, calling: calling, accent: accent)
@@ -52,14 +52,15 @@ struct GlanceView: View {
   }
 }
 
-/// One line on the Lock Screen: the time and the words, and nothing else
-/// fits.
+/// One line on the Lock Screen: when it was due and the words, and nothing
+/// else fits.
 struct InlineGlance: View {
+  let entry: GlanceEntry
   let calling: [GlanceTask]
 
   var body: some View {
     if let task = calling.first {
-      Text("\(timeLabel(task.due)) \(task.title)")
+      Text("\(whenLabel(task.due, drawnAt: entry.date)) \(task.title)")
     } else {
       Text(nothingDue)
     }
@@ -89,6 +90,7 @@ struct CircularGlance: View {
 /// in front of you: the task calling, when it was due, and how many more are
 /// waiting behind it.
 struct RectangularGlance: View {
+  let entry: GlanceEntry
   let calling: [GlanceTask]
 
   var body: some View {
@@ -98,7 +100,8 @@ struct RectangularGlance: View {
           Image(systemName: "bell.fill").font(.system(size: 10))
           Text(task.title).font(.headline).lineLimit(1)
         }
-        Text(detail(for: task, of: calling.count)).font(.caption2).lineLimit(1)
+        Text(detail(for: task, of: calling.count, drawnAt: entry.date))
+          .font(.caption2).lineLimit(1)
       } else {
         Text(nothingDue).font(.headline)
       }
@@ -119,7 +122,7 @@ struct SmallGlance: View {
       Text(dayLabel(entry.date)).font(.caption2).foregroundStyle(.secondary)
       Spacer(minLength: 0)
       if let task = calling.first {
-        Text("Due \(timeLabel(task.due))")
+        Text(dueLabel(task.due, drawnAt: entry.date))
           .font(.caption)
           .foregroundStyle(accent)
         Text(task.title).font(.headline).lineLimit(3)
@@ -163,7 +166,8 @@ struct MediumGlance: View {
             Circle().fill(accent).frame(width: 6, height: 6)
             Text(task.title).font(.subheadline).lineLimit(1)
             Spacer(minLength: 4)
-            Text(timeLabel(task.due)).font(.caption2).foregroundStyle(accent)
+            Text(whenLabel(task.due, drawnAt: entry.date))
+              .font(.caption2).foregroundStyle(accent)
           }
         }
         Spacer(minLength: 0)
@@ -178,10 +182,56 @@ struct MediumGlance: View {
 let nothingDue = "Nothing due"
 
 /// `Due 9:30 AM`, and `· 2 more` when others are waiting behind it.
-private func detail(for task: GlanceTask, of count: Int) -> String {
-  let when = "Due \(timeLabel(task.due))"
+private func detail(for task: GlanceTask, of count: Int, drawnAt now: Date) -> String {
+  let when = dueLabel(task.due, drawnAt: now)
   guard let more = moreLabel(count, shown: 1) else { return when }
   return "\(when) · \(more)"
+}
+
+/// Which day a task is due, seen from the day being drawn. A widget can
+/// show a task left calling from an earlier day, so the time alone would
+/// mislead: the day is said whenever it is not the one being drawn.
+private enum DueDay {
+  case today, yesterday, tomorrow
+  case other(String)
+
+  init(_ due: Date, drawnAt now: Date) {
+    let calendar = Calendar.current
+    let days =
+      calendar.dateComponents(
+        [.day], from: calendar.startOfDay(for: now), to: calendar.startOfDay(for: due)
+      ).day ?? 0
+    switch days {
+    case 0: self = .today
+    case -1: self = .yesterday
+    case 1: self = .tomorrow
+    default: self = .other(shortDateFormatter.string(from: due))
+    }
+  }
+}
+
+/// `9:30 AM` on the day itself; `Yesterday 9:30 AM`, `Tomorrow 9:30 AM` or
+/// `Sep 14 9:30 AM` otherwise.
+func whenLabel(_ due: Date, drawnAt now: Date) -> String {
+  let time = timeLabel(due)
+  switch DueDay(due, drawnAt: now) {
+  case .today: return time
+  case .yesterday: return "Yesterday \(time)"
+  case .tomorrow: return "Tomorrow \(time)"
+  case .other(let date): return "\(date) \(time)"
+  }
+}
+
+/// `Due 9:30 AM` on the day itself; `Due yesterday, 9:30 AM`, `Due tomorrow,
+/// 9:30 AM` or `Due Sep 14, 9:30 AM` otherwise.
+func dueLabel(_ due: Date, drawnAt now: Date) -> String {
+  let time = timeLabel(due)
+  switch DueDay(due, drawnAt: now) {
+  case .today: return "Due \(time)"
+  case .yesterday: return "Due yesterday, \(time)"
+  case .tomorrow: return "Due tomorrow, \(time)"
+  case .other(let date): return "Due \(date), \(time)"
+  }
 }
 
 /// `2 more`, or nothing when everything calling is already on show.
@@ -193,6 +243,13 @@ private let timeFormatter: DateFormatter = {
   let formatter = DateFormatter()
   formatter.timeStyle = .short
   formatter.dateStyle = .none
+  return formatter
+}()
+
+/// `Sep 14`, in the order the locale puts them.
+private let shortDateFormatter: DateFormatter = {
+  let formatter = DateFormatter()
+  formatter.setLocalizedDateFormatFromTemplate("MMMd")
   return formatter
 }()
 

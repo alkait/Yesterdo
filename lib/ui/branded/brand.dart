@@ -88,6 +88,10 @@ abstract final class Brand {
   static const breath = Duration(milliseconds: 1400);
   static const breathCurve = Curves.easeInOut;
 
+  /// How many breaths a card takes to point itself out once, as when a
+  /// search found it, before settling.
+  static const spotlightBreaths = 2;
+
   /// A card travelling to its new place in the order, after being checked
   /// or when its time comes, and how much it swells on the way, as a lifted
   /// one does.

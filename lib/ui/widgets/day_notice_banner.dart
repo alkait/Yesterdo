@@ -5,11 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/date_labels.dart';
 import '../../core/day.dart';
+import '../../state/day_notice.dart';
 import '../../state/providers.dart';
 import '../branded/branded.dart';
 
 /// The word at the foot of the list when a task was saved onto another day:
-/// which task, which day, and a way to go there.
+/// which task, which day, and a way to go there. Going there points the
+/// task's card out, the way a search result does.
 ///
 /// It floats over the day rather than pushing it up. It goes of its own
 /// accord after a while, when pushed away, or the moment the day it names is
@@ -44,8 +46,9 @@ class _DayNoticeBannerState extends ConsumerState<DayNoticeBanner> {
     if (mounted) ref.read(dayNoticeProvider.notifier).clear();
   }
 
-  void _goThere(int day) {
-    ref.read(selectedDayProvider.notifier).select(dateFromEpochDay(day));
+  void _goThere(DayNotice notice) {
+    ref.read(spotlightProvider.notifier).raise(notice.day, notice.key);
+    ref.read(selectedDayProvider.notifier).select(dateFromEpochDay(notice.day));
     _clear();
   }
 
@@ -62,7 +65,7 @@ class _DayNoticeBannerState extends ConsumerState<DayNoticeBanner> {
           '${dayHeadline(date, now: ref.watch(clockProvider)())}, '
           '${longDate(date)}',
       actionLabel: 'Go',
-      onAction: () => _goThere(notice.day),
+      onAction: () => _goThere(notice),
       onDismiss: _clear,
     );
   }

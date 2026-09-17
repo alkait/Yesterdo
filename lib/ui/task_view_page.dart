@@ -117,8 +117,8 @@ class TaskViewPage extends ConsumerWidget {
   }
 }
 
-/// The due time and the repeat, under the words, read only: the same rows
-/// the editor has, without the chevrons. Only what is set is shown. A
+/// The time, the reminder and the repeat, under the words, read only: the
+/// same rows the editor has, without the chevrons. Only what is set is shown. A
 /// repeating task has a History row too, the one row here that leads on,
 /// which says how many showings were done and opens them day by day.
 class _Particulars extends ConsumerWidget {
@@ -148,17 +148,24 @@ class _Particulars extends ConsumerWidget {
           const BrandedDivider(),
           if (todo.due case final due?) ...[
             BrandedFieldRow(
-              label: 'Due',
+              label: 'Time',
+              icon: Icons.schedule_outlined,
               value: due.label(twentyFourHour: twentyFourHour),
-              detail: due.hasReminder
-                  ? due.remindersLabel(twentyFourHour: twentyFourHour)
-                  : null,
             ),
+            if (due.hasReminder) ...[
+              const BrandedDivider(),
+              BrandedFieldRow(
+                label: 'Reminder',
+                icon: Icons.notifications_none_rounded,
+                value: due.remindersLabel(twentyFourHour: twentyFourHour),
+              ),
+            ],
             if (todo.repeats) const BrandedDivider(),
           ],
           if (todo.repeats) ...[
             BrandedFieldRow(
               label: 'Repeat',
+              icon: Icons.repeat_rounded,
               // The rule arrives a moment after the words.
               value: rule?.label ?? '',
               detail: rule?.detail,
@@ -167,6 +174,7 @@ class _Particulars extends ConsumerWidget {
             BrandedFieldRow(
               key: const ValueKey('history-row'),
               label: 'History',
+              icon: Icons.history_rounded,
               value: history?.summary ?? '',
               // Nothing to walk through until the first showing has come.
               onTap: history == null || history.isEmpty

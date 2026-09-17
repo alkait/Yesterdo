@@ -39,18 +39,23 @@ class _DayNotice {
   final DayNotices _notices;
 
   /// Says where the task went, unless it went nowhere: on the day being
-  /// looked at there is nothing to say, since the task is right there.
-  void ifElsewhere({required String line, required int day}) {
-    if (day == _here) return;
-    _notices.raise(line: line, day: day);
+  /// looked at there is nothing to say, since the task is right there. No
+  /// [key] means nothing was written, so there is nothing to say either.
+  void ifElsewhere({
+    required String line,
+    required int day,
+    required String? key,
+  }) {
+    if (day == _here || key == null) return;
+    _notices.raise(line: line, day: day, key: key);
   }
 }
 
 /// Adds a task from a draft, and says where it went if that is not here.
 Future<void> addTaskFrom(WidgetRef ref, TaskDraft draft) async {
   final notice = _DayNotice(ref);
-  await ref.read(todosProvider.notifier).add(draft);
-  notice.ifElsewhere(line: draft.body.firstLine, day: draft.day);
+  final key = await ref.read(todosProvider.notifier).add(draft);
+  notice.ifElsewhere(line: draft.body.firstLine, day: draft.day, key: key);
 }
 
 Future<void> editTask(BuildContext context, WidgetRef ref, Todo todo) async {
@@ -69,8 +74,8 @@ Future<void> editTask(BuildContext context, WidgetRef ref, Todo todo) async {
   );
   if (draft == null) return;
   final notice = _DayNotice(ref);
-  await ref.read(todosProvider.notifier).apply(todo, draft);
-  notice.ifElsewhere(line: draft.body.firstLine, day: draft.day);
+  final key = await ref.read(todosProvider.notifier).apply(todo, draft);
+  notice.ifElsewhere(line: draft.body.firstLine, day: draft.day, key: key);
 }
 
 /// Opens a task to be read in full, on its own screen.
@@ -89,8 +94,10 @@ Future<void> moveTask(BuildContext context, WidgetRef ref, Todo todo) async {
   );
   if (picked == null) return;
   final notice = _DayNotice(ref);
-  await ref.read(todosProvider.notifier).moveToDay(todo, picked.epochDay);
-  notice.ifElsewhere(line: todo.firstLine, day: picked.epochDay);
+  final key = await ref
+      .read(todosProvider.notifier)
+      .moveToDay(todo, picked.epochDay);
+  notice.ifElsewhere(line: todo.firstLine, day: picked.epochDay, key: key);
 }
 
 /// Puts this task's reminder up ten seconds from now, exactly as the real
@@ -116,12 +123,13 @@ Future<void> rehearseReminder(
   if (await scheduler.permission() == ReminderPermission.notAsked) {
     await scheduler.requestPermission();
   }
+  final day = ref.read(selectedDayProvider).epochDay;
   await scheduler.rehearse(
     PlannedReminder(
-      day: ref.read(selectedDayProvider).epochDay,
+      day: day,
       key: todo.key,
       title: todo.firstLine,
-      dueLabel: due == null ? 'Rehearsal' : 'Due ${due.label()}',
+      dueLabel: due == null ? 'Rehearsal' : due.noticeLine(day),
       fireAt: ref.read(clockProvider)().add(rehearsalDelay),
       before: 0,
       sound: sound,

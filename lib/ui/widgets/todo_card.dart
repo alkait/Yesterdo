@@ -12,6 +12,7 @@ class TodoCard extends StatelessWidget {
     super.key,
     required this.todo,
     this.calling = false,
+    this.spotlit = false,
     this.onTap,
     this.onToggle,
   });
@@ -20,6 +21,9 @@ class TodoCard extends StatelessWidget {
 
   /// Its time has come and nobody has answered yet.
   final bool calling;
+
+  /// Points itself out once, as when a search found it.
+  final bool spotlit;
 
   final VoidCallback? onTap;
 
@@ -32,6 +36,7 @@ class TodoCard extends StatelessWidget {
     return BrandedCard(
       recessed: todo.done,
       calling: calling,
+      spotlit: spotlit,
       onTap: onTap,
       leading: BrandedCheckBox(
         key: ValueKey('done-${todo.key}'),

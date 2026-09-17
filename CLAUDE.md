@@ -26,6 +26,9 @@ only the rules for working on it.
 - `fvm flutter run` exits immediately without a TTY. To bring the app up,
   build with `fvm flutter build ios --debug --simulator`, then install and
   launch through `xcrun simctl`.
+- Do not drive the simulator by hand: no scripted clicks or keystrokes
+  through AppleScript or the like. Widget tests are the check; the app on
+  a device is tried by the user.
 - A stale `build/` directory causes a lipo failure on the next build. Clear it
   with `fvm flutter clean`.
 
@@ -72,6 +75,13 @@ only the rules for working on it.
 - A task's plain `title` is derived from its `TaskBody`, never the other way
   round. `StyledText.replaced` is the one place an edit moves style runs; do
   not adjust runs anywhere else.
+- A search match is decided in `matchesSearch` and nowhere else. A store
+  may narrow its read first, as `SqliteTodoStore` does with `LIKE`, but
+  every row it lets through is checked there. Results are composed once,
+  in `composeSearch`, so both stores answer alike: a rule answers once, on
+  its showing nearest today, never once per day.
+- Recent searches are a setting, through `RecentSearches`. A search is
+  remembered when submitted or when a result is opened, never as typed.
 - Pictures are the device's business, through `DeviceBridge` and
   `ImageBridge` in Swift. Dart only ever sees file names. No picker plugin.
   Never delete a picture file directly; `ImageSweep` clears unreferenced
@@ -121,7 +131,9 @@ only the rules for working on it.
   done, one waved away and a missed showing that was let go are no use to a
   widget and are never sent.
 - A widget shows the tasks calling for attention and nothing else; with
-  nothing calling it says so.
+  nothing calling it says so. A task from another day says its day beside
+  its time, since a widget can carry a task left calling from an earlier
+  day; that is drawing, so it is Swift's, judged against the entry's date.
 - `Todo.isCallingOn` stays the one place that decides what calling means.
   The planner turns it into a moment, `callsAt`, and the widget only ever
   compares that with the moment being drawn. The timeline holds an entry at
@@ -174,6 +186,10 @@ lands in one place and shows up everywhere.
 
 - Writing a task never happens inline. Adding and editing push
   `TaskEditorPage` as a full screen.
+- The editor's rows are Date, Time, Reminder and Repeat, one thing each.
+  A reminder hangs off the time: its row is inert until a time is set, and
+  clearing the time clears the reminders with it. `Due` still holds all
+  three together in the data.
 - The editor asks for the keyboard only once its slide-in has finished, by
   listening to the route's animation. No `autofocus` on that field.
 - Done is the circle on the card, and the attention sheet's Done. Edit and
@@ -181,6 +197,10 @@ lands in one place and shows up everywhere.
   sheet.
 - A card that changes place in the order flies there through `TodoFlight`.
   Do not let a card jump.
+- A card pointed out, as one a search found or one the banner's Go leads
+  to, is `spotlit`: it takes the calling card's breath a couple of times
+  and settles. It is asked for through `spotlightProvider` and the list
+  answers it once. Do not invent a second way of drawing the eye to a card.
 - A swipe never acts on its own. It uncovers buttons and nothing happens
   until one is tapped.
 - The task actions are named once in `task_actions.dart`, so their icons and

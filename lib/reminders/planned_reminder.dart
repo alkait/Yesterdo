@@ -26,7 +26,7 @@ class PlannedReminder {
   /// The task's first line, which is what the notification says.
   final String title;
 
-  /// `Due 9:30 AM`, the notification's supporting line.
+  /// `Due 9:30 AM on Friday, Sep 4`, the notification's supporting line.
   final String dueLabel;
 
   final DateTime fireAt;

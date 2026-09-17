@@ -4,7 +4,7 @@ import 'package:remind_me/core/day.dart';
 import 'package:remind_me/data/repeat_rule.dart';
 import 'package:remind_me/state/backlog.dart';
 
-import 'app_flow_test.dart' show at, bootApp, tileFor;
+import 'app_flow_test.dart' show at, bootApp, pumpUntilTile, tileFor;
 import 'support/memory_todo_store.dart';
 
 /// What was left undone on earlier days, raised on today.
@@ -169,12 +169,19 @@ void main() {
     await tester.pumpAndSettle();
 
     await openBacklog(tester);
-    await choose(tester, 't2', 'Go to day');
+    await tester.tap(find.byKey(const ValueKey('backlog-t2')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Go to day'));
+    // Pointed out the frame it first stands on the day.
+    await pumpUntilTile(tester, 'Pay rent');
+    expect(tileFor(tester, 'Pay rent').spotlit, isTrue);
+    await tester.pumpAndSettle();
 
     // Back out on the day itself, with the task where it was left.
     expect(find.text('Left behind'), findsNothing);
     expect(find.text('Pay rent'), findsOneWidget);
     expect(tileFor(tester, 'Pay rent').todo.done, isFalse);
+    expect(tileFor(tester, 'Pay rent').spotlit, isFalse);
   });
 
   testWidgets('a missed rule goes to the last day it was missed on', (

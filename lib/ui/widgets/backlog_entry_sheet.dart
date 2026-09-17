@@ -35,10 +35,14 @@ Future<void> showBacklogEntrySheet(
   final days = ref.read(selectedDayProvider.notifier);
   final now = ref.read(clockProvider)();
 
+  final spotlights = ref.read(spotlightProvider.notifier);
+
   /// Turns the list to the day the entry was left on, and comes back out to
-  /// it. A rule missed more than once goes to the last of them. Nothing is
-  /// changed: this is a way of going to look.
+  /// it, with the card pointed out there. A rule missed more than once goes
+  /// to the last of them. Nothing is changed: this is a way of going to
+  /// look.
   void goToDay() {
+    spotlights.raise(entry.latestDay, entry.key);
     days.select(dateFromEpochDay(entry.latestDay));
     Navigator.of(context).popUntil((route) => route.isFirst);
   }

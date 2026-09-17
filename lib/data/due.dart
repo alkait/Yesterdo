@@ -84,6 +84,15 @@ class Due {
   String label({bool twentyFourHour = false}) =>
       timeLabel(minute, twentyFourHour: twentyFourHour);
 
+  /// What a notification says under the words: the time and the day,
+  /// `Due 2:30 PM on Friday, Sep 4`. The day is named outright, since a
+  /// notification can sit unread past the day it was for.
+  String noticeLine(int day, {bool twentyFourHour = false}) {
+    final date = dateFromEpochDay(day);
+    return 'Due ${label(twentyFourHour: twentyFourHour)} on '
+        '${weekdayName(date.weekday)}, ${shortDate(date)}';
+  }
+
   /// What the chooser calls one reminder. The one at the time itself names
   /// the time, `At 8:00 AM`, which is clearer than saying "at the time".
   String reminderLabel(int before, {bool twentyFourHour = false}) =>

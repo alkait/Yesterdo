@@ -321,4 +321,50 @@ void main() {
     expect(series.byDay[day + 1]!.done, isTrue);
     expect(await store.readSeries(id + 1), isNull);
   });
+
+  group('search', () {
+    test('finds one-offs and rules alike, case aside, latest first', () async {
+      await store.insert(day: day - 3, title: 'Book the DENTIST');
+      await store.insert(day: day + 5, title: 'Dentist at ten');
+      await store.insert(day: day, title: 'Buy milk');
+      await store.insertSeries(
+        day: day - 10,
+        title: 'Floss like the dentist said',
+        rule: RepeatRule.daily(day - 10),
+      );
+
+      final hits = await store.search('dentist', today: day);
+      expect(
+        [for (final hit in hits) '${hit.day - day}:${hit.todo.title}'],
+        [
+          '5:Dentist at ten',
+          '0:Floss like the dentist said',
+          '-3:Book the DENTIST',
+        ],
+      );
+      expect(hits[1].rule, isNotNull);
+    });
+
+    test('a wildcard in the words is looked for as itself', () async {
+      await store.insert(day: day, title: 'Give 100% today');
+      await store.insert(day: day, title: 'Give 100 today');
+      final hits = await store.search('100%', today: day);
+      expect(hits.single.todo.title, 'Give 100% today');
+    });
+
+    test('a hidden showing and a written-down showing stay quiet', () async {
+      final id = await startDaily();
+      final showing = (await store.todosOn(day + 1)).single;
+      await store.materialize(day: day + 1, todo: showing);
+      await store.remove(
+        day: day + 2,
+        todo: (await store.todosOn(day + 2)).single,
+      );
+      final gone = await store.insert(day: day, title: 'Pills for the dog');
+      await store.remove(day: day, todo: gone);
+
+      final hits = await store.search('pills', today: day);
+      expect(hits.single.todo.recurrenceId, id);
+    });
+  });
 }

@@ -3,6 +3,7 @@ import 'package:sqflite/sqflite.dart';
 import 'due.dart';
 import 'repeat_rule.dart';
 import 'rich/task_body.dart';
+import 'search.dart';
 import 'todo.dart';
 import 'todo_store.dart';
 
@@ -51,7 +52,7 @@ class SqliteTodoStore implements TodoStore {
   }
 
   @override
-  Future<void> insertSeries({
+  Future<int> insertSeries({
     required int day,
     String? title,
     TaskBody? body,
@@ -60,7 +61,7 @@ class SqliteTodoStore implements TodoStore {
     int? position,
   }) async {
     position ??= await _topPosition(day);
-    await _db.insert(
+    return _db.insert(
       _recurrences,
       Recurrence.rowFor(
         body: TodoStore.bodyOf(title, body),
@@ -127,7 +128,7 @@ class SqliteTodoStore implements TodoStore {
   }
 
   @override
-  Future<void> moveToDay({
+  Future<Todo> moveToDay({
     required int fromDay,
     required int toDay,
     required Todo todo,
@@ -138,13 +139,12 @@ class SqliteTodoStore implements TodoStore {
         : await _nextPosition(toDay);
     if (todo.repeats) {
       await remove(day: fromDay, todo: todo);
-      await insert(
+      return insert(
         day: toDay,
         body: todo.body,
         due: todo.due,
         position: position,
       );
-      return;
     }
     // A new day is a new call, so a wave-away from the old one no longer
     // holds.
@@ -154,6 +154,7 @@ class SqliteTodoStore implements TodoStore {
       where: 'id = ?',
       whereArgs: [todo.id],
     );
+    return todo.repositioned(position).copyWith(dismissed: false);
   }
 
   @override
@@ -295,6 +296,48 @@ class SqliteTodoStore implements TodoStore {
       for (final row in rows) row['id']! as int: row['ignored_through']! as int,
     };
   }
+
+  /// `LIKE` narrows the read to rows that could answer; it is case-blind
+  /// only for ASCII, so [matchesSearch] has the final word on each.
+  @override
+  Future<List<SearchHit>> oneOffsMatching(String query) async {
+    final rows = await _db.query(
+      _todos,
+      where:
+          'hidden = 0 AND recurrence_id IS NULL '
+          "AND title LIKE ? ESCAPE '$likeEscape'",
+      whereArgs: [likePattern(query)],
+    );
+    return [
+      for (final row in rows)
+        if (matchesSearch(row['title']! as String, query))
+          SearchHit(day: row['day']! as int, todo: Todo.fromRow(row)),
+    ];
+  }
+
+  @override
+  Future<List<Recurrence>> recurrencesMatching(String query) async {
+    final rows = await _db.query(
+      _recurrences,
+      where: "title LIKE ? ESCAPE '$likeEscape'",
+      whereArgs: [likePattern(query)],
+    );
+    return [
+      for (final row in rows)
+        if (matchesSearch(row['title']! as String, query))
+          Recurrence.fromRow(row),
+    ];
+  }
+
+  @override
+  Future<List<SearchHit>> search(String query, {required int today}) async =>
+      query.trim().isEmpty
+      ? const []
+      : composeSearch(
+          oneOffs: await oneOffsMatching(query),
+          recurrences: await recurrencesMatching(query),
+          today: today,
+        );
 
   @override
   Future<Set<String>> allImages() async {

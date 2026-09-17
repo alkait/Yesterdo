@@ -14,6 +14,7 @@ import 'state/developer_mode.dart';
 import 'state/app_sounds.dart';
 import 'state/done_sound_choice.dart';
 import 'state/last_sound.dart';
+import 'state/recent_searches.dart';
 import 'state/theme_choice.dart';
 
 Future<void> main() async {
@@ -28,6 +29,7 @@ Future<void> main() async {
   final developer = await DeveloperMode.load(settings);
   final sounds = await AppSounds.load(settings);
   final doneSound = await DoneSoundChoice.load(settings);
+  final searches = await RecentSearches.load(settings);
 
   final notifications = FlutterLocalNotificationsPlugin();
   const device = MethodChannelDeviceBridge();
@@ -43,6 +45,7 @@ Future<void> main() async {
       initialDeveloperModeProvider.overrideWithValue(developer),
       initialAppSoundsProvider.overrideWithValue(sounds),
       initialDoneSoundProvider.overrideWithValue(doneSound),
+      initialRecentSearchesProvider.overrideWithValue(searches),
       deviceBridgeProvider.overrideWithValue(device),
       reminderSchedulerProvider.overrideWithValue(
         LocalReminderScheduler(notifications, device),

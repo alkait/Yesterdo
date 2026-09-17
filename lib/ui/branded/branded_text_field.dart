@@ -13,6 +13,7 @@ class BrandedTextField extends StatelessWidget {
     this.role = BrandedTextRole.body,
     this.autofocus = false,
     this.multiline = false,
+    this.search = false,
   });
 
   final TextEditingController controller;
@@ -24,6 +25,10 @@ class BrandedTextField extends StatelessWidget {
 
   /// Grows with the text and keeps the return key as a newline.
   final bool multiline;
+
+  /// Takes words to look for: the return key says Search, and nothing is
+  /// capitalised on its own.
+  final bool search;
 
   @override
   Widget build(BuildContext context) =>
@@ -44,8 +49,12 @@ class BrandedTextField extends StatelessWidget {
       keyboardType: multiline ? TextInputType.multiline : TextInputType.text,
       textInputAction: multiline
           ? TextInputAction.newline
+          : search
+          ? TextInputAction.search
           : TextInputAction.done,
-      textCapitalization: TextCapitalization.sentences,
+      textCapitalization: search
+          ? TextCapitalization.none
+          : TextCapitalization.sentences,
       cursorColor: scheme.onSurface,
       onSubmitted: onSubmitted,
       style: style.copyWith(color: scheme.onSurface),

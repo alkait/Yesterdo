@@ -5,6 +5,7 @@ import '../core/day.dart';
 import '../data/done_sound.dart';
 import '../data/reminder_sound.dart';
 import '../data/repeat_rule.dart';
+import '../data/search.dart';
 import '../data/settings_store.dart';
 import '../data/todo.dart';
 import '../data/todo_store.dart';
@@ -22,8 +23,10 @@ import 'day_notice.dart';
 import 'developer_mode.dart';
 import 'done_sound_choice.dart';
 import 'last_sound.dart';
+import 'recent_searches.dart';
 import 'repeat_history.dart';
 import 'selected_day.dart';
+import 'spotlight.dart';
 import 'theme_choice.dart';
 import 'todos_controller.dart';
 
@@ -125,6 +128,12 @@ final attentionRequestProvider =
       AttentionRequests.new,
     );
 
+/// A task to be pointed out on its day, as one found by a search, until
+/// the list has shown it. Null while there is nothing to point out.
+final spotlightProvider = NotifierProvider<Spotlights, Spotlight?>(
+  Spotlights.new,
+);
+
 /// Bound to the device in `main`; tests bind a recorder.
 final deviceBridgeProvider = Provider<DeviceBridge>(
   (ref) => throw StateError('deviceBridgeProvider must be overridden'),
@@ -175,3 +184,19 @@ final initialDeveloperModeProvider = Provider<bool>((ref) => false);
 final developerModeProvider = NotifierProvider<DeveloperMode, bool>(
   DeveloperMode.new,
 );
+
+/// The searches made last time, newest first, bound in `main` before the
+/// first frame.
+final initialRecentSearchesProvider = Provider<List<String>>((ref) => const []);
+
+final recentSearchesProvider = NotifierProvider<RecentSearches, List<String>>(
+  RecentSearches.new,
+);
+
+/// What answers to a search, latest day first. Read afresh for each query.
+final searchResultsProvider = FutureProvider.autoDispose
+    .family<List<SearchHit>, String>(
+      (ref, query) => ref
+          .watch(todoStoreProvider)
+          .search(query, today: ref.watch(clockProvider)().epochDay),
+    );

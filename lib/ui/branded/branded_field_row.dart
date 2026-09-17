@@ -4,20 +4,26 @@ import 'brand.dart';
 import 'branded_icon.dart';
 import 'branded_text.dart';
 
-/// A setting on a form: what it is on the left, what it says on the right, and
-/// a chevron because tapping opens something. Without [onTap] it is only
-/// read: the same row, no chevron, and the value greyed like the label.
+/// A setting on a form: what it is on the left, with a glyph ahead of it
+/// when given one, what it says on the right, and a chevron because tapping
+/// opens something. Without [onTap] it is only read: the same row, no
+/// chevron, and the value greyed like the label.
 class BrandedFieldRow extends StatelessWidget {
   const BrandedFieldRow({
     super.key,
     required this.label,
     required this.value,
+    this.icon,
     this.onTap,
     this.detail,
   });
 
   final String label;
   final String value;
+
+  /// Drawn ahead of the label, in the label's own tone.
+  final IconData? icon;
+
   final VoidCallback? onTap;
 
   /// Small print under the value. Nothing is drawn for null or empty.
@@ -35,6 +41,10 @@ class BrandedFieldRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: Brand.rowPadding),
         child: Row(
           children: [
+            if (icon case final icon?) ...[
+              BrandedIcon(icon, size: BrandedIconSize.medium),
+              const SizedBox(width: Brand.gap),
+            ],
             BrandedText(label, tone: BrandedTone.muted),
             const SizedBox(width: Brand.gap),
             Expanded(
