@@ -9,7 +9,8 @@ import 'task_actions.dart';
 
 /// The sheet a calling task puts up, from a tap on its card or on its
 /// notification. It opens with the task's first line, so the context is
-/// clear however it was reached, and offers done, snooze and dismiss.
+/// clear however it was reached, with a way to read the task in full
+/// beside it, and offers done, snooze and dismiss.
 Future<void> showAttentionSheet(
   BuildContext context,
   WidgetRef ref,
@@ -29,10 +30,24 @@ Future<void> showAttentionSheet(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
-          child: BrandedText(
-            todo.firstLine,
-            key: const ValueKey('attention-title'),
+          padding: const EdgeInsets.fromLTRB(4, 8, 0, 0),
+          child: Row(
+            children: [
+              Expanded(
+                child: BrandedText(
+                  todo.firstLine,
+                  key: const ValueKey('attention-title'),
+                ),
+              ),
+              // The first line is all the sheet has room for; the rest is
+              // read on the task's own screen, which this leads to.
+              BrandedIconButton(
+                icon: Icons.visibility_outlined,
+                label: 'View',
+                size: BrandedIconSize.medium,
+                onTap: () => choose(() => openTask(context, todo)),
+              ),
+            ],
           ),
         ),
         // The time can have been cleared between a notification firing and

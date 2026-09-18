@@ -2820,6 +2820,23 @@ void main() {
       expect(find.text('Done'), findsOneWidget);
       expect(find.text('Snooze'), findsOneWidget);
       expect(find.text('Dismiss'), findsOneWidget);
+      // View sits at the title's right end and opens the task in full.
+      final view = find.byIcon(Icons.visibility_outlined);
+      expect(view, findsOneWidget);
+      final title = tester.getRect(
+        find.byKey(const ValueKey('attention-title')),
+      );
+      expect(tester.getCenter(view).dx, greaterThan(title.right));
+      expect(tester.getCenter(view).dy, closeTo(title.center.dy, title.height));
+      await tester.tap(view);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('attention-title')), findsNothing);
+      expect(find.text('Task'), findsOneWidget);
+      expect(find.text('about the invoice'), findsOneWidget);
+      await tester.tap(find.text('Back'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Call Sam'));
+      await tester.pumpAndSettle();
     });
 
     testWidgets('done from the sheet completes it', (tester) async {
