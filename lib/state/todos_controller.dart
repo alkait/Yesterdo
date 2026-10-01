@@ -185,6 +185,20 @@ class TodosController extends AsyncNotifier<List<Todo>> {
     _show(_replacing(updated));
   }
 
+  /// Ticks or unticks one item on a task's checklist, from the read view,
+  /// which sends it to the foot of its list or back. A tick is heard the
+  /// way done is, unless sounds are off; unticking is silent.
+  Future<void> tick(Todo todo, int index) async {
+    final ticked = !todo.body.blocks[index].checked;
+    await setBody(todo, todo.body.ticked(index));
+    if (!ref.mounted) return;
+    if (ticked && ref.read(appSoundsProvider)) {
+      await ref
+          .read(deviceBridgeProvider)
+          .playDone(ref.read(doneSoundProvider));
+    }
+  }
+
   /// Sends a task to another day. It leaves this list at once. Says which
   /// task it is there, by key: a rule's showing goes as a one-off copy.
   /// Null when it was going nowhere.

@@ -12,6 +12,7 @@ class Block {
     StyledText? content,
     this.checked = false,
     this.image,
+    this.home,
   }) : content = content ?? StyledText.empty,
        assert(
          (kind == BlockKind.image) == (image != null),
@@ -31,6 +32,11 @@ class Block {
   /// Ticked. Only a checklist item can be.
   final bool checked;
 
+  /// Where a ticked item stood among its list before it sank, counted from
+  /// the list's first item, so that unticked it can go back to about
+  /// there. Null for an item that has not sunk.
+  final int? home;
+
   /// The file name of the picture, for an image block; null otherwise.
   final String? image;
 
@@ -39,19 +45,27 @@ class Block {
   bool get hasText => !isImage;
   String get text => content.text;
 
-  Block copyWith({BlockKind? kind, StyledText? content, bool? checked}) {
+  Block copyWith({
+    BlockKind? kind,
+    StyledText? content,
+    bool? checked,
+    int? home,
+    bool clearHome = false,
+  }) {
     final newKind = kind ?? this.kind;
     return Block(
       kind: newKind,
       content: content ?? this.content,
       checked: newKind == BlockKind.check ? (checked ?? this.checked) : false,
       image: newKind == BlockKind.image ? image : null,
+      home: clearHome || newKind != BlockKind.check ? null : home ?? this.home,
     );
   }
 
   Map<String, Object?> toJson() => <String, Object?>{
     'k': kind.name,
     if (checked) 'c': true,
+    if (home != null) 'h': home,
     if (image != null) 'f': image,
     if (!isImage) ...content.toJson(),
   };
@@ -63,6 +77,7 @@ class Block {
     return Block(
       kind: kind == BlockKind.image ? BlockKind.paragraph : kind,
       checked: json['c'] == true,
+      home: json['h'] as int?,
       content: StyledText.fromJson(json),
     );
   }
@@ -147,6 +162,61 @@ class TaskBody {
 
   TaskBody toggled(int index) =>
       withBlock(index, blocks[index].copyWith(checked: !blocks[index].checked));
+
+  /// The block at [from] moved to [to], its place once the others have
+  /// closed over where it was. Nothing else changes: a block keeps its
+  /// kind, its tick and its styles wherever it lands.
+  TaskBody reordered(int from, int to) {
+    final moved = [...blocks];
+    final block = moved.removeAt(from);
+    moved.insert(to, block);
+    return TaskBody(moved);
+  }
+
+  /// The item at [index] ticked or unticked, and settled: a ticked item
+  /// sinks to the foot of its list, under the others ticked before it,
+  /// remembering where it stood; an unticked one goes back to about there,
+  /// among the open items, or to their foot when its place is past them.
+  /// The list is the run of items standing together; a paragraph or a
+  /// picture bounds it.
+  TaskBody ticked(int index) {
+    final (start, end) = runAround(index);
+    final was = blocks[index];
+    final run = [
+      for (var at = start; at < end; at++)
+        if (at != index) blocks[at],
+    ];
+    final open = run.where((block) => !block.checked).length;
+    final Block item;
+    final int landing;
+    if (!was.checked) {
+      item = was.copyWith(checked: true, home: index - start);
+      landing = run.length;
+    } else {
+      item = was.copyWith(checked: false, clearHome: true);
+      landing = (was.home ?? open).clamp(0, open);
+    }
+    run.insert(landing, item);
+    return TaskBody([
+      ...blocks.sublist(0, start),
+      ...run,
+      ...blocks.sublist(end),
+    ]);
+  }
+
+  /// Where the checklist holding [index] begins and ends: the first index
+  /// in it, and the one past its last.
+  (int, int) runAround(int index) {
+    var start = index;
+    while (start > 0 && blocks[start - 1].isCheck) {
+      start--;
+    }
+    var end = index + 1;
+    while (end < blocks.length && blocks[end].isCheck) {
+      end++;
+    }
+    return (start, end);
+  }
 
   /// Trailing empty paragraphs trimmed, so a body ends where the words do.
   TaskBody trimmed() {

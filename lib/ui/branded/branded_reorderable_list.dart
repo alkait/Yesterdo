@@ -5,21 +5,31 @@ import 'brand.dart';
 
 /// A list whose items can be dragged into a new order. Dragging is started by
 /// holding a [BrandedDragLift], never by a plain press on the item.
+///
+/// On its own it scrolls and fills what it is given. [embedded] in a page
+/// that scrolls already, it takes only the height of its items and leaves
+/// the scrolling to the page.
 class BrandedReorderableList extends StatelessWidget {
   const BrandedReorderableList({
     super.key,
     required this.itemCount,
     required this.itemBuilder,
     required this.onReorder,
+    this.embedded = false,
   });
 
   final int itemCount;
   final IndexedWidgetBuilder itemBuilder;
   final void Function(int oldIndex, int newIndex) onReorder;
+  final bool embedded;
 
   @override
   Widget build(BuildContext context) => ReorderableListView.builder(
-    padding: const EdgeInsets.only(top: Brand.cardGap, bottom: 16),
+    padding: embedded
+        ? EdgeInsets.zero
+        : const EdgeInsets.only(top: Brand.cardGap, bottom: 16),
+    shrinkWrap: embedded,
+    physics: embedded ? const NeverScrollableScrollPhysics() : null,
     keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
     buildDefaultDragHandles: false,
     itemCount: itemCount,

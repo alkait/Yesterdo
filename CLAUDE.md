@@ -32,6 +32,16 @@ only the rules for working on it.
 - A stale `build/` directory causes a lipo failure on the next build. Clear it
   with `fvm flutter clean`.
 
+## Deploy
+
+- Deploy means run `tool/deploy.sh` and answer with the link it prints. It
+  builds an ad hoc IPA through `ios/ExportOptions.plist` and hands it to
+  Diawi. Every deploy gives a new link.
+- The Diawi token is `DIAWI_TOKEN` in `.env`, which git ignores. It is
+  never committed or written into a reply.
+- The link installs only on devices registered with the team. A new device
+  is registered first, then the app is deployed again.
+
 ## State
 
 - Riverpod is the only state mechanism. No Bloc, no Provider, no GetX, no
@@ -198,7 +208,9 @@ lands in one place and shows up everywhere.
   delete live on the swipe buttons and nowhere else; there is no action
   sheet.
 - A card that changes place in the order flies there through `TodoFlight`.
-  Do not let a card jump.
+  Do not let a card jump. A checklist item on the read view flies the same
+  way when a tick sends it to the foot of its list; `singleMove` is the one
+  judge of what counts as a move.
 - The banner that says where a task went floats over Left behind as well
   as over the day, so a task brought to today or sent on from there is
   announced where the sending was done. Its Go comes out to the list.
@@ -213,6 +225,17 @@ lands in one place and shows up everywhere.
 - Words pasted into the editor make a block per line, and a line headed by
   a bullet or a box becomes a checklist item. `LineMarker` is the one place
   that knows the marks; the controller only cuts at the breaks.
+- A tick on the read view is heard the way done is, through `playDone`
+  and the same sound setting; an untick is silent.
+- On the read view an open checklist item lifts on a press and hold and
+  moves among the open items of its own run, never past a paragraph or a
+  picture. A ticked item sinks to the foot of its run and holds it, as a
+  done task holds the foot of the day, remembering where it stood in
+  `Block.home`; unticked, it goes back to about there. Both go through `TaskBody`, `reordered` and `ticked`,
+  and are written through `setBody`, so a rule's showing changes for that
+  day alone and the series keeps its order. A task opened from Left behind
+  neither ticks nor moves. A reorderable list's drop index already counts
+  the lifted item as gone; do not adjust it again.
 - Share, on the read view, hands over the words alone through
   `TaskBody.shareText`: a line per block, a box before a checklist item,
   pictures left out. No day, time or repeat crosses. The sheet is the

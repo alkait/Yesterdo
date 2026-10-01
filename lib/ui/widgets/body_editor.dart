@@ -44,11 +44,16 @@ class _Entry {
     required this.checked,
     required this.controller,
     this.image,
+    this.home,
   }) : focus = FocusNode();
 
   final Key key = UniqueKey();
   BlockKind kind;
   bool checked;
+
+  /// Carried through an edit untouched, so a ticked item still knows where
+  /// it came from.
+  final int? home;
   final BrandedRichController controller;
   final FocusNode focus;
 
@@ -64,6 +69,7 @@ class _Entry {
           kind: kind,
           content: controller.content,
           checked: kind == BlockKind.check && checked,
+          home: kind == BlockKind.check ? home : null,
         );
 
   void dispose() {
@@ -97,6 +103,7 @@ class BodyEditorState extends State<BodyEditor> {
       kind: block.kind,
       checked: block.checked,
       image: block.image,
+      home: block.home,
       controller: BrandedRichController(
         content: block.content,
         guarded: true,
@@ -202,11 +209,6 @@ class BodyEditorState extends State<BodyEditor> {
           : BlockKind.check;
       if (entry.kind == BlockKind.paragraph) entry.checked = false;
     });
-    _announce();
-  }
-
-  void _tick(_Entry entry) {
-    setState(() => entry.checked = !entry.checked);
     _announce();
   }
 
@@ -325,7 +327,6 @@ class BodyEditorState extends State<BodyEditor> {
             key: entry.key,
             entry: entry,
             hint: index == 0 && _entries.length == 1 ? widget.hint : '',
-            onTick: () => _tick(entry),
           ),
     ],
   );
@@ -361,16 +362,10 @@ class _ImageRow extends StatelessWidget {
 }
 
 class _BlockRow extends StatelessWidget {
-  const _BlockRow({
-    super.key,
-    required this.entry,
-    required this.hint,
-    required this.onTick,
-  });
+  const _BlockRow({super.key, required this.entry, required this.hint});
 
   final _Entry entry;
   final String hint;
-  final VoidCallback onTick;
 
   @override
   Widget build(BuildContext context) {
@@ -382,8 +377,8 @@ class _BlockRow extends StatelessWidget {
     );
     if (entry.kind != BlockKind.check) return field;
     // The box sits on the side the words start from, so a right-to-left
-    // item carries it on the right. A tap on the words places the caret,
-    // so only the box toggles here; the read view lets the whole line.
+    // item carries it on the right. The box only shows the tick here: an
+    // item is ticked on the read view, never while writing.
     return ValueListenableBuilder<TextEditingValue>(
       valueListenable: entry.controller,
       builder: (context, value, child) => Directionality(
@@ -395,7 +390,11 @@ class _BlockRow extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsetsDirectional.only(end: Brand.gap / 2),
-            child: BrandedCheckBox(checked: entry.checked, onTap: onTick),
+            child: SizedBox(
+              width: Brand.tapTarget,
+              height: Brand.checkBoxHitHeight,
+              child: Center(child: BrandedCheckBox(checked: entry.checked)),
+            ),
           ),
           Expanded(child: field),
         ],

@@ -1,7 +1,9 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:remind_me/data/rich/style_run.dart';
+import 'package:remind_me/data/rich/styled_text.dart';
 import 'package:remind_me/data/rich/task_body.dart';
 import 'package:remind_me/ui/branded/branded.dart';
 
@@ -189,10 +191,27 @@ void main() {
     expect(fields(tester).single.controller!.selection.extentOffset, 9);
   });
 
+  testWidgets('a tap on the box in the editor ticks nothing', (tester) async {
+    await tester.pumpWidget(bootApp());
+    await tester.pumpAndSettle();
+    await openEditor(tester);
+    await tapKey(tester, 'checklist');
+    await typeInto(tester, 0, 'Milk');
+    await tester.tap(find.byType(BrandedCheckBox));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<BrandedCheckBox>(find.byType(BrandedCheckBox)).checked,
+      isFalse,
+    );
+    await save(tester);
+    expect(tileFor(tester, 'Milk').todo.body.checklistProgress, (0, 1));
+  });
+
   testWidgets('ticks are made in the read view and shown on the card', (
     tester,
   ) async {
-    await tester.pumpWidget(bootApp());
+    final device = MemoryDeviceBridge();
+    await tester.pumpWidget(bootApp(device: device));
     await tester.pumpAndSettle();
     await openEditor(tester);
     await tapKey(tester, 'checklist');
@@ -207,13 +226,26 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Task'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('tick-Milk')));
+    // Ticked, it flies to the foot rather than jumping: a spacer holds its
+    // old place while the copy travels.
+    await tester.pump();
+    await tester.pump();
+    expect(find.byKey(const ValueKey('flight-spacer-Milk#0')), findsOneWidget);
     await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('flight-spacer-Milk#0')), findsNothing);
+    // Heard, as done on the day is.
+    expect(device.doneSounds, 1);
+    // Landed under the open item.
+    expect(
+      tester.getTopLeft(find.text('Bread')).dy,
+      lessThan(tester.getTopLeft(find.text('Milk')).dy),
+    );
     await tester.tap(find.text('Back'));
     await tester.pumpAndSettle();
 
     expect(find.text('1 of 2'), findsOneWidget);
-    final tile = tileFor(tester, 'Milk');
-    expect(tile.todo.body.first.checked, isTrue);
+    final tile = tileFor(tester, 'Bread');
+    expect(tile.todo.body.blocks.last.checked, isTrue);
     // The card carries one circle, for done; the item's own box is not
     // drawn there, the strike says it is ticked.
     expect(find.byType(BrandedCheckBox), findsOneWidget);
@@ -348,6 +380,180 @@ void main() {
       const StyleRun(start: 0, end: 4, styles: Styles(underline: true)),
     ]);
     expect(addTask, isNotNull);
+  });
+
+  test('a block moves to where it is dropped and keeps its tick', () {
+    final body = TaskBody([
+      Block.paragraph('Shopping'),
+      Block(kind: BlockKind.check, content: StyledText('Milk')),
+      Block(kind: BlockKind.check, content: StyledText('Eggs'), checked: true),
+      Block(kind: BlockKind.check, content: StyledText('Jam')),
+    ]);
+    // Dropped after Jam: its place once the others have closed up.
+    final down = body.reordered(1, 3);
+    expect(down.blocks.map((b) => b.text), ['Shopping', 'Eggs', 'Jam', 'Milk']);
+    final up = body.reordered(3, 1);
+    expect(up.blocks.map((b) => b.text), ['Shopping', 'Jam', 'Milk', 'Eggs']);
+    expect(up.blocks[3].checked, isTrue);
+    expect(up.checklistProgress, (1, 3));
+  });
+
+  test(
+    'a ticked item sinks to the foot of its list, an unticked one rises',
+    () {
+      final body = TaskBody([
+        Block.paragraph('Shopping'),
+        Block(kind: BlockKind.check, content: StyledText('Milk')),
+        Block(kind: BlockKind.check, content: StyledText('Eggs')),
+        Block(kind: BlockKind.check, content: StyledText('Jam'), checked: true),
+        Block.paragraph('After'),
+      ]);
+      final sunk = body.ticked(1);
+      expect(sunk.blocks.map((b) => b.text), [
+        'Shopping',
+        'Eggs',
+        'Jam',
+        'Milk',
+        'After',
+      ]);
+      expect(sunk.blocks[3].checked, isTrue, reason: 'under the earlier tick');
+
+      expect(sunk.blocks[3].home, 0, reason: 'where it stood in its list');
+
+      // Unticked again, it goes back to where it was, and forgets.
+      final risen = sunk.ticked(3);
+      expect(risen.blocks.map((b) => b.text), [
+        'Shopping',
+        'Milk',
+        'Eggs',
+        'Jam',
+        'After',
+      ]);
+      expect(risen.blocks[1].checked, isFalse);
+      expect(risen.blocks[1].home, isNull);
+
+      // Its place can be past the open items by then: it lands at their
+      // foot.
+      final eggsToo = sunk.ticked(1);
+      expect(eggsToo.blocks.map((b) => b.text), [
+        'Shopping',
+        'Jam',
+        'Milk',
+        'Eggs',
+        'After',
+      ]);
+      final eggsBack = eggsToo.ticked(3);
+      expect(eggsBack.blocks.map((b) => b.text), [
+        'Shopping',
+        'Eggs',
+        'Jam',
+        'Milk',
+        'After',
+      ]);
+
+      // The place survives being stored.
+      final kept = TaskBody.decode(sunk.encode());
+      expect(kept.blocks[3].home, 0);
+      expect(kept.ticked(3).blocks.map((b) => b.text), [
+        'Shopping',
+        'Milk',
+        'Eggs',
+        'Jam',
+        'After',
+      ]);
+    },
+  );
+
+  testWidgets('items are put in a new order on the read view by holding one', (
+    tester,
+  ) async {
+    await tester.pumpWidget(bootApp());
+    await tester.pumpAndSettle();
+    await openEditor(tester);
+    await typeInto(tester, 0, 'Shopping\n- Milk\n- Bread\n- Jam');
+    await tester.pumpAndSettle();
+    await save(tester);
+
+    await tester.tap(find.text('Shopping'));
+    await tester.pumpAndSettle();
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('Jam')),
+    );
+    await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+    await gesture.moveTo(tester.getCenter(find.text('Milk')));
+    await tester.pumpAndSettle();
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.getTopLeft(find.text('Jam')).dy,
+      lessThan(tester.getTopLeft(find.text('Milk')).dy),
+    );
+
+    // And down again: dropped just past Milk, it lands between Milk and
+    // Bread, not above Milk.
+    final jam = tester.getCenter(find.text('Jam'));
+    final row = tester.getCenter(find.text('Milk')).dy - jam.dy;
+    final down = await tester.startGesture(jam);
+    await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+    // Far enough that the lifted copy's foot is past Milk's middle, not so
+    // far that it reaches Bread's.
+    await down.moveTo(jam + Offset(0, row * 0.75));
+    await tester.pumpAndSettle();
+    await down.up();
+    await tester.pumpAndSettle();
+    final tops = [
+      for (final word in ['Milk', 'Jam', 'Bread'])
+        tester.getTopLeft(find.text(word)).dy,
+    ];
+    expect(tops[0], lessThan(tops[1]));
+    expect(tops[1], lessThan(tops[2]));
+
+    await tester.tap(find.text('Back'));
+    await tester.pumpAndSettle();
+    final body = tileFor(tester, 'Shopping').todo.body;
+    expect(body.blocks.map((b) => b.text), [
+      'Shopping',
+      'Milk',
+      'Jam',
+      'Bread',
+    ]);
+    expect(body.blocks.first.kind, BlockKind.paragraph, reason: 'stays put');
+  });
+
+  testWidgets('a ticked item holds the foot and nothing is dropped below it', (
+    tester,
+  ) async {
+    await tester.pumpWidget(bootApp());
+    await tester.pumpAndSettle();
+    await openEditor(tester);
+    await typeInto(tester, 0, 'Shopping\n- Milk\n- Bread\n[x] Jam');
+    await tester.pumpAndSettle();
+    await save(tester);
+    await tester.tap(find.text('Shopping'));
+    await tester.pumpAndSettle();
+
+    // Milk dragged to the very bottom lands above Jam, which holds the foot.
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('Milk')),
+    );
+    await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+    await gesture.moveTo(
+      tester.getBottomLeft(find.text('Jam')) + const Offset(40, 8),
+    );
+    await tester.pumpAndSettle();
+    await gesture.up();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Back'));
+    await tester.pumpAndSettle();
+    final body = tileFor(tester, 'Shopping').todo.body;
+    expect(body.blocks.map((b) => b.text), [
+      'Shopping',
+      'Bread',
+      'Milk',
+      'Jam',
+    ]);
+    expect(body.blocks.last.checked, isTrue);
   });
 
   testWidgets('pasted lines become blocks of their own', (tester) async {

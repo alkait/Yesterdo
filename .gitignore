@@ -49,3 +49,6 @@ app.*.map.json
 
 # FVM: the pinned version lives in .fvmrc, everything in .fvm/ is local
 .fvm/
+
+# Secrets for tool/deploy.sh
+.env

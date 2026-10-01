@@ -4,6 +4,40 @@ import 'package:flutter/material.dart';
 
 import '../branded/branded.dart';
 
+/// The one item whose place changed between two orders, if taking it out
+/// of both leaves them the same. Null for any other kind of change. What
+/// sets a flight going, for a card on the day and for an item on a
+/// checklist alike.
+({String key, int from, int to})? singleMove(
+  List<String> before,
+  List<String> after,
+) {
+  if (before.length != after.length) return null;
+  for (var at = 0; at < before.length; at++) {
+    if (before[at] == after[at]) continue;
+    for (final key in [before[at], after[at]]) {
+      final to = after.indexOf(key);
+      final from = before.indexOf(key);
+      // A key on one side only is an item replaced, not moved.
+      if (to == -1 || from == -1) continue;
+      final restBefore = [...before]..removeAt(from);
+      final restAfter = [...after]..removeAt(to);
+      if (_sameOrder(restBefore, restAfter)) {
+        return (key: key, from: from, to: to);
+      }
+    }
+    return null;
+  }
+  return null;
+}
+
+bool _sameOrder(List<String> a, List<String> b) {
+  for (var at = 0; at < a.length; at++) {
+    if (a[at] != b[at]) return false;
+  }
+  return true;
+}
+
 /// A card's journey from where it was to where the order now puts it.
 ///
 /// The list shows the new order at once, but with the card's new slot

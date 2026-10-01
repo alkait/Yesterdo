@@ -143,7 +143,10 @@ class _TodoListViewState extends ConsumerState<TodoListView>
       return;
     }
     if (previous == null || MediaQuery.disableAnimationsOf(context)) return;
-    final move = _singleMove(previous, next);
+    final move = singleMove(
+      [for (final todo in previous) todo.key],
+      [for (final todo in next) todo.key],
+    );
     if (move == null) return;
 
     // The old geometry is still there to read: the new order has not been
@@ -173,40 +176,6 @@ class _TodoListViewState extends ConsumerState<TodoListView>
     if (_flight == null) return;
     _flight!.dispose();
     if (mounted) setState(() => _flight = null);
-  }
-
-  /// The one card whose place changed, if taking it out of both orders
-  /// leaves them the same. Null for any other kind of change.
-  static ({String key, int from, int to})? _singleMove(
-    List<Todo> previous,
-    List<Todo> next,
-  ) {
-    if (previous.length != next.length) return null;
-    final before = [for (final todo in previous) todo.key];
-    final after = [for (final todo in next) todo.key];
-    for (var at = 0; at < before.length; at++) {
-      if (before[at] == after[at]) continue;
-      for (final key in [before[at], after[at]]) {
-        final to = after.indexOf(key);
-        final from = before.indexOf(key);
-        // A key on one side only is a task replaced, not moved.
-        if (to == -1 || from == -1) continue;
-        final restBefore = [...before]..removeAt(from);
-        final restAfter = [...after]..removeAt(to);
-        if (_sameOrder(restBefore, restAfter)) {
-          return (key: key, from: from, to: to);
-        }
-      }
-      return null;
-    }
-    return null;
-  }
-
-  static bool _sameOrder(List<String> a, List<String> b) {
-    for (var at = 0; at < a.length; at++) {
-      if (a[at] != b[at]) return false;
-    }
-    return true;
   }
 }
 
