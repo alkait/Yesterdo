@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../core/app_version.dart';
 import '../reminders/reminder_scheduler.dart';
 import '../state/developer_mode.dart';
 import '../state/providers.dart';
@@ -142,9 +141,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   key: const ValueKey('settings-version'),
                   behavior: HitTestBehavior.opaque,
                   onTap: _onVersionTap,
-                  child: const BrandedFieldRow(
+                  child: BrandedFieldRow(
                     label: 'Version',
-                    value: appVersion,
+                    value: ref.watch(appVersionProvider),
                   ),
                 ),
                 if (developer)

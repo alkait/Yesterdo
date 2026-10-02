@@ -46,16 +46,19 @@ class TodosController extends AsyncNotifier<List<Todo>> {
         rule: draft.repeat!,
         due: draft.due,
       );
+      final key = Todo.seriesKey(id);
+      if (draft.pinned) await _keepPin(day: draft.day, key: key);
       // A weekly rule may not fire on the day it was written on, so the day is
       // read afresh rather than guessed at.
       await _reload();
-      return Todo.seriesKey(id);
+      return key;
     }
 
     final todo = await _store.insert(
       day: draft.day,
       body: draft.body,
       due: draft.due,
+      pinned: draft.pinned,
     );
     if (!ref.mounted) return todo.key;
     // Written for another day, it belongs to no list on screen. The banner
@@ -123,6 +126,18 @@ class TodosController extends AsyncNotifier<List<Todo>> {
     await _syncDevice();
   }
 
+  /// Pins a task to the head of its day, or lets it go. Like done, it is a
+  /// thing of the day: a showing of a rule is written down and pinned for
+  /// that day alone.
+  Future<void> togglePin(Todo todo) async {
+    final written = await _write(todo);
+    final updated = written.withPinned(!written.pinned);
+    await _store.save(updated);
+    if (!ref.mounted) return;
+    _show(_sorted(_replacing(updated)));
+    await _syncDevice();
+  }
+
   /// Applies an edit. Words, time and rule all belong to the series, so
   /// editing a repeating task changes every day it appears on. Says which
   /// task it is afterwards, by key: an edit can make a one-off of a rule or
@@ -133,6 +148,11 @@ class TodosController extends AsyncNotifier<List<Todo>> {
 
     var key = todo.key;
     if (todo.repeats && draft.repeat != null) {
+      // The pin is the day's, not the rule's: this showing is written down
+      // to take it, ahead of the words the series is about to be given.
+      if (draft.pinned != todo.pinned) {
+        await _store.save((await _write(todo)).withPinned(draft.pinned));
+      }
       await _store.saveSeries(
         recurrenceId: todo.recurrenceId!,
         body: draft.body,
@@ -148,6 +168,7 @@ class TodosController extends AsyncNotifier<List<Todo>> {
         body: draft.body,
         due: draft.due,
         position: todo.position,
+        pinned: draft.pinned,
       );
       key = written.key;
     } else if (draft.repeat != null) {
@@ -161,8 +182,14 @@ class TodosController extends AsyncNotifier<List<Todo>> {
         position: todo.position,
       );
       key = Todo.seriesKey(id);
+      // A pin is a thing of the day, so the rule cannot hold it: its showing
+      // on the day is written down to keep it.
+      if (draft.pinned) await _keepPin(day: draft.day, key: key);
     } else {
-      final saved = todo.withBody(draft.body).withDue(draft.due);
+      final saved = todo
+          .withBody(draft.body)
+          .withDue(draft.due)
+          .withPinned(draft.pinned);
       await _store.save(saved);
       // A day picked in the editor sends it on, the same way Not today does.
       if (draft.day != _day) {
@@ -244,7 +271,8 @@ class TodosController extends AsyncNotifier<List<Todo>> {
 
   /// Moves an open task. Completed tasks hold their place at the bottom, and
   /// calling ones hold the top, so a drag that lands among either is clamped
-  /// back into the band between.
+  /// back into the band between. That band is two: the pinned, then the
+  /// rest, and a task moves only within its own.
   Future<void> reorder(int oldIndex, int newIndex) async {
     final items = _items;
     final firstDone = items.indexWhere((item) => item.done);
@@ -254,8 +282,15 @@ class TodosController extends AsyncNotifier<List<Todo>> {
         .length;
     if (oldIndex < calling || oldIndex >= open) return;
 
+    final pinnedEnd =
+        calling +
+        items.sublist(calling, open).where((item) => item.pinned).length;
+    final (first, last) = items[oldIndex].pinned
+        ? (calling, pinnedEnd - 1)
+        : (pinnedEnd, open - 1);
+
     // newIndex already accounts for the item leaving its old slot.
-    final target = newIndex.clamp(calling, open - 1);
+    final target = newIndex.clamp(first, last);
     if (target == oldIndex) return;
 
     // Positions only mean something on a written-down row.
@@ -277,6 +312,15 @@ class TodosController extends AsyncNotifier<List<Todo>> {
   Future<Todo> _write(Todo todo) => todo.isStored
       ? Future.value(todo)
       : _store.materialize(day: _day, todo: todo);
+
+  /// Writes down the showing of a new rule on [day], pinned, when the rule
+  /// has one there.
+  Future<void> _keepPin({required int day, required String key}) async {
+    for (final shown in await _store.todosOn(day)) {
+      if (shown.key != key) continue;
+      await _store.materialize(day: day, todo: shown.withPinned(true));
+    }
+  }
 
   Future<void> _reload() async {
     final todos = await _store.todosOn(_day, now: _now);

@@ -24,6 +24,13 @@ IconData doneIconFor(Todo todo) =>
 
 String doneLabelFor(Todo todo) => todo.done ? 'Not done' : 'Done';
 
+/// Pinning is offered where a task is read: on its own screen, and on the
+/// attention sheet.
+IconData pinIconFor(Todo todo) =>
+    todo.pinned ? Icons.push_pin_rounded : Icons.push_pin_outlined;
+
+String pinLabelFor(Todo todo) => todo.pinned ? 'Unpin' : 'Pin';
+
 /// A way to say where a task went, made before the task is written.
 ///
 /// It has to be made first. A task that leaves the day being looked at takes
@@ -70,6 +77,8 @@ Future<void> editTask(BuildContext context, WidgetRef ref, Todo todo) async {
       initialBody: todo.body,
       initialDue: todo.due,
       initialRepeat: rule,
+      initialPinned: todo.pinned,
+      pinnable: !todo.done,
     ),
   );
   if (draft == null) return;

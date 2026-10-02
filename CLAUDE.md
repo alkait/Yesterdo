@@ -34,6 +34,11 @@ only the rules for working on it.
 
 ## Deploy
 
+- Every deploy raises the version in `pubspec.yaml` first, by the size of
+  what changed since the last one: patch for fixes, minor for a new
+  feature, major for a change to how the app works or to its data that
+  cannot be gone back on. The build number after the `+` goes up by one
+  every time.
 - Deploy means run `tool/deploy.sh` and answer with the link it prints. It
   builds an ad hoc IPA through `ios/ExportOptions.plist` and hands it to
   Diawi. Every deploy gives a new link.
@@ -73,6 +78,12 @@ only the rules for working on it.
   once, in `mergeDay`, so both stores answer alike. A rule always has a
   `start_day`. Nothing is written for a projected occurrence until someone
   acts on it, through `TodoStore.materialize`.
+- A pin is a thing of the day, like done: it lives on the row, never on a
+  rule, so a rule's showing is written down to be pinned. Done lets go of
+  it, in `Todo.toggled`, and undoing done does not bring it back. A day
+  reads calling, pinned, open, done; that order is `compareTodos` and
+  `todoOrderOn`, and a drag keeps to its own band. A pin goes with a task
+  to another day.
 - `Todo.id` is null while a task is only projected. Key widgets, swipe state
   and sort ties on `Todo.key`, never on the id.
 - Questions about a rule's showings, such as whether it has any before or
@@ -124,8 +135,9 @@ only the rules for working on it.
 
 ## Widgets
 
-- The Lock Screen and Home Screen widgets are a WidgetKit extension,
-  `ios/YesterdoWidget`. No plugin, and no second copy of the app's rules:
+- There are two widgets, Due now and Pinned, in one WidgetKit extension,
+  `ios/YesterdoWidget`. Due now keeps the kind `YesterdoWidget` it first
+  shipped under; changing a kind takes the widget off every screen. No plugin, and no second copy of the app's rules:
   Dart works out what they show, Swift only draws it.
 - The app and the extension share one file, `glance.json`, in the app group
   `group.com.alkait.yesterdo`. It is the only thing that crosses; the
@@ -137,10 +149,12 @@ only the rules for working on it.
 - The glance reaches from the backlog's own window back to tomorrow, so a
   task left calling from an earlier day still shows and the widgets are
   still right after midnight without the app being opened.
-- Only tasks that can call cross over. A task with no time, one already
-  done, one waved away and a missed showing that was let go are no use to a
-  widget and are never sent.
-- A widget shows the tasks calling for attention and nothing else; with
+- Only tasks that can call cross over as `tasks`. A task with no time, one
+  already done, one waved away and a missed showing that was let go are no
+  use to Due now and are never sent. The pinned tasks of today and
+  tomorrow cross beside them as `pinned`, time or no time, each with the
+  moment its day begins; Pinned draws the ones of the day being drawn.
+- Due now shows the tasks calling for attention and nothing else; with
   nothing calling it says so. A task from another day says its day beside
   its time, since a widget can carry a task left calling from an earlier
   day; that is drawing, so it is Swift's, judged against the entry's date.
@@ -198,12 +212,20 @@ lands in one place and shows up everywhere.
 
 - Writing a task never happens inline. Adding and editing push
   `TaskEditorPage` as a full screen.
-- The editor's rows are Date, Time, Reminder and Repeat, one thing each.
+- The editor's rows are Date, Time, Reminder, Repeat and Pin, one thing
+  each. Pin is a switch, absent for a done task.
   A reminder hangs off the time: its row is inert until a time is set, and
   clearing the time clears the reminders with it. `Due` still holds all
   three together in the data.
 - The editor asks for the keyboard only once its slide-in has finished, by
   listening to the route's animation. No `autofocus` on that field.
+- Pin lives on the read view as the same switch row the editor has, on
+  the attention sheet beside View, and on the editor's Pin row, and
+  nowhere else. From the editor it rides
+  the `TaskDraft`; for a repeating task it pins the showing on the day,
+  never the rule. On the sheet it toggles and the sheet stays up,
+  so the sheet reads its task afresh from `todosProvider`. A done task and
+  one opened from Left behind offer no pin.
 - Done is the circle on the card, and the attention sheet's Done. Edit and
   delete live on the swipe buttons and nowhere else; there is no action
   sheet.
@@ -222,6 +244,12 @@ lands in one place and shows up everywhere.
   answers it once. Do not invent a second way of drawing the eye to a card.
 - A swipe never acts on its own. It uncovers buttons and nothing happens
   until one is tapped.
+- A tick is made on the read view and nowhere else. The editor draws
+  every box open: a tick already made is carried through an edit unseen,
+  and a ticked line pasted in comes in open. A rule never holds a tick;
+  `Recurrence` unticks whatever it is built from, and `saveSeries` gives
+  each written showing the new words with its own ticks, through
+  `TaskBody.withTicksOf`.
 - Words pasted into the editor make a block per line, and a line headed by
   a bullet or a box becomes a checklist item. `LineMarker` is the one place
   that knows the marks; the controller only cuts at the breaks.
@@ -243,8 +271,9 @@ lands in one place and shows up everywhere.
 - The task actions are named once in `task_actions.dart`, so their icons and
   labels cannot drift.
 - Developer mode only ever adds tools, never changes behaviour.
-- `appVersion` in `lib/core/app_version.dart` is kept by hand beside
-  `pubspec.yaml`.
+- The version shown in Settings is read from the bundle through
+  `DeviceBridge.appVersion` and bound to `appVersionProvider` in `main`.
+  `pubspec.yaml` is the one place it is written.
 
 ## Tests
 

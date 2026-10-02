@@ -20,6 +20,7 @@ class Todo {
     this.hidden = false,
     this.due,
     this.dismissed = false,
+    this.pinned = false,
   }) : assert(title != null || body != null, 'words, one way or the other'),
        body = body ?? TaskBody.plain(title ?? '');
 
@@ -33,6 +34,7 @@ class Todo {
     hidden: (row['hidden'] as int? ?? 0) == 1,
     due: Due.fromRow(row),
     dismissed: (row['dismissed'] as int? ?? 0) == 1,
+    pinned: (row['pinned'] as int? ?? 0) == 1,
   );
 
   /// The words as stored: the body's JSON when there is one, else the plain
@@ -81,6 +83,11 @@ class Todo {
   /// Its call for attention has been waved away for this day.
   final bool dismissed;
 
+  /// Held at the head of its day, above the other open tasks, until it is
+  /// unpinned or done. A thing of the day, as done is: a rule's showing is
+  /// pinned for its day alone.
+  final bool pinned;
+
   bool get isStored => id != null;
   bool get repeats => recurrenceId != null;
 
@@ -109,11 +116,15 @@ class Todo {
 
   Todo withBody(TaskBody newBody) => copyWith(body: newBody);
 
+  /// Done lets go of the pin, and undoing it does not bring the pin back.
   Todo toggled(int nowMillis) => copyWith(
     done: !done,
     completedAt: done ? null : nowMillis,
     clearCompletedAt: done,
+    pinned: done ? pinned : false,
   );
+
+  Todo withPinned(bool value) => copyWith(pinned: value);
 
   /// Given a new time. A change of time is a new call, so a wave-away from
   /// the old one no longer holds.
@@ -147,6 +158,7 @@ class Todo {
     Due? due,
     bool clearDue = false,
     bool? dismissed,
+    bool? pinned,
   }) => Todo(
     id: id ?? this.id,
     body: body ?? this.body,
@@ -157,6 +169,7 @@ class Todo {
     hidden: hidden ?? this.hidden,
     due: clearDue ? null : (due ?? this.due),
     dismissed: dismissed ?? this.dismissed,
+    pinned: pinned ?? this.pinned,
   );
 
   /// The two columns the words are kept in: the body, and the plain title
@@ -176,14 +189,16 @@ class Todo {
     'hidden': hidden ? 1 : 0,
     ...due?.toRow() ?? Due.emptyRow,
     'dismissed': dismissed ? 1 : 0,
+    'pinned': pinned ? 1 : 0,
   };
 }
 
-/// Open tasks keep their position order. Completed ones sink below them, in
-/// the order they were finished, so the one just checked goes to the very
-/// bottom.
+/// Open tasks keep their position order, the pinned ones ahead of the rest.
+/// Completed ones sink below them, in the order they were finished, so the
+/// one just checked goes to the very bottom.
 int compareTodos(Todo a, Todo b) {
   if (a.done != b.done) return a.done ? 1 : -1;
+  if (!a.done && a.pinned != b.pinned) return a.pinned ? -1 : 1;
   final ranked = a.done
       ? (a.completedAt ?? 0).compareTo(b.completedAt ?? 0)
       : a.position.compareTo(b.position);
@@ -193,8 +208,8 @@ int compareTodos(Todo a, Todo b) {
 }
 
 /// The order a day is shown in at a given moment: tasks calling for
-/// attention head the list, earliest due first, and everything else follows
-/// [compareTodos].
+/// attention head the list, earliest due first, above even the pinned, and
+/// everything else follows [compareTodos].
 Comparator<Todo> todoOrderOn({required int day, required DateTime now}) =>
     (a, b) {
       final aCalls = a.isCallingOn(day: day, now: now);

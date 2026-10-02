@@ -49,21 +49,42 @@ struct GlanceProvider: TimelineProvider {
   }
 }
 
-struct YesterdoWidget: Widget {
+/// The tasks calling for attention: their time has come and nobody has
+/// answered.
+struct DueNowWidget: Widget {
   var body: some WidgetConfiguration {
+    // The kind is the name it was first shipped under. Changing it would
+    // take the widget off every screen it has been put on.
     StaticConfiguration(kind: "YesterdoWidget", provider: GlanceProvider()) { entry in
       GlanceView(entry: entry)
     }
-    .configurationDisplayName("Due today")
-    .description("What is due, and what is left of the day.")
-    .supportedFamilies([
-      .accessoryRectangular, .accessoryInline, .accessoryCircular,
-      .systemSmall, .systemMedium,
-    ])
+    .configurationDisplayName("Due now")
+    .description("Tasks whose time has come and are still waiting.")
+    .supportedFamilies(glanceFamilies)
   }
 }
 
+/// The tasks pinned to the head of the day.
+struct PinnedWidget: Widget {
+  var body: some WidgetConfiguration {
+    StaticConfiguration(kind: "PinnedWidget", provider: GlanceProvider()) { entry in
+      PinnedView(entry: entry)
+    }
+    .configurationDisplayName("Pinned")
+    .description("The tasks pinned to the top of today.")
+    .supportedFamilies(glanceFamilies)
+  }
+}
+
+private let glanceFamilies: [WidgetFamily] = [
+  .accessoryRectangular, .accessoryInline, .accessoryCircular,
+  .systemSmall, .systemMedium,
+]
+
 @main
 struct YesterdoWidgetBundle: WidgetBundle {
-  var body: some Widget { YesterdoWidget() }
+  var body: some Widget {
+    DueNowWidget()
+    PinnedWidget()
+  }
 }

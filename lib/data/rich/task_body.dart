@@ -204,6 +204,40 @@ class TaskBody {
     ]);
   }
 
+  /// Every item open again and back where it stood before it sank: the
+  /// body as it was written, which is what a rule holds. The last to sink
+  /// rises first, so each lands where it left from. A ticked item that
+  /// never sank, as one ticked in the editor when that could be done, is
+  /// opened where it stands.
+  TaskBody unticked() {
+    var body = TaskBody([
+      for (final block in blocks)
+        block.checked && block.home == null
+            ? block.copyWith(checked: false)
+            : block,
+    ]);
+    while (true) {
+      final last = body.blocks.lastIndexWhere((block) => block.checked);
+      if (last == -1) return body;
+      body = body.ticked(last);
+    }
+  }
+
+  /// These words with the ticks of [old] put back on them, for a showing
+  /// whose series has been given new words: an item still there under the
+  /// same words stays ticked, in the order it was ticked in, and anything
+  /// else is open.
+  TaskBody withTicksOf(TaskBody old) {
+    var body = unticked();
+    for (final was in old.blocks.where((block) => block.checked)) {
+      final at = body.blocks.indexWhere(
+        (block) => block.isCheck && !block.checked && block.text == was.text,
+      );
+      if (at != -1) body = body.ticked(at);
+    }
+    return body;
+  }
+
   /// Where the checklist holding [index] begins and ends: the first index
   /// in it, and the one past its last.
   (int, int) runAround(int index) {

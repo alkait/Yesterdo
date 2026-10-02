@@ -48,6 +48,7 @@ class MemoryTodoStore implements TodoStore {
     TaskBody? body,
     Due? due,
     int? position,
+    bool pinned = false,
   }) {
     final todo = Todo(
       id: _nextTodoId++,
@@ -55,6 +56,7 @@ class MemoryTodoStore implements TodoStore {
       done: false,
       position: position ?? _topPosition(day),
       due: due,
+      pinned: pinned,
     );
     _dayOf(day).add(todo);
     return Future.value(todo);
@@ -137,6 +139,7 @@ class MemoryTodoStore implements TodoStore {
         body: todo.body,
         due: todo.due,
         position: position,
+        pinned: todo.pinned,
       );
     }
     _dayOf(fromDay).removeWhere((each) => each.id == todo.id);
@@ -225,7 +228,7 @@ class MemoryTodoStore implements TodoStore {
       for (var at = 0; at < items.length; at++) {
         if (items[at].recurrenceId == recurrenceId) {
           items[at] = items[at]
-              .withBody(words)
+              .withBody(words.withTicksOf(items[at].body))
               .copyWith(due: due, clearDue: due == null, dismissed: false);
         }
       }

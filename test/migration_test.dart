@@ -148,8 +148,49 @@ Future<void> createVersionEight(Database db, int version) async {
   await db.execute('ALTER TABLE recurrences ADD COLUMN days TEXT');
 }
 
+Future<void> createVersionNine(Database db, int version) async {
+  await createVersionEight(db, version);
+  await db.execute(
+    'ALTER TABLE recurrences ADD COLUMN ignored_through INTEGER',
+  );
+}
+
 void main() {
   setUpAll(sqfliteFfiInit);
+
+  test('a version 9 task is kept, unpinned, and can be pinned', () async {
+    final directory = await Directory.systemTemp.createTemp('remind_me_test');
+    addTearDown(() => directory.delete(recursive: true));
+    final path = p.join(directory.path, 'remind_me.db');
+
+    var db = await databaseFactoryFfi.openDatabase(
+      path,
+      options: OpenDatabaseOptions(version: 9, onCreate: createVersionNine),
+    );
+    await db.insert('todos', <String, Object?>{
+      'day': 20699,
+      'title': 'Buy milk',
+      'position': 0,
+    });
+    await db.close();
+
+    db = await databaseFactoryFfi.openDatabase(
+      path,
+      options: OpenDatabaseOptions(
+        version: 10,
+        onCreate: AppDatabase.createSchema,
+        onUpgrade: AppDatabase.upgradeSchema,
+      ),
+    );
+    addTearDown(db.close);
+
+    final store = SqliteTodoStore(db);
+    final todo = (await store.todosOn(20699)).single;
+    expect(todo.title, 'Buy milk');
+    expect(todo.pinned, isFalse);
+    await store.save(todo.withPinned(true));
+    expect((await store.todosOn(20699)).single.pinned, isTrue);
+  });
 
   test(
     'a version 8 rule keeps going and gains room for ignored days',
@@ -175,7 +216,7 @@ void main() {
       db = await databaseFactoryFfi.openDatabase(
         path,
         options: OpenDatabaseOptions(
-          version: 9,
+          version: 10,
           onCreate: AppDatabase.createSchema,
           onUpgrade: AppDatabase.upgradeSchema,
         ),
@@ -217,7 +258,7 @@ void main() {
     db = await databaseFactoryFfi.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 9,
+        version: 10,
         onCreate: AppDatabase.createSchema,
         onUpgrade: AppDatabase.upgradeSchema,
       ),
@@ -252,7 +293,7 @@ void main() {
     db = await databaseFactoryFfi.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 9,
+        version: 10,
         onCreate: AppDatabase.createSchema,
         onUpgrade: AppDatabase.upgradeSchema,
       ),
@@ -319,7 +360,7 @@ void main() {
       db = await databaseFactoryFfi.openDatabase(
         path,
         options: OpenDatabaseOptions(
-          version: 9,
+          version: 10,
           onCreate: AppDatabase.createSchema,
           onUpgrade: AppDatabase.upgradeSchema,
         ),
@@ -368,7 +409,7 @@ void main() {
     db = await databaseFactoryFfi.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 9,
+        version: 10,
         onCreate: AppDatabase.createSchema,
         onUpgrade: AppDatabase.upgradeSchema,
       ),
@@ -416,7 +457,7 @@ void main() {
     db = await databaseFactoryFfi.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 9,
+        version: 10,
         onCreate: AppDatabase.createSchema,
         onUpgrade: AppDatabase.upgradeSchema,
       ),
@@ -474,7 +515,7 @@ void main() {
     db = await databaseFactoryFfi.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 9,
+        version: 10,
         onCreate: AppDatabase.createSchema,
         onUpgrade: AppDatabase.upgradeSchema,
       ),
@@ -528,7 +569,7 @@ void main() {
     db = await databaseFactoryFfi.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 9,
+        version: 10,
         onCreate: AppDatabase.createSchema,
         onUpgrade: AppDatabase.upgradeSchema,
       ),
@@ -587,7 +628,7 @@ void main() {
     final fresh = await databaseFactoryFfi.openDatabase(
       p.join(directory.path, 'fresh.db'),
       options: OpenDatabaseOptions(
-        version: 9,
+        version: 10,
         onCreate: AppDatabase.createSchema,
       ),
     );
@@ -603,6 +644,7 @@ void main() {
       6: createVersionSix,
       7: createVersionSeven,
       8: createVersionEight,
+      9: createVersionNine,
     };
     for (final MapEntry(key: version, value: create) in shipped.entries) {
       final upgradedPath = p.join(directory.path, 'upgraded_$version.db');
@@ -614,7 +656,7 @@ void main() {
       upgraded = await databaseFactoryFfi.openDatabase(
         upgradedPath,
         options: OpenDatabaseOptions(
-          version: 9,
+          version: 10,
           onCreate: AppDatabase.createSchema,
           onUpgrade: AppDatabase.upgradeSchema,
         ),

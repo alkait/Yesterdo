@@ -60,6 +60,8 @@ import UserNotifications
         result(nil)
       case "takeTappedTask":
         result(GlanceBridge.take())
+      case "appVersion":
+        result(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String)
       case "openUrl":
         if let raw = call.arguments as? String, let url = URL(string: raw) {
           UIApplication.shared.open(url)

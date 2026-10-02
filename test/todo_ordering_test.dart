@@ -23,6 +23,21 @@ void main() {
       expect(items.map((t) => t.id), [1, 2]);
     });
 
+    test('pinned tasks head the open ones, in their own order', () {
+      final items = [
+        open(1, 0),
+        open(2, 2).withPinned(true),
+        open(3, 1).withPinned(true),
+      ]..sort(compareTodos);
+      expect(items.map((t) => t.id), [3, 2, 1]);
+    });
+
+    test('done lets go of the pin, and undoing it does not pin again', () {
+      final done = open(1, 0).withPinned(true).toggled(100);
+      expect(done.pinned, isFalse);
+      expect(done.toggled(200).pinned, isFalse);
+    });
+
     test('checked tasks sink below open ones', () {
       final items = [checked(1, 0, 100), open(2, 1)]..sort(compareTodos);
       expect(items.map((t) => t.id), [2, 1]);
@@ -55,6 +70,12 @@ void main() {
     );
     Todo plain(int id, int position) =>
         Todo(id: id, title: 't$id', done: false, position: position);
+
+    test('a calling task stands above a pinned one', () {
+      final items = [plain(1, 0).withPinned(true), at(2, 1, 8 * 60 + 30)]
+        ..sort(todoOrderOn(day: day, now: nine));
+      expect(items.map((t) => t.id), [2, 1]);
+    });
 
     test('a task whose time has come heads the open ones', () {
       final items = [plain(1, 0), at(2, 1, 8 * 60 + 30)]

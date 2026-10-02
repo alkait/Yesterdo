@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -1726,6 +1728,19 @@ void main() {
     expect(find.byIcon(Icons.delete_outline_rounded), findsOneWidget);
   });
 
+  testWidgets('settings says the version the app was built as', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appVersionProvider.overrideWithValue('2.3.4')],
+        child: bootApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.settings_outlined));
+    await tester.pumpAndSettle();
+    expect(find.text('2.3.4'), findsOneWidget);
+  });
+
   testWidgets('ten taps on the version turn developer mode on, and it sticks', (
     tester,
   ) async {
@@ -3216,6 +3231,201 @@ void main() {
 
     final bar = tester.getSize(find.byType(BrandedBottomBar));
     expect(bar.width, lessThanOrEqualTo(Brand.maxContentWidth));
+  });
+
+  group('pinning', () {
+    final today = todayDate().epochDay;
+
+    Future<void> pinFromView(WidgetTester tester, String title) async {
+      await tester.tap(find.text(title));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('pin')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Back'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('a task pinned on its own screen heads the day', (
+      tester,
+    ) async {
+      await tester.pumpWidget(bootApp());
+      await tester.pumpAndSettle();
+      await addTask(tester, 'Post letter');
+      await addTask(tester, 'Call Sam');
+      await addTask(tester, 'Buy milk');
+      expect(visibleTitles(tester), ['Buy milk', 'Call Sam', 'Post letter']);
+
+      await pinFromView(tester, 'Post letter');
+      expect(visibleTitles(tester), ['Post letter', 'Buy milk', 'Call Sam']);
+      expect(tileFor(tester, 'Post letter').todo.pinned, isTrue);
+      expect(find.byIcon(Icons.push_pin_rounded), findsOneWidget);
+
+      // A task written after it still goes under it.
+      await addTask(tester, 'Water plants');
+      expect(visibleTitles(tester).first, 'Post letter');
+
+      // Unpinned, it goes back to where it stood.
+      await pinFromView(tester, 'Post letter');
+      expect(visibleTitles(tester), [
+        'Water plants',
+        'Buy milk',
+        'Call Sam',
+        'Post letter',
+      ]);
+      expect(find.byIcon(Icons.push_pin_rounded), findsNothing);
+    });
+
+    testWidgets('done lets go of the pin, and undoing it does not pin again', (
+      tester,
+    ) async {
+      await tester.pumpWidget(bootApp());
+      await tester.pumpAndSettle();
+      await addTask(tester, 'Post letter');
+      await addTask(tester, 'Buy milk');
+      await pinFromView(tester, 'Post letter');
+
+      await tester.tap(circleOn('Post letter'));
+      await tester.pump(reorderDelay);
+      await tester.pumpAndSettle();
+      expect(tileFor(tester, 'Post letter').todo.pinned, isFalse);
+
+      // A done task has no pin to offer.
+      await tester.tap(find.text('Post letter'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('pin')), findsNothing);
+      await tester.tap(find.text('Back'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(circleOn('Post letter'));
+      await tester.pump(reorderDelay);
+      await tester.pumpAndSettle();
+      expect(tileFor(tester, 'Post letter').todo.pinned, isFalse);
+      expect(visibleTitles(tester), ['Buy milk', 'Post letter']);
+    });
+
+    testWidgets('the sheet pins a calling task and stays up', (tester) async {
+      holdStill(tester);
+      final device = MemoryDeviceBridge();
+      await tester.pumpWidget(bootApp(device: device, clock: () => at(9, 0)));
+      await tester.pumpAndSettle();
+      await addTask(tester, 'Call Sam', due: Due(minute: minuteOf(8, 30)));
+
+      await tester.tap(find.text('Call Sam'));
+      await tester.pumpAndSettle();
+      final pin = find.byKey(const ValueKey('attention-pin'));
+      // It sits just before View.
+      expect(
+        tester.getCenter(pin).dx,
+        lessThan(tester.getCenter(find.byIcon(Icons.visibility_outlined)).dx),
+      );
+
+      await tester.tap(pin);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('attention-title')), findsOneWidget);
+      expect(tileFor(tester, 'Call Sam').todo.pinned, isTrue);
+      expect(
+        (jsonDecode(device.glances.last) as Map<String, Object?>)['pinned'],
+        hasLength(1),
+      );
+
+      await tester.tap(pin);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('attention-title')), findsOneWidget);
+      expect(tileFor(tester, 'Call Sam').todo.pinned, isFalse);
+    });
+
+    testWidgets('a repeating task is pinned for its day alone', (tester) async {
+      final store = MemoryTodoStore();
+      await tester.pumpWidget(bootApp(store: store));
+      await tester.pumpAndSettle();
+      await addTask(tester, 'Take the pills', repeat: 'Every day');
+      await addTask(tester, 'Buy milk');
+
+      await pinFromView(tester, 'Take the pills');
+      expect(visibleTitles(tester), ['Take the pills', 'Buy milk']);
+      expect((await store.todosOn(today + 1)).single.pinned, isFalse);
+    });
+
+    testWidgets('the editor pins a new task and unpins it again', (
+      tester,
+    ) async {
+      await tester.pumpWidget(bootApp());
+      await tester.pumpAndSettle();
+      await addTask(tester, 'Post letter');
+
+      await tester.tap(find.text('Add a task'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'Buy milk');
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('pin-row')));
+      await tester.pump();
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+      await addTask(tester, 'Call Sam');
+      expect(visibleTitles(tester), ['Buy milk', 'Call Sam', 'Post letter']);
+      expect(tileFor(tester, 'Buy milk').todo.pinned, isTrue);
+
+      await swipe(tester, 'Buy milk', const Offset(200, 0));
+      await tester.tap(find.byIcon(Icons.edit_outlined));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('pin-row')));
+      await tester.pump();
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+      expect(tileFor(tester, 'Buy milk').todo.pinned, isFalse);
+      expect(visibleTitles(tester), ['Call Sam', 'Buy milk', 'Post letter']);
+    });
+
+    testWidgets('a repeating task pinned in the editor is pinned that day', (
+      tester,
+    ) async {
+      final store = MemoryTodoStore();
+      await tester.pumpWidget(bootApp(store: store));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Add a task'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'Take the pills');
+      await tester.pump();
+      await chooseRepeat(tester, 'Every day');
+      await tester.ensureVisible(find.byKey(const ValueKey('pin-row')));
+      await tester.tap(find.byKey(const ValueKey('pin-row')));
+      await tester.pump();
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      expect(tileFor(tester, 'Take the pills').todo.pinned, isTrue);
+      expect((await store.todosOn(today + 1)).single.pinned, isFalse);
+    });
+
+    testWidgets('a drag keeps to its own side of the pins', (tester) async {
+      await tester.pumpWidget(bootApp());
+      await tester.pumpAndSettle();
+      await addTask(tester, 'Post letter');
+      await addTask(tester, 'Water plants');
+      await addTask(tester, 'Call Sam');
+      await addTask(tester, 'Buy milk');
+      await pinFromView(tester, 'Post letter');
+      const pinnedFirst = [
+        'Post letter',
+        'Buy milk',
+        'Call Sam',
+        'Water plants',
+      ];
+      expect(visibleTitles(tester), pinnedFirst);
+
+      // The pinned one cannot be dragged down among the rest.
+      await dragCardDown(tester, from: 'Post letter', over: 'Water plants');
+      expect(visibleTitles(tester), pinnedFirst);
+
+      // And the rest still move among themselves.
+      await dragCardDown(tester, from: 'Buy milk', over: 'Water plants');
+      expect(visibleTitles(tester), [
+        'Post letter',
+        'Call Sam',
+        'Buy milk',
+        'Water plants',
+      ]);
+    });
   });
 
   group('search', () {

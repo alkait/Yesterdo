@@ -39,6 +39,7 @@ class SqliteTodoStore implements TodoStore {
     TaskBody? body,
     Due? due,
     int? position,
+    bool pinned = false,
   }) async {
     position ??= await _topPosition(day);
     final draft = Todo(
@@ -46,6 +47,7 @@ class SqliteTodoStore implements TodoStore {
       done: false,
       position: position,
       due: due,
+      pinned: pinned,
     );
     final id = await _db.insert(_todos, draft.toRow(day));
     return draft.stored(id);
@@ -93,6 +95,7 @@ class SqliteTodoStore implements TodoStore {
       'hidden': todo.hidden ? 1 : 0,
       ...todo.due?.toRow() ?? Due.emptyRow,
       'dismissed': todo.dismissed ? 1 : 0,
+      'pinned': todo.pinned ? 1 : 0,
     },
     where: 'id = ?',
     whereArgs: [todo.id],
@@ -144,6 +147,7 @@ class SqliteTodoStore implements TodoStore {
         body: todo.body,
         due: todo.due,
         position: position,
+        pinned: todo.pinned,
       );
     }
     // A new day is a new call, so a wave-away from the old one no longer
@@ -242,7 +246,7 @@ class SqliteTodoStore implements TodoStore {
     await _db.update(
       _recurrences,
       <String, Object?>{
-        ...Todo.bodyColumns(words),
+        ...Todo.bodyColumns(words.unticked()),
         ...Recurrence.ruleColumns(rule),
         ...due?.toRow() ?? Due.emptyRow,
       },
@@ -250,17 +254,28 @@ class SqliteTodoStore implements TodoStore {
       whereArgs: [recurrenceId],
     );
     // Written-down occurrences carry their own copy of the words and the
-    // time. A new time is a new call, so a wave-away no longer holds.
-    await _db.update(
+    // time, each with its own ticks. A new time is a new call, so a
+    // wave-away no longer holds.
+    final rows = await _db.query(
       _todos,
-      <String, Object?>{
-        ...Todo.bodyColumns(words),
-        ...due?.toRow() ?? Due.emptyRow,
-        'dismissed': 0,
-      },
+      columns: ['id', 'title', 'body'],
       where: 'recurrence_id = ?',
       whereArgs: [recurrenceId],
     );
+    final batch = _db.batch();
+    for (final row in rows) {
+      batch.update(
+        _todos,
+        <String, Object?>{
+          ...Todo.bodyColumns(words.withTicksOf(Todo.bodyFromRow(row))),
+          ...due?.toRow() ?? Due.emptyRow,
+          'dismissed': 0,
+        },
+        where: 'id = ?',
+        whereArgs: [row['id']],
+      );
+    }
+    await batch.commit(noResult: true);
   }
 
   @override

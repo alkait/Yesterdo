@@ -1,6 +1,7 @@
 import Foundation
 
-/// What the app hands the widgets: the tasks of today and tomorrow, and the
+/// What the app hands the widgets: the tasks that can call, the pinned ones
+/// of today and tomorrow, and the
 /// accent of the look the app is drawn in, in both brightnesses.
 ///
 /// The app writes the whole thing after every change. The widgets only ever
@@ -10,7 +11,29 @@ struct Glance: Codable {
   var accentDark: String
   var tasks: [GlanceTask]
 
-  static let empty = Glance(accentLight: "#000000", accentDark: "#FFFFFF", tasks: [])
+  /// Missing from a file written before there were pins.
+  var pinned: [GlancePin]?
+
+  static let empty = Glance(
+    accentLight: "#000000", accentDark: "#FFFFFF", tasks: [], pinned: [])
+}
+
+/// One pinned task. It has no moment of its own: it is drawn for the whole
+/// of its day.
+struct GlancePin: Codable, Identifiable {
+  var key: String
+  var payload: String
+  var title: String
+
+  /// Milliseconds at the moment its day begins.
+  var dayAt: Double
+
+  /// Milliseconds at its due moment, or nothing for a task with no time.
+  var dueAt: Double?
+
+  var id: String { payload }
+  var day: Date { Date(timeIntervalSince1970: dayAt / 1000) }
+  var due: Date? { dueAt.map { Date(timeIntervalSince1970: $0 / 1000) } }
 }
 
 /// One task, with only what a widget can draw.
@@ -81,5 +104,11 @@ extension Glance {
     tasks
       .filter { $0.isCalling(at: date) }
       .sorted { $0.due < $1.due }
+  }
+
+  /// The tasks pinned on the day a moment falls on, in the app's order.
+  /// Tomorrow's ride along in the file, so the day turns over on its own.
+  func pinned(on date: Date) -> [GlancePin] {
+    (pinned ?? []).filter { Calendar.current.isDate($0.day, inSameDayAs: date) }
   }
 }

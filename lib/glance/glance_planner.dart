@@ -7,9 +7,10 @@ import 'glance.dart';
 /// each time, so what a widget draws is derived from what is true now rather
 /// than patched as things change.
 ///
-/// Only tasks that can call for attention are handed over, since that is all
-/// a widget ever draws. A task with no time, one already done and one waved
-/// away are no use to it and never cross.
+/// Two things are handed over, one for each widget. [plan] gives the tasks
+/// that can call for attention: a task with no time, one already done and
+/// one waved away are no use there and never cross. [pinned] gives the
+/// pinned tasks of today and tomorrow, time or no time.
 class GlancePlanner {
   const GlancePlanner(this._store);
 
@@ -61,5 +62,23 @@ class GlancePlanner {
     // than this morning's.
     tasks.sort((a, b) => b.callsAt.compareTo(a.callsAt));
     return tasks.length > cap ? tasks.sublist(0, cap) : tasks;
+  }
+
+  /// The pinned tasks of today and of the days ahead, each day in the order
+  /// the app shows it. Done has already let go of its pin, so none is done.
+  Future<List<GlancePin>> pinned({required DateTime now}) async {
+    final today = now.epochDay;
+    return <GlancePin>[
+      for (var day = today; day <= today + daysAhead; day++)
+        for (final todo in (await _store.todosOn(
+          day,
+        )).where((todo) => todo.pinned && !todo.done).take(cap))
+          GlancePin(
+            day: day,
+            key: todo.key,
+            title: todo.firstLine,
+            dueAt: todo.due?.instantOn(day).millisecondsSinceEpoch,
+          ),
+    ];
   }
 }

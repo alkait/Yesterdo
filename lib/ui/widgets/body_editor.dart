@@ -10,7 +10,9 @@ import '../branded/branded.dart';
 /// between. Return at the end of a block starts a new one of the same kind;
 /// on an empty checklist item it ends the list instead. Words pasted in
 /// make a block per line, and a line headed by a bullet or a box makes a
-/// checklist item. Backspace at the start of a block joins it onto the one
+/// checklist item. Every box is drawn open: a tick is made on the read
+/// view, never here, so one already made is carried through unseen and one
+/// pasted in is dropped. Backspace at the start of a block joins it onto the one
 /// above. The format bar drives whichever block has the caret, through
 /// [BodyEditorState].
 class BodyEditor extends StatefulWidget {
@@ -49,6 +51,8 @@ class _Entry {
 
   final Key key = UniqueKey();
   BlockKind kind;
+
+  /// Carried through an edit and never drawn.
   bool checked;
 
   /// Carried through an edit untouched, so a ticked item still knows where
@@ -254,7 +258,6 @@ class BodyEditorState extends State<BodyEditor> {
           Block(
             kind: marker == null ? entry.kind : BlockKind.check,
             content: content,
-            checked: marker?.checked ?? false,
           ),
         ),
       );
@@ -274,10 +277,7 @@ class BodyEditorState extends State<BodyEditor> {
     final content = entry.controller.content;
     final marker = LineMarker.of(content.text);
     if (marker == null) return;
-    setState(() {
-      entry.kind = BlockKind.check;
-      entry.checked = marker.checked;
-    });
+    setState(() => entry.kind = BlockKind.check);
     entry.controller.setContent(content.slice(marker.length));
   }
 
@@ -373,12 +373,11 @@ class _BlockRow extends StatelessWidget {
       controller: entry.controller,
       focusNode: entry.focus,
       hint: hint,
-      struck: entry.kind == BlockKind.check && entry.checked,
     );
     if (entry.kind != BlockKind.check) return field;
     // The box sits on the side the words start from, so a right-to-left
-    // item carries it on the right. The box only shows the tick here: an
-    // item is ticked on the read view, never while writing.
+    // item carries it on the right. The box is always open here: an item
+    // is ticked on the read view, never while writing.
     return ValueListenableBuilder<TextEditingValue>(
       valueListenable: entry.controller,
       builder: (context, value, child) => Directionality(
@@ -393,7 +392,7 @@ class _BlockRow extends StatelessWidget {
             child: SizedBox(
               width: Brand.tapTarget,
               height: Brand.checkBoxHitHeight,
-              child: Center(child: BrandedCheckBox(checked: entry.checked)),
+              child: const Center(child: BrandedCheckBox(checked: false)),
             ),
           ),
           Expanded(child: field),

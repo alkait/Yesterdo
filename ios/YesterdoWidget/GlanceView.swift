@@ -1,7 +1,7 @@
 import SwiftUI
 import WidgetKit
 
-/// The widget in each of its shapes.
+/// The Due now widget in each of its shapes.
 ///
 /// Every shape draws the same thing: the tasks calling for attention at the
 /// moment being drawn, and nothing else. What is due later in the day, what
@@ -166,9 +166,11 @@ struct MediumGlance: View {
             HStack(spacing: 6) {
               Circle().fill(accent).frame(width: 6, height: 6)
               Text(task.title).font(.subheadline).lineLimit(1)
-              Spacer(minLength: 4)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .layoutPriority(1)
               Text(whenLabel(task.due, drawnAt: entry.date))
                 .font(.caption2).foregroundStyle(accent)
+                .fixedSize()
             }
           }
         }
@@ -247,7 +249,7 @@ func dueLabel(_ due: Date, drawnAt now: Date) -> String {
 }
 
 /// `2 more`, or nothing when everything calling is already on show.
-private func moreLabel(_ count: Int, shown: Int) -> String? {
+func moreLabel(_ count: Int, shown: Int) -> String? {
   count > shown ? "\(count - shown) more" : nil
 }
 

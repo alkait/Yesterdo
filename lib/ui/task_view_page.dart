@@ -15,12 +15,14 @@ import 'widgets/todo_flight.dart';
 /// boxes that tick, a ticked item flying to the foot of its list, and open
 /// items that lift, on a press and hold, to be put in a new order among
 /// themselves; its links that open. Reached by tapping
-/// a card. Edit leads on to the editor, and Share hands the words alone to
-/// another app.
+/// a card. Edit leads on to the editor, Share hands the words alone to
+/// another app, and the Pin switch under the words holds an open task at
+/// the head of its day.
 ///
 /// Given a task outright, through [TaskViewPage.of], it shows that one as
 /// it stands: a task left on an earlier day, looked at from the backlog.
-/// It is only read there: no Edit, the boxes do not tick and nothing lifts.
+/// It is only read there: no Edit, no pin, the boxes do not tick and nothing
+/// lifts.
 class TaskViewPage extends ConsumerWidget {
   const TaskViewPage({super.key, required this.taskKey})
     : given = null,
@@ -131,10 +133,13 @@ class TaskViewPage extends ConsumerWidget {
                           : null,
                     ),
                   },
-                if (todo.due != null || todo.repeats)
+                if (todo.due != null || todo.repeats || _pinnable(todo))
                   _Particulars(
                     todo: todo,
                     day: givenDay ?? ref.watch(selectedDayProvider).epochDay,
+                    onPin: _pinnable(todo)
+                        ? () => ref.read(todosProvider.notifier).togglePin(todo)
+                        : null,
                   ),
               ],
             ),
@@ -143,6 +148,10 @@ class TaskViewPage extends ConsumerWidget {
       ],
     );
   }
+
+  /// Done has let go of the pin, and a task from Left behind is only read,
+  /// so neither has one to offer.
+  bool _pinnable(Todo todo) => given == null && !todo.done;
 
   Widget _blockView(WidgetRef ref, Todo todo, int index) {
     final block = todo.body.blocks[index];
@@ -360,12 +369,16 @@ class _ChecklistRunState extends State<_ChecklistRun>
 /// The time, the reminder and the repeat, under the words, read only: the
 /// same rows the editor has, without the chevrons. Only what is set is shown. A
 /// repeating task has a History row too, the one row here that leads on,
-/// which says how many showings were done and opens them day by day.
+/// which says how many showings were done and opens them day by day. Last
+/// comes the pin, the editor's own switch, which is worked here too.
 class _Particulars extends ConsumerWidget {
-  const _Particulars({required this.todo, required this.day});
+  const _Particulars({required this.todo, required this.day, this.onPin});
 
   final Todo todo;
   final int day;
+
+  /// Pins the task or lets it go. Without one there is no Pin row.
+  final VoidCallback? onPin;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -423,6 +436,16 @@ class _Particulars extends ConsumerWidget {
                       context,
                       (_) => RepeatHistoryPage(todo: todo),
                     ),
+            ),
+          ],
+          if (onPin case final onPin?) ...[
+            if (todo.due != null || todo.repeats) const BrandedDivider(),
+            BrandedToggleRow(
+              key: const ValueKey('pin'),
+              label: 'Pin',
+              icon: Icons.push_pin_outlined,
+              value: todo.pinned,
+              onChanged: (_) => onPin(),
             ),
           ],
         ],

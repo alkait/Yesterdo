@@ -65,7 +65,8 @@ class TodoCard extends StatelessWidget {
                 ),
           // The words get the whole width. Anything else about the task
           // goes in small print underneath.
-          if (todo.repeats ||
+          if (todo.pinned ||
+              todo.repeats ||
               todo.due != null ||
               todo.body.checklistProgress.$2 > 0)
             _SmallPrint(todo: todo, calling: calling),
@@ -75,7 +76,8 @@ class TodoCard extends StatelessWidget {
   }
 }
 
-/// The line under the words: how much of a checklist is ticked, a repeat
+/// The line under the words: a pin for a pinned task, how much of a
+/// checklist is ticked, a repeat
 /// glyph for a repeating task, a bell when a reminder is set, and the time.
 /// All take the accent while the card is calling.
 ///
@@ -96,6 +98,14 @@ class _SmallPrint extends StatelessWidget {
       padding: const EdgeInsets.only(top: 4),
       child: Row(
         children: [
+          if (todo.pinned) ...[
+            BrandedIcon(
+              Icons.push_pin_rounded,
+              size: BrandedIconSize.small,
+              tone: tone,
+            ),
+            const SizedBox(width: 6),
+          ],
           if (items > 0) ...[
             Flexible(
               child: BrandedText(

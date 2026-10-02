@@ -18,8 +18,8 @@ import 'widgets/reminder_picker_sheet.dart';
 import 'widgets/repeat_picker_sheet.dart';
 import 'widgets/time_picker_sheet.dart';
 
-/// The full screen where a task's words are written and its time and repeat
-/// are chosen. Adding and editing both land here, and it hands the draft
+/// The full screen where a task's words are written, its time and repeat
+/// are chosen, and it is pinned or let go. Adding and editing both land here, and it hands the draft
 /// back through the navigator. The words are styled in place, with the
 /// format bar over the keyboard.
 class TaskEditorPage extends ConsumerStatefulWidget {
@@ -30,6 +30,8 @@ class TaskEditorPage extends ConsumerStatefulWidget {
     this.initialBody,
     this.initialDue,
     this.initialRepeat,
+    this.initialPinned = false,
+    this.pinnable = true,
   });
 
   final String heading;
@@ -40,6 +42,10 @@ class TaskEditorPage extends ConsumerStatefulWidget {
   final TaskBody? initialBody;
   final Due? initialDue;
   final RepeatRule? initialRepeat;
+  final bool initialPinned;
+
+  /// Whether a pin is offered. A done task has none to offer.
+  final bool pinnable;
 
   @override
   ConsumerState<TaskEditorPage> createState() => _TaskEditorPageState();
@@ -54,6 +60,7 @@ class _TaskEditorPageState extends ConsumerState<TaskEditorPage> {
   late int _day = widget.anchorDay;
   late Due? _due = widget.initialDue;
   late RepeatRule? _repeat = widget.initialRepeat;
+  late bool _pinned = widget.initialPinned;
   late final _arrival = ArrivalFocus(_focusEditor);
 
   /// Whether there is anything to save. Save stays greyed until there is.
@@ -85,8 +92,15 @@ class _TaskEditorPageState extends ConsumerState<TaskEditorPage> {
 
   void _save() {
     if (!_hasWords) return;
-    Navigator.of(context)
-        .pop(TaskDraft(day: _day, body: _body, due: _due, repeat: _repeat));
+    Navigator.of(context).pop(
+      TaskDraft(
+        day: _day,
+        body: _body,
+        due: _due,
+        repeat: _repeat,
+        pinned: _pinned,
+      ),
+    );
   }
 
   /// A fresh time carries no reminder yet, and the sound chosen last time,
@@ -242,6 +256,16 @@ class _TaskEditorPageState extends ConsumerState<TaskEditorPage> {
                   detail: _repeat?.detail,
                   onTap: _pickRepeat,
                 ),
+                if (widget.pinnable) ...[
+                  const BrandedDivider(),
+                  BrandedToggleRow(
+                    key: const ValueKey('pin-row'),
+                    label: 'Pin',
+                    icon: Icons.push_pin_outlined,
+                    value: _pinned,
+                    onChanged: (value) => setState(() => _pinned = value),
+                  ),
+                ],
               ],
             ),
           ),

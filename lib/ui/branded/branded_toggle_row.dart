@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
 import 'brand.dart';
+import 'branded_icon.dart';
 import 'branded_text.dart';
 
-/// A setting that is on or off: what it is on the left, a switch on the
-/// right. The whole row takes the tap. Flat, like everything else: the
+/// A setting that is on or off: what it is on the left, with a glyph ahead
+/// of it when given one, a switch on the right. The whole row takes the tap. Flat, like everything else: the
 /// switch is a track and a thumb, no Material ripple.
 class BrandedToggleRow extends StatelessWidget {
   const BrandedToggleRow({
@@ -12,12 +13,16 @@ class BrandedToggleRow extends StatelessWidget {
     required this.label,
     required this.value,
     required this.onChanged,
+    this.icon,
     this.detail,
   });
 
   final String label;
   final bool value;
   final ValueChanged<bool> onChanged;
+
+  /// Drawn ahead of the label, in the label's own tone.
+  final IconData? icon;
 
   /// Small print under the label. Nothing is drawn for null or empty.
   final String? detail;
@@ -35,6 +40,10 @@ class BrandedToggleRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: Brand.rowPadding),
         child: Row(
           children: [
+            if (icon case final icon?) ...[
+              BrandedIcon(icon, size: BrandedIconSize.medium),
+              const SizedBox(width: Brand.gap),
+            ],
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

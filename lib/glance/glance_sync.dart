@@ -14,7 +14,13 @@ class GlanceSync {
   final AppThemeChoice _choice;
 
   Future<void> refresh({DateTime? now}) async {
-    final tasks = await _planner.plan(now: now ?? DateTime.now());
-    await _device.showOnWidgets(Glance(tasks: tasks, choice: _choice).encode());
+    final at = now ?? DateTime.now();
+    await _device.showOnWidgets(
+      Glance(
+        tasks: await _planner.plan(now: at),
+        pinned: await _planner.pinned(now: at),
+        choice: _choice,
+      ).encode(),
+    );
   }
 }

@@ -35,10 +35,12 @@ Future<void> main() async {
   const device = MethodChannelDeviceBridge();
   final store = SqliteTodoStore(database);
   final images = await device.imagesDirectory();
+  final version = await device.appVersion();
   final container = ProviderContainer(
     overrides: [
       todoStoreProvider.overrideWithValue(store),
       imagesDirectoryProvider.overrideWithValue(images),
+      appVersionProvider.overrideWithValue(version),
       settingsStoreProvider.overrideWithValue(settings),
       initialThemeChoiceProvider.overrideWithValue(theme),
       initialSoundProvider.overrideWithValue(sound),

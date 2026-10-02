@@ -9,19 +9,48 @@ import 'task_actions.dart';
 
 /// The sheet a calling task puts up, from a tap on its card or on its
 /// notification. It opens with the task's first line, so the context is
-/// clear however it was reached, with a way to read the task in full
-/// beside it, and offers done, snooze and dismiss.
+/// clear however it was reached, with a pin and a way to read the task in
+/// full beside it, and offers done, snooze and dismiss.
 Future<void> showAttentionSheet(
   BuildContext context,
   WidgetRef ref,
   Todo todo,
-) {
-  final todos = ref.read(todosProvider.notifier);
-  final twentyFourHour = MediaQuery.alwaysUse24HourFormatOf(context);
+) => showBrandedSheet<void>(
+  context,
+  (_) => _AttentionSheet(todo: todo, page: context, pageRef: ref),
+);
 
-  return showBrandedSheet<void>(context, (sheetContext) {
+class _AttentionSheet extends ConsumerWidget {
+  const _AttentionSheet({
+    required this.todo,
+    required this.page,
+    required this.pageRef,
+  });
+
+  /// The task as it stood when the sheet went up.
+  final Todo todo;
+
+  /// The page under the sheet, which outlives it: what an action that
+  /// opens something else is opened from, and read through.
+  final BuildContext page;
+  final WidgetRef pageRef;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Read afresh, since the pin changes the task while the sheet stays up,
+    // and may have written a rule's showing down.
+    final todo =
+        ref
+            .watch(todosProvider)
+            .value
+            ?.where((each) => each.key == this.todo.key)
+            .firstOrNull ??
+        this.todo;
+    final todos = ref.read(todosProvider.notifier);
+    final twentyFourHour = MediaQuery.alwaysUse24HourFormatOf(context);
+
     void choose(Future<void> Function() action) {
-      Navigator.of(sheetContext).pop();
+      Navigator.of(context).pop();
       action();
     }
 
@@ -39,13 +68,21 @@ Future<void> showAttentionSheet(
                   key: const ValueKey('attention-title'),
                 ),
               ),
+              // Pinning is no answer to the call, so the sheet stays up.
+              BrandedIconButton(
+                key: const ValueKey('attention-pin'),
+                icon: pinIconFor(todo),
+                label: pinLabelFor(todo),
+                size: BrandedIconSize.medium,
+                onTap: () => todos.togglePin(todo),
+              ),
               // The first line is all the sheet has room for; the rest is
               // read on the task's own screen, which this leads to.
               BrandedIconButton(
                 icon: Icons.visibility_outlined,
                 label: 'View',
                 size: BrandedIconSize.medium,
-                onTap: () => choose(() => openTask(context, todo)),
+                onTap: () => choose(() => openTask(page, todo)),
               ),
             ],
           ),
@@ -73,13 +110,13 @@ Future<void> showAttentionSheet(
           label: 'Snooze',
           detail: 'For a while, or until a time',
           icon: Icons.snooze_rounded,
-          onTap: () => choose(() => _snooze(context, ref, todo)),
+          onTap: () => choose(() => _snooze(page, pageRef, todo)),
         ),
         const BrandedDivider(),
         BrandedOptionRow(
           label: 'Not today',
           icon: Icons.event_rounded,
-          onTap: () => choose(() => moveTask(context, ref, todo)),
+          onTap: () => choose(() => moveTask(page, pageRef, todo)),
         ),
         const BrandedDivider(),
         BrandedOptionRow(
@@ -90,7 +127,7 @@ Future<void> showAttentionSheet(
         const SizedBox(height: 8),
       ],
     );
-  });
+  }
 }
 
 /// Asks how long, then puts the task off. The minute is counted from now

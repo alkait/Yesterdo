@@ -178,6 +178,54 @@ void main() {
     expect((tasks.single! as Map<String, Object?>)['title'], 'Call Sam');
   });
 
+  test('pinned tasks of today and tomorrow cross, time or no time', () async {
+    final plain = await store.insert(day: today, title: 'Plain');
+    await store.save(plain.withPinned(true));
+    final timed = await store.insert(
+      day: today + 1,
+      title: 'Timed',
+      due: const Due(minute: 9 * 60),
+    );
+    await store.save(timed.withPinned(true));
+    final later = await store.insert(day: today + 2, title: 'Later');
+    await store.save(later.withPinned(true));
+    final earlier = await store.insert(day: today - 1, title: 'Earlier');
+    await store.save(earlier.withPinned(true));
+    await store.insert(day: today, title: 'Not pinned');
+
+    final pinned = await planner.pinned(now: nine);
+    expect(pinned.map((pin) => pin.title), ['Plain', 'Timed']);
+    expect(pinned.first.payload, '$today:t1');
+    expect(pinned.first.dueAt, isNull);
+    expect(
+      pinned.first.toJson()['dayAt'],
+      DateTime(2026, 9, 4).millisecondsSinceEpoch,
+    );
+    expect(
+      pinned.last.dueAt,
+      DateTime(2026, 9, 5, 9, 0).millisecondsSinceEpoch,
+    );
+  });
+
+  test('a pinned task marked done no longer crosses', () async {
+    final todo = await store.insert(day: today, title: 'Plain');
+    await store.save(todo.withPinned(true));
+    expect(await planner.pinned(now: nine), hasLength(1));
+    final pinned = (await store.todosOn(today)).single;
+    await store.save(pinned.toggled(nine.millisecondsSinceEpoch));
+    expect(await planner.pinned(now: nine), isEmpty);
+  });
+
+  test('the sync hands the pinned tasks over with the rest', () async {
+    final todo = await store.insert(day: today, title: 'Plain');
+    await store.save(todo.withPinned(true));
+    final device = MemoryDeviceBridge();
+    await GlanceSync(planner, device, AppThemeChoice.ocean).refresh(now: nine);
+    final glance = jsonDecode(device.glances.single) as Map<String, Object?>;
+    final pinned = glance['pinned']! as List<Object?>;
+    expect((pinned.single! as Map<String, Object?>)['title'], 'Plain');
+  });
+
   test('the accent is written as a plain six-digit colour', () {
     expect(
       Glance(tasks: const [], choice: AppThemeChoice.ink).encode(),

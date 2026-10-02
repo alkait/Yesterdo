@@ -262,7 +262,7 @@ class Recurrence {
     required this.position,
     this.due,
   }) : assert(title != null || body != null, 'words, one way or the other'),
-       body = body ?? TaskBody.plain(title ?? '');
+       body = (body ?? TaskBody.plain(title ?? '')).unticked();
 
   factory Recurrence.fromRow(Map<String, Object?> row) => Recurrence(
     id: row['id']! as int,
@@ -280,6 +280,9 @@ class Recurrence {
   );
 
   final int id;
+
+  /// The words as written. A tick is a thing of the day, so a rule never
+  /// holds one: whatever it is built from, every item comes out open.
   final TaskBody body;
   final RepeatRule rule;
 
@@ -297,7 +300,7 @@ class Recurrence {
     required int position,
     Due? due,
   }) => <String, Object?>{
-    ...Todo.bodyColumns(body),
+    ...Todo.bodyColumns(body.unticked()),
     ...ruleColumns(rule),
     'position': position,
     ...due?.toRow() ?? Due.emptyRow,

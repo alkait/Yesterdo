@@ -7,6 +7,8 @@ import 'package:remind_me/data/app_database.dart';
 import 'package:remind_me/data/due.dart';
 import 'package:remind_me/data/reminder_sound.dart';
 import 'package:remind_me/data/repeat_rule.dart';
+import 'package:remind_me/data/rich/styled_text.dart';
+import 'package:remind_me/data/rich/task_body.dart';
 import 'package:remind_me/data/sqlite_todo_store.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -277,6 +279,65 @@ void main() {
         toTop: true,
       );
       expect((await titlesOn(day + 3)).first, 'Take the pills');
+    });
+
+    test('a rule holds no tick, and a showing keeps its own', () async {
+      Block item(String text, {bool checked = false}) => Block(
+        kind: BlockKind.check,
+        content: StyledText(text),
+        checked: checked,
+      );
+      final id = await store.insertSeries(
+        day: day,
+        body: TaskBody([item('Milk', checked: true), item('Bread')]),
+        rule: RepeatRule.daily(day),
+      );
+      final shown = (await store.todosOn(day)).single;
+      expect(shown.body.checklistProgress, (0, 2), reason: 'a rule is open');
+
+      // Ticked on the day, then the series is given new words, ticks and
+      // all, the way the old editor could.
+      final written = await store.materialize(day: day, todo: shown);
+      await store.save(written.withBody(written.body.ticked(1)));
+      await store.saveSeries(
+        recurrenceId: id,
+        body: TaskBody([
+          item('Milk', checked: true),
+          item('Bread'),
+          item('Jam'),
+        ]),
+        rule: RepeatRule.daily(day),
+      );
+
+      final today = (await store.todosOn(day)).single.body;
+      expect(today.blocks.map((b) => b.text), ['Milk', 'Jam', 'Bread']);
+      expect(today.checklistProgress, (1, 3), reason: 'its own tick, kept');
+      final tomorrow = (await store.todosOn(day + 1)).single.body;
+      expect(tomorrow.blocks.map((b) => b.text), ['Milk', 'Bread', 'Jam']);
+      expect(tomorrow.checklistProgress, (0, 3));
+    });
+
+    test('a pin is kept, and goes with a task to another day', () async {
+      final milk = await store.insert(day: day, title: 'Buy milk');
+      await store.save(milk.withPinned(true));
+      final pinned = (await store.todosOn(day)).single;
+      expect(pinned.pinned, isTrue);
+      await store.moveToDay(fromDay: day, toDay: day + 3, todo: pinned);
+      expect((await store.todosOn(day + 3)).single.pinned, isTrue);
+
+      await store.insertSeries(
+        day: day,
+        title: 'Take the pills',
+        rule: RepeatRule.daily(day),
+      );
+      final showing = await store.materialize(
+        day: day,
+        todo: (await store.todosOn(day)).single.withPinned(true),
+      );
+      await store.moveToDay(fromDay: day, toDay: day + 1, todo: showing);
+      final there = await store.todosOn(day + 1);
+      expect(there.singleWhere((t) => !t.repeats).pinned, isTrue);
+      expect(there.singleWhere((t) => t.repeats).pinned, isFalse);
     });
 
     test('a showing of a rule is hidden here and copied there', () async {

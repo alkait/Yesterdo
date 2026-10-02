@@ -56,6 +56,9 @@ class MemoryDeviceBridge implements DeviceBridge {
   Future<String> imagesDirectory() => Future.value(directory);
 
   @override
+  Future<String> appVersion() => Future.value('1.2.3');
+
+  @override
   Future<String?> pickImage(ImageSource source) {
     picked.add(source);
     return Future.value(toPick.isEmpty ? null : toPick.removeAt(0));

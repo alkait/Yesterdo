@@ -527,10 +527,12 @@ void main() {
     await tester.pumpWidget(bootApp());
     await tester.pumpAndSettle();
     await openEditor(tester);
-    await typeInto(tester, 0, 'Shopping\n- Milk\n- Bread\n[x] Jam');
+    await typeInto(tester, 0, 'Shopping\n- Milk\n- Bread\n- Jam');
     await tester.pumpAndSettle();
     await save(tester);
     await tester.tap(find.text('Shopping'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Jam'));
     await tester.pumpAndSettle();
 
     // Milk dragged to the very bottom lands above Jam, which holds the foot.
@@ -573,7 +575,7 @@ void main() {
     expect(body.blocks.every((b) => b.kind == BlockKind.paragraph), isTrue);
   });
 
-  testWidgets('a pasted list becomes a checklist, ticks and all', (
+  testWidgets('a pasted list becomes a checklist, every item open', (
     tester,
   ) async {
     await tester.pumpWidget(bootApp());
@@ -594,8 +596,57 @@ void main() {
       'Jam',
     ]);
     expect(body.blocks.first.kind, BlockKind.paragraph);
-    expect(body.checklistProgress, (1, 4));
-    expect(body.blocks[3].checked, isTrue);
+    expect(body.checklistProgress, (0, 4), reason: 'a pasted tick is dropped');
+  });
+
+  testWidgets('the editor draws a ticked item open and keeps its tick', (
+    tester,
+  ) async {
+    await tester.pumpWidget(bootApp());
+    await tester.pumpAndSettle();
+    await openEditor(tester);
+    await typeInto(tester, 0, 'Shopping\n- Milk\n- Bread');
+    await tester.pumpAndSettle();
+    await save(tester);
+    await tester.tap(find.text('Shopping'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Milk'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Edit'));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widgetList<BrandedCheckBox>(find.byType(BrandedCheckBox))
+          .map((box) => box.checked),
+      [false, false],
+    );
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Back'));
+    await tester.pumpAndSettle();
+    expect(tileFor(tester, 'Shopping').todo.body.checklistProgress, (
+      1,
+      2,
+    ), reason: 'the tick made on the read view outlives the edit');
+  });
+
+  test('a body unticked is as it was written', () {
+    Block item(String text) =>
+        Block(kind: BlockKind.check, content: StyledText(text));
+    final written = TaskBody([item('Milk'), item('Bread'), item('Jam')]);
+    final ticked = written.ticked(0).ticked(0);
+    expect(ticked.blocks.map((b) => b.text), ['Jam', 'Milk', 'Bread']);
+    final open = ticked.unticked();
+    expect(open.blocks.map((b) => b.text), ['Milk', 'Bread', 'Jam']);
+    expect(open.checklistProgress, (0, 3));
+    expect(open.blocks.every((b) => b.home == null), isTrue);
+
+    // New words take the old ticks where the item is still there.
+    final rewritten = TaskBody([item('Eggs'), item('Bread'), item('Jam')]);
+    final kept = rewritten.withTicksOf(ticked);
+    expect(kept.blocks.map((b) => b.text), ['Eggs', 'Jam', 'Bread']);
+    expect(kept.blocks.map((b) => b.checked), [false, false, true]);
   });
 
   testWidgets('a list pasted into an empty block starts with an item', (

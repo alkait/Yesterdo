@@ -161,6 +161,10 @@ final imagesDirectoryProvider = Provider<String>(
   (ref) => throw StateError('imagesDirectoryProvider must be overridden'),
 );
 
+/// The version the app was built as, read from the device in `main` before
+/// the first frame.
+final appVersionProvider = Provider<String>((ref) => '');
+
 /// Whether the app's own sounds were on last time, bound in `main` before
 /// the first frame.
 final initialAppSoundsProvider = Provider<bool>((ref) => true);

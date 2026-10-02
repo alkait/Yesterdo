@@ -18,12 +18,14 @@ abstract class TodoStore {
 
   /// Writes a new one-off, at the top of the day unless a [position] is
   /// given. Words come as a [body], or as plain [title] words for short.
+  /// [pinned] is for a task that takes the place of a pinned one.
   Future<Todo> insert({
     required int day,
     String? title,
     TaskBody? body,
     Due? due,
     int? position,
+    bool pinned = false,
   });
 
   /// Starts a repeating task, at the top of [day] unless a [position] is
@@ -55,8 +57,8 @@ abstract class TodoStore {
   /// above everything on it with [toTop]. A one-off simply changes day. A
   /// rule cannot have one showing moved, so its showing on [fromDay] is
   /// hidden and a one-off copy of the words and time is written on [toDay];
-  /// the copy is no longer part of the series. Returns the task as it now
-  /// stands on [toDay].
+  /// the copy is no longer part of the series. A pin goes with the task
+  /// either way. Returns the task as it now stands on [toDay].
   Future<Todo> moveToDay({
     required int fromDay,
     required int toDay,
@@ -75,7 +77,9 @@ abstract class TodoStore {
   Future<void> startSeriesAfter({required int recurrenceId, required int day});
 
   /// Rewrites the series. Words, rule and time all belong to it, so every
-  /// written-down occurrence takes the new ones too.
+  /// written-down occurrence takes the new ones too. Ticks do not: the rule
+  /// takes the words open, and each occurrence keeps its own ticks on
+  /// them, through [TaskBody.withTicksOf].
   Future<void> saveSeries({
     required int recurrenceId,
     String? title,

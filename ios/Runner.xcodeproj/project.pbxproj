@@ -12,6 +12,7 @@
 		AA00000000000000000000C3 /* Glance.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000000B1 /* Glance.swift */; };
 		AA00000000000000000000C4 /* YesterdoWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000000B3 /* YesterdoWidget.swift */; };
 		AA00000000000000000000C5 /* GlanceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000000B4 /* GlanceView.swift */; };
+		AA00000000000000000000C7 /* PinnedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000000B9 /* PinnedView.swift */; };
 		AA00000000000000000000C6 /* YesterdoWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AA00000000000000000000B8 /* YesterdoWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */ = {isa = PBXBuildFile; fileRef = 1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */; };
 		331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 331C807B294A618700263BE5 /* RunnerTests.swift */; };
@@ -83,6 +84,7 @@
 		AA00000000000000000000B2 /* GlanceBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlanceBridge.swift; sourceTree = "<group>"; };
 		AA00000000000000000000B3 /* YesterdoWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YesterdoWidget.swift; sourceTree = "<group>"; };
 		AA00000000000000000000B4 /* GlanceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlanceView.swift; sourceTree = "<group>"; };
+		AA00000000000000000000B9 /* PinnedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinnedView.swift; sourceTree = "<group>"; };
 		AA00000000000000000000B5 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AA00000000000000000000B6 /* YesterdoWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = YesterdoWidget.entitlements; sourceTree = "<group>"; };
 		AA00000000000000000000B7 /* Runner.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Runner.entitlements; sourceTree = "<group>"; };
@@ -143,6 +145,7 @@
 			children = (
 				AA00000000000000000000B3 /* YesterdoWidget.swift */,
 				AA00000000000000000000B4 /* GlanceView.swift */,
+				AA00000000000000000000B9 /* PinnedView.swift */,
 				AA00000000000000000000B5 /* Info.plist */,
 				AA00000000000000000000B6 /* YesterdoWidget.entitlements */,
 			);
@@ -419,6 +422,7 @@
 			files = (
 				AA00000000000000000000C4 /* YesterdoWidget.swift in Sources */,
 				AA00000000000000000000C5 /* GlanceView.swift in Sources */,
+				AA00000000000000000000C7 /* PinnedView.swift in Sources */,
 				AA00000000000000000000C3 /* Glance.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

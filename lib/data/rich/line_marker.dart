@@ -1,5 +1,6 @@
 /// A bullet or a box at the head of a pasted line, which says what the line
-/// is: an item on a checklist, ticked or not. A list pasted in from
+/// is: an item on a checklist, ticked or not. The editor takes every one
+/// in open, whatever [checked] says. A list pasted in from
 /// elsewhere is still a list, so its bullets become items too. The one
 /// place that knows the marks.
 class LineMarker {
