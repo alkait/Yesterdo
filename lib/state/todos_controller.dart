@@ -26,6 +26,7 @@ class TodosController extends AsyncNotifier<List<Todo>> {
   Future<List<Todo>> build() async {
     ref.onDispose(() => _nextCall?.cancel());
     _day = ref.watch(selectedDayProvider).epochDay;
+    await _carryForward();
     final todos = await ref.read(todoStoreProvider).todosOn(_day, now: _now);
     _armFor(todos);
     return todos;
@@ -59,6 +60,7 @@ class TodosController extends AsyncNotifier<List<Todo>> {
       body: draft.body,
       due: draft.due,
       pinned: draft.pinned,
+      carryOver: draft.carryOver,
     );
     if (!ref.mounted) return todo.key;
     // Written for another day, it belongs to no list on screen. The banner
@@ -138,6 +140,17 @@ class TodosController extends AsyncNotifier<List<Todo>> {
     await _syncDevice();
   }
 
+  /// Sets a task to carry itself over while undone, or stops it. Nothing
+  /// for a rule, which comes back on its own.
+  Future<void> toggleCarryOver(Todo todo) async {
+    if (todo.repeats) return;
+    final updated = todo.withCarryOver(!todo.carryOver);
+    await _store.save(updated);
+    if (!ref.mounted) return;
+    _show(_replacing(updated));
+    await _syncDevice();
+  }
+
   /// Applies an edit. Words, time and rule all belong to the series, so
   /// editing a repeating task changes every day it appears on. Says which
   /// task it is afterwards, by key: an edit can make a one-off of a rule or
@@ -169,6 +182,7 @@ class TodosController extends AsyncNotifier<List<Todo>> {
         due: draft.due,
         position: todo.position,
         pinned: draft.pinned,
+        carryOver: draft.carryOver,
       );
       key = written.key;
     } else if (draft.repeat != null) {
@@ -189,7 +203,8 @@ class TodosController extends AsyncNotifier<List<Todo>> {
       final saved = todo
           .withBody(draft.body)
           .withDue(draft.due)
-          .withPinned(draft.pinned);
+          .withPinned(draft.pinned)
+          .withCarryOver(draft.carryOver);
       await _store.save(saved);
       // A day picked in the editor sends it on, the same way Not today does.
       if (draft.day != _day) {
@@ -322,7 +337,13 @@ class TodosController extends AsyncNotifier<List<Todo>> {
     }
   }
 
+  /// Whatever was left to carry itself over is brought on to today first,
+  /// so a day is only ever read as it stands. Nothing is said about it: a
+  /// carried task is simply there, at the head of today.
+  Future<void> _carryForward() => _store.carryForward(today: _now.epochDay);
+
   Future<void> _reload() async {
+    await _carryForward();
     final todos = await _store.todosOn(_day, now: _now);
     if (!ref.mounted) return;
     _show(todos);

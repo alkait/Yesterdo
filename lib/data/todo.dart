@@ -21,6 +21,7 @@ class Todo {
     this.due,
     this.dismissed = false,
     this.pinned = false,
+    this.carryOver = false,
   }) : assert(title != null || body != null, 'words, one way or the other'),
        body = body ?? TaskBody.plain(title ?? '');
 
@@ -35,6 +36,7 @@ class Todo {
     due: Due.fromRow(row),
     dismissed: (row['dismissed'] as int? ?? 0) == 1,
     pinned: (row['pinned'] as int? ?? 0) == 1,
+    carryOver: (row['carry_over'] as int? ?? 0) == 1,
   );
 
   /// The words as stored: the body's JSON when there is one, else the plain
@@ -88,6 +90,11 @@ class Todo {
   /// pinned for its day alone.
   final bool pinned;
 
+  /// Moves itself on to today when left undone on an earlier day, and keeps
+  /// doing so until it is done. A one-off's alone: a rule comes back on its
+  /// own, and its misses are Left behind's.
+  final bool carryOver;
+
   bool get isStored => id != null;
   bool get repeats => recurrenceId != null;
 
@@ -126,6 +133,11 @@ class Todo {
 
   Todo withPinned(bool value) => copyWith(pinned: value);
 
+  Todo withCarryOver(bool value) => copyWith(carryOver: value);
+
+  /// Whether it will move itself on if [day] passes with it undone.
+  bool get carries => carryOver && !done && !repeats && !hidden;
+
   /// Given a new time. A change of time is a new call, so a wave-away from
   /// the old one no longer holds.
   Todo withDue(Due? newDue) => copyWith(
@@ -159,6 +171,7 @@ class Todo {
     bool clearDue = false,
     bool? dismissed,
     bool? pinned,
+    bool? carryOver,
   }) => Todo(
     id: id ?? this.id,
     body: body ?? this.body,
@@ -170,6 +183,7 @@ class Todo {
     due: clearDue ? null : (due ?? this.due),
     dismissed: dismissed ?? this.dismissed,
     pinned: pinned ?? this.pinned,
+    carryOver: carryOver ?? this.carryOver,
   );
 
   /// The two columns the words are kept in: the body, and the plain title
@@ -190,6 +204,7 @@ class Todo {
     ...due?.toRow() ?? Due.emptyRow,
     'dismissed': dismissed ? 1 : 0,
     'pinned': pinned ? 1 : 0,
+    'carry_over': carryOver ? 1 : 0,
   };
 }
 

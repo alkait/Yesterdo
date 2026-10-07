@@ -40,6 +40,9 @@ final selectedDayProvider = NotifierProvider<SelectedDay, DateTime>(
   SelectedDay.new,
 );
 
+/// The day the list was sent from by a jump, for Back to return to.
+final sentFromProvider = NotifierProvider<SentFrom, DateTime?>(SentFrom.new);
+
 final todosProvider = AsyncNotifierProvider<TodosController, List<Todo>>(
   TodosController.new,
 );

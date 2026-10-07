@@ -13,6 +13,7 @@ class TaskDraft {
     this.due,
     this.repeat,
     this.pinned = false,
+    this.carryOver = false,
   }) : assert(title != null || body != null, 'words, one way or the other'),
        body = (body ?? TaskBody.plain(title ?? '')).trimmed();
 
@@ -27,6 +28,10 @@ class TaskDraft {
   /// Pinned on [day]. For a repeating task that is its showing on the day,
   /// not the rule.
   final bool pinned;
+
+  /// Moves itself on to today when left undone on an earlier day. A
+  /// one-off's alone: a repeating task has no use for it.
+  final bool carryOver;
 
   /// The words stripped of every style.
   String get title => body.plainText;

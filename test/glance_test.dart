@@ -207,6 +207,24 @@ void main() {
     );
   });
 
+  test('a pinned task that carries itself over is on tomorrow too', () async {
+    final todo = await store.insert(
+      day: today,
+      title: 'Carries',
+      carryOver: true,
+    );
+    await store.save(todo.withPinned(true));
+    final plain = await store.insert(day: today, title: 'Plain');
+    await store.save(plain.withPinned(true));
+
+    final pinned = await planner.pinned(now: nine);
+    expect(pinned.map((pin) => '${pin.day - today} ${pin.title}'), [
+      '0 Plain',
+      '0 Carries',
+      '1 Carries',
+    ]);
+  });
+
   test('a pinned task marked done no longer crosses', () async {
     final todo = await store.insert(day: today, title: 'Plain');
     await store.save(todo.withPinned(true));

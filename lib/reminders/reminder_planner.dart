@@ -23,9 +23,12 @@ class ReminderPlanner {
     final planned = <PlannedReminder>[];
 
     // A day-ahead reminder for tomorrow fires today, so the window starts a
-    // day early and the past is filtered out below.
-    for (var day = today; day <= today + daysAhead; day++) {
-      for (final todo in await _store.todosOn(day)) {
+    // day early and the past is filtered out below. The days are read as
+    // they will stand, so a task that carries itself over is reminded of on
+    // the days to come too, whether or not the app is opened between.
+    final ahead = await _store.daysAhead(today: today, last: today + daysAhead);
+    for (final MapEntry(key: day, value: todos) in ahead.entries) {
+      for (final todo in todos) {
         if (todo.done || todo.dismissed) continue;
         final due = todo.due;
         if (due == null) continue;

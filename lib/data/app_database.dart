@@ -4,7 +4,7 @@ import 'package:sqflite/sqflite.dart';
 /// Owns the on-device SQLite file. Nothing leaves the device.
 abstract final class AppDatabase {
   static const _fileName = 'remind_me.db';
-  static const _version = 10;
+  static const _version = 11;
 
   static Future<Database> open() async {
     final path = p.join(await getDatabasesPath(), _fileName);
@@ -33,7 +33,8 @@ CREATE TABLE todos (
   sound TEXT,
   dismissed INTEGER NOT NULL DEFAULT 0,
   body TEXT,
-  pinned INTEGER NOT NULL DEFAULT 0
+  pinned INTEGER NOT NULL DEFAULT 0,
+  carry_over INTEGER NOT NULL DEFAULT 0
 )''');
     await db.execute('CREATE INDEX todos_day_idx ON todos (day)');
     await _createRecurrences(db);
@@ -46,7 +47,7 @@ CREATE TABLE todos (
   /// no due times. Version 5 held one reminder per task and no sound.
   /// Version 6 held plain words only. Version 7 had no custom repeats.
   /// Version 8 could not have a rule's missed showings ignored. Version 9
-  /// could not pin a task.
+  /// could not pin a task. Version 10 could not carry a task over.
   static Future<void> upgradeSchema(Database db, int from, int to) async {
     if (from < 2) {
       await db.execute('ALTER TABLE todos ADD COLUMN recurrence_id INTEGER');
@@ -79,6 +80,11 @@ CREATE TABLE todos (
     if (from < 10) {
       await db.execute(
         'ALTER TABLE todos ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0',
+      );
+    }
+    if (from < 11) {
+      await db.execute(
+        'ALTER TABLE todos ADD COLUMN carry_over INTEGER NOT NULL DEFAULT 0',
       );
     }
   }

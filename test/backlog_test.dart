@@ -4,7 +4,7 @@ import 'package:remind_me/core/day.dart';
 import 'package:remind_me/data/repeat_rule.dart';
 import 'package:remind_me/state/backlog.dart';
 
-import 'app_flow_test.dart' show at, bootApp, pumpUntilTile, tileFor;
+import 'app_flow_test.dart' show at, bootApp, pumpUntilTile, stepDay, tileFor;
 import 'support/memory_todo_store.dart';
 
 /// What was left undone on earlier days, raised on today.
@@ -26,6 +26,8 @@ void main() {
     );
     // Too long ago to be chased.
     await store.insert(day: today - 40, title: 'Ancient');
+    // On its way to today, not left behind.
+    await store.insert(day: today - 1, title: 'Carried', carryOver: true);
     return store;
   }
 
@@ -53,6 +55,7 @@ void main() {
     expect(find.text('Left behind'), findsOneWidget);
     expect(find.text('Ancient'), findsNothing);
     expect(find.text('Walk'), findsNothing);
+    expect(find.text('Carried'), findsNothing);
     expect(
       find.text('Missed on 3 earlier days'),
       findsOneWidget,
@@ -114,8 +117,7 @@ void main() {
     await tester.pumpWidget(bootApp(store: store, clock: () => at(9, 0)));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('backlog-row')), findsOneWidget);
-    await tester.tap(find.byIcon(Icons.chevron_right_rounded).first);
-    await tester.pumpAndSettle();
+    await stepDay(tester, 1);
     expect(find.byKey(const ValueKey('backlog-row')), findsNothing);
   });
 

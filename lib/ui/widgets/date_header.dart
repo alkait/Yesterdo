@@ -6,9 +6,12 @@ import '../../state/providers.dart';
 import '../branded/branded.dart';
 import 'month_picker_sheet.dart';
 
-/// Top bar: the day, centred, with a step arrow either side. Tapping the
-/// date opens the month grid. Told which day it is for, so that while a day
-/// slides out it keeps showing its own date rather than the new one.
+/// Top bar: the day, centred. Tapping the date opens the month grid; a
+/// swipe across the page is the way to the next or the previous day, so
+/// there are no arrows, which read as Back. When the list was sent here by
+/// a jump, Back on the left returns to the day it was sent from. Told which
+/// day it is for, so that while a day slides out it keeps showing its own
+/// date rather than the new one.
 class DateHeader extends ConsumerWidget {
   const DateHeader({super.key, required this.date});
 
@@ -16,19 +19,16 @@ class DateHeader extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final day = ref.read(selectedDayProvider.notifier);
+    final sentFrom = ref.watch(sentFromProvider);
 
     return BrandedAppBar(
-      leading: BrandedIconButton(
-        icon: Icons.chevron_left_rounded,
-        label: 'Previous day',
-        onTap: () => day.shift(-1),
-      ),
-      trailing: BrandedIconButton(
-        icon: Icons.chevron_right_rounded,
-        label: 'Next day',
-        onTap: () => day.shift(1),
-      ),
+      leading: sentFrom == null
+          ? null
+          : BrandedTextButton(
+              key: const ValueKey('day-back'),
+              label: 'Back',
+              onTap: () => ref.read(selectedDayProvider.notifier).goBack(),
+            ),
       onTapCenter: () => showMonthPickerSheet(context, ref),
       center: Column(
         mainAxisSize: MainAxisSize.min,

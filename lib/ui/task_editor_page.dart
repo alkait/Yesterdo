@@ -19,7 +19,8 @@ import 'widgets/repeat_picker_sheet.dart';
 import 'widgets/time_picker_sheet.dart';
 
 /// The full screen where a task's words are written, its time and repeat
-/// are chosen, and it is pinned or let go. Adding and editing both land here, and it hands the draft
+/// are chosen, it is pinned or let go, and it is set to carry itself over
+/// or not. Adding and editing both land here, and it hands the draft
 /// back through the navigator. The words are styled in place, with the
 /// format bar over the keyboard.
 class TaskEditorPage extends ConsumerStatefulWidget {
@@ -31,6 +32,7 @@ class TaskEditorPage extends ConsumerStatefulWidget {
     this.initialDue,
     this.initialRepeat,
     this.initialPinned = false,
+    this.initialCarryOver = false,
     this.pinnable = true,
   });
 
@@ -43,8 +45,10 @@ class TaskEditorPage extends ConsumerStatefulWidget {
   final Due? initialDue;
   final RepeatRule? initialRepeat;
   final bool initialPinned;
+  final bool initialCarryOver;
 
-  /// Whether a pin is offered. A done task has none to offer.
+  /// Whether a pin, and with it carrying over, is offered. A done task has
+  /// neither to offer.
   final bool pinnable;
 
   @override
@@ -61,6 +65,7 @@ class _TaskEditorPageState extends ConsumerState<TaskEditorPage> {
   late Due? _due = widget.initialDue;
   late RepeatRule? _repeat = widget.initialRepeat;
   late bool _pinned = widget.initialPinned;
+  late bool _carryOver = widget.initialCarryOver;
   late final _arrival = ArrivalFocus(_focusEditor);
 
   /// Whether there is anything to save. Save stays greyed until there is.
@@ -99,6 +104,8 @@ class _TaskEditorPageState extends ConsumerState<TaskEditorPage> {
         due: _due,
         repeat: _repeat,
         pinned: _pinned,
+        // A repeating task comes back on its own, so it carries nothing.
+        carryOver: _repeat == null && _carryOver,
       ),
     );
   }
@@ -265,6 +272,19 @@ class _TaskEditorPageState extends ConsumerState<TaskEditorPage> {
                     value: _pinned,
                     onChanged: (value) => setState(() => _pinned = value),
                   ),
+                  // A repeating task comes back on its own, so like the Date
+                  // row this one has nothing to say for it.
+                  if (_repeat == null) ...[
+                    const BrandedDivider(),
+                    BrandedToggleRow(
+                      key: const ValueKey('carry-row'),
+                      label: 'Carry over',
+                      icon: Icons.arrow_forward_rounded,
+                      detail: 'Moves to today if left undone',
+                      value: _carryOver,
+                      onChanged: (value) => setState(() => _carryOver = value),
+                    ),
+                  ],
                 ],
               ],
             ),

@@ -233,16 +233,21 @@ Future<DateTime> stepToDay(
   return target;
 }
 
-/// Steps the day header forward or back.
+/// Turns the page forward or back, a swipe a day, settling after each.
 Future<void> stepDay(WidgetTester tester, int days) async {
-  final arrow = days > 0
-      ? Icons.chevron_right_rounded
-      : Icons.chevron_left_rounded;
   for (var step = 0; step < days.abs(); step++) {
-    await tester.tap(find.byIcon(arrow).first);
+    await swipeDay(tester, days > 0 ? 1 : -1);
     await tester.pumpAndSettle();
   }
 }
+
+/// One swipe across the day header: leftwards for tomorrow, rightwards
+/// for yesterday. Not settled, so a test can look mid-turn.
+Future<void> swipeDay(WidgetTester tester, int direction) => tester.fling(
+  find.byType(DateHeader).first,
+  Offset(direction > 0 ? -300 : 300, 0),
+  800,
+);
 
 /// How much of the editor's prompt is showing. It is always in the tree, so
 /// that the field beside it never moves; only its opacity says whether it is
@@ -812,10 +817,8 @@ void main() {
 
     // The new order survives leaving the day and coming back, so it reached
     // the store rather than living only in memory.
-    await tester.tap(find.byIcon(Icons.chevron_right_rounded).first);
-    await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.chevron_left_rounded).first);
-    await tester.pumpAndSettle();
+    await stepDay(tester, 1);
+    await stepDay(tester, -1);
 
     expect(visibleTitles(tester), ['Call Sam', 'Buy milk', 'Post letter']);
   });
@@ -2225,8 +2228,7 @@ void main() {
     await tester.pumpAndSettle();
     await addTask(tester, 'Buy milk');
 
-    await tester.tap(find.byIcon(Icons.chevron_right_rounded).first);
-    await tester.pump();
+    await swipeDay(tester, 1);
     await tester.pump(Brand.turn ~/ 2);
 
     // Both pages are on screen midway, the old one moving off.
@@ -2244,8 +2246,7 @@ void main() {
     expect(find.byType(DateHeader), findsOneWidget);
     expect(find.text('Tomorrow'), findsOneWidget);
 
-    await tester.tap(find.byIcon(Icons.chevron_left_rounded).first);
-    await tester.pump();
+    await swipeDay(tester, -1);
     await tester.pump(Brand.turn ~/ 2);
     expect(
       tester.getCenter(find.text('Today')).dx,
@@ -2255,27 +2256,70 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('arrows move a day at a time and each day keeps its own list', (
+  testWidgets('a swipe moves a day at a time and each day keeps its own list', (
     tester,
   ) async {
     await tester.pumpWidget(bootApp());
     await tester.pumpAndSettle();
 
     await addTask(tester, 'Buy milk');
+    // No arrows: they read as Back. The swipe is the way about.
+    expect(find.byIcon(Icons.chevron_right_rounded), findsNothing);
+    expect(find.byIcon(Icons.chevron_left_rounded), findsNothing);
 
-    await tester.tap(find.byIcon(Icons.chevron_right_rounded).first);
-    await tester.pumpAndSettle();
+    await stepDay(tester, 1);
     expect(find.text('Tomorrow'), findsOneWidget);
     expect(find.text('Nothing planned'), findsOneWidget);
 
-    await tester.tap(find.byIcon(Icons.chevron_left_rounded).first);
-    await tester.pumpAndSettle();
+    await stepDay(tester, -1);
     expect(find.text('Today'), findsOneWidget);
     expect(visibleTitles(tester), ['Buy milk']);
 
-    await tester.tap(find.byIcon(Icons.chevron_left_rounded).first);
+    await stepDay(tester, -1);
+    expect(find.text('Yesterday'), findsOneWidget);
+    // Turning is its own way about, so there is nothing to go back to.
+    expect(find.byKey(const ValueKey('day-back')), findsNothing);
+  });
+
+  testWidgets('a day reached from the month grid offers Back to return', (
+    tester,
+  ) async {
+    await tester.pumpWidget(bootApp());
+    await tester.pumpAndSettle();
+    await addTask(tester, 'Buy milk');
+    expect(find.byKey(const ValueKey('day-back')), findsNothing);
+
+    await stepDay(tester, -1);
+    expect(find.text('Yesterday'), findsOneWidget);
+
+    // Five days on, from yesterday.
+    final target = todayDate().epochDay + 4;
+    await tester.tap(find.byType(DateHeader));
+    await tester.pumpAndSettle();
+    if (find.byKey(ValueKey('pick-day-$target')).evaluate().isEmpty) {
+      await tester.tap(find.byIcon(Icons.chevron_right_rounded).last);
+      await tester.pumpAndSettle();
+    }
+    await tester.tap(find.byKey(ValueKey('pick-day-$target')));
+    await tester.pumpAndSettle();
+    expect(find.text('Yesterday'), findsNothing);
+    expect(find.byKey(const ValueKey('day-back')), findsOneWidget);
+
+    // Back returns to where the list was sent from, and then is gone.
+    await tester.tap(find.byKey(const ValueKey('day-back')));
     await tester.pumpAndSettle();
     expect(find.text('Yesterday'), findsOneWidget);
+    expect(find.byKey(const ValueKey('day-back')), findsNothing);
+
+    // A swipe after a jump lets go of the way back.
+    await tester.tap(find.byType(DateHeader));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Today').last);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('day-back')), findsOneWidget);
+    await stepDay(tester, 1);
+    expect(find.text('Tomorrow'), findsOneWidget);
+    expect(find.byKey(const ValueKey('day-back')), findsNothing);
   });
 
   testWidgets('tapping the date opens a month grid that jumps to a day', (
@@ -3395,6 +3439,78 @@ void main() {
 
       expect(tileFor(tester, 'Take the pills').todo.pinned, isTrue);
       expect((await store.todosOn(today + 1)).single.pinned, isFalse);
+    });
+
+    testWidgets('a task set to carry over in the editor is written so', (
+      tester,
+    ) async {
+      final store = MemoryTodoStore();
+      await tester.pumpWidget(bootApp(store: store));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Add a task'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'Post letter');
+      await tester.pump();
+      await tester.ensureVisible(find.byKey(const ValueKey('carry-row')));
+      await tester.tap(find.byKey(const ValueKey('carry-row')));
+      await tester.pump();
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+      expect(tileFor(tester, 'Post letter').todo.carryOver, isTrue);
+
+      // A repeating task has no carry over to offer, and loses it.
+      await actOn(tester, 'Post letter', 'Edit');
+      expect(find.byKey(const ValueKey('carry-row')), findsOneWidget);
+      await chooseRepeat(tester, 'Every day');
+      expect(find.byKey(const ValueKey('carry-row')), findsNothing);
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+      expect(tileFor(tester, 'Post letter').todo.carryOver, isFalse);
+    });
+
+    testWidgets('carry over is worked on the task\'s own screen', (
+      tester,
+    ) async {
+      final store = MemoryTodoStore();
+      await tester.pumpWidget(bootApp(store: store));
+      await tester.pumpAndSettle();
+      await addTask(tester, 'Post letter');
+      await addTask(tester, 'Take the pills', repeat: 'Every day');
+      await tester.tap(find.text('Post letter'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('carry-over')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Back'));
+      await tester.pumpAndSettle();
+      expect(tileFor(tester, 'Post letter').todo.carryOver, isTrue);
+
+      await tester.tap(find.text('Take the pills'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('carry-over')), findsNothing);
+      await tester.tap(find.text('Back'));
+      await tester.pumpAndSettle();
+
+      // Done has nothing to offer either.
+      await tester.tap(circleOn('Post letter'));
+      await tester.pump(reorderDelay);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Post letter'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('carry-over')), findsNothing);
+    });
+
+    testWidgets('a task left undone on an earlier day heads today', (
+      tester,
+    ) async {
+      final store = MemoryTodoStore();
+      await store.insert(day: today - 2, title: 'Carried', carryOver: true);
+      await store.insert(day: today - 1, title: 'Left', carryOver: false);
+      await store.insert(day: today, title: 'Written today');
+      await tester.pumpWidget(bootApp(store: store, clock: () => at(9, 0)));
+      await tester.pumpAndSettle();
+      expect(visibleTitles(tester), ['Carried', 'Written today']);
+      expect(await store.todosOn(today - 2), isEmpty);
+      expect(find.text('1 left from an earlier day'), findsOneWidget);
     });
 
     testWidgets('a drag keeps to its own side of the pins', (tester) async {

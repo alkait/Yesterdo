@@ -40,9 +40,11 @@ only the rules for working on it.
   cannot be gone back on. The build number after the `+` goes up by one
   every time.
 - Deploy means run `tool/deploy.sh` and answer with the link it prints. It
-  builds an ad hoc IPA through `ios/ExportOptions.plist` and hands it to
-  Diawi. Every deploy gives a new link.
-- The Diawi token is `DIAWI_TOKEN` in `.env`, which git ignores. It is
+  builds an ad hoc IPA through `ios/ExportOptions.plist` and uploads it to
+  the ios-app-hoster on the Pi (`~/Documents/code/alkait/ios-app-hoster`,
+  served at `https://ios-apps.alkait.xyz`). Every deploy gives a new link,
+  and the page behind it lists the earlier builds too.
+- The hoster token is `HOSTER_TOKEN` in `.env`, which git ignores. It is
   never committed or written into a reply.
 - The link installs only on devices registered with the team. A new device
   is registered first, then the app is deployed again.
@@ -84,6 +86,16 @@ only the rules for working on it.
   reads calling, pinned, open, done; that order is `compareTodos` and
   `todoOrderOn`, and a drag keeps to its own band. A pin goes with a task
   to another day.
+- Carry over is a one-off's own flag, `carryOver`, never a rule's. A task
+  left undone with it on is brought to the head of today by
+  `TodoStore.carryForward`, however long ago it was left, before any day
+  is read: the controller runs it on build and on every reload, and nothing
+  announces it. `composeCarryForward` and `composeDaysAhead` are the one
+  place each lives, so both stores answer alike. The planners read the days
+  ahead through `daysAhead`, so a carried task is reminded of and pinned
+  on tomorrow before the app is opened; Due now is not read ahead, since a
+  widget cannot tell one showing from the next. Left behind passes a
+  carrying task over.
 - `Todo.id` is null while a task is only projected. Key widgets, swipe state
   and sort ties on `Todo.key`, never on the id.
 - Questions about a rule's showings, such as whether it has any before or
@@ -226,6 +238,9 @@ lands in one place and shows up everywhere.
   never the rule. On the sheet it toggles and the sheet stays up,
   so the sheet reads its task afresh from `todosProvider`. A done task and
   one opened from Left behind offer no pin.
+- Carry over is a switch under Pin, in the editor and on the read view,
+  and nowhere else. It is absent for a done task and, like Date, for a
+  repeating one; choosing a repeat drops it. No mark on the card.
 - Done is the circle on the card, and the attention sheet's Done. Edit and
   delete live on the swipe buttons and nowhere else; there is no action
   sheet.
@@ -242,6 +257,12 @@ lands in one place and shows up everywhere.
   to, is `spotlit`: it takes the calling card's breath a couple of times
   and settles. It is asked for through `spotlightProvider` and the list
   answers it once. Do not invent a second way of drawing the eye to a card.
+- The day header has no arrows: they read as Back. A swipe across the
+  page is the way to the next or the previous day. Every jump to a day,
+  from the month grid, a search, the banner's Go, Left behind or a
+  notification, goes through `SelectedDay.select`, which remembers the day
+  left in `sentFromProvider`; the header then offers Back, which returns
+  there through `goBack`. A swipe lets the way back go.
 - A swipe never acts on its own. It uncovers buttons and nothing happens
   until one is tapped.
 - A tick is made on the read view and nowhere else. The editor draws

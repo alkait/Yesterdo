@@ -21,14 +21,15 @@ class Backlog {
 
   /// Reads the days before [today], newest first. A task not done counts,
   /// waved away or not, and a rule's showings fall under one entry. A rule's
-  /// ignored days are left where they are and passed over.
+  /// ignored days are left where they are and passed over, and so is a task
+  /// that carries itself over: it is on its way to today, not left behind.
   static Future<Backlog> read(TodoStore store, {required int today}) async {
     final ignored = await store.ignoredMissed();
     final oneOffs = <BacklogEntry>[];
     final rules = <int, List<BacklogItem>>{};
     for (var day = today - 1; day >= today - window; day--) {
       for (final todo in await store.todosOn(day)) {
-        if (todo.done) continue;
+        if (todo.done || todo.carries) continue;
         final item = BacklogItem(day: day, todo: todo);
         if (todo.repeats) {
           final through = ignored[todo.recurrenceId!];

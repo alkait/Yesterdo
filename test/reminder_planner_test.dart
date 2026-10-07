@@ -115,6 +115,43 @@ void main() {
     expect(plan.map((p) => p.day).toSet(), hasLength(plan.length));
   });
 
+  test(
+    'a task that carries itself over is reminded of on the days to come',
+    () async {
+      await store.insert(
+        day: today,
+        title: 'Call Sam',
+        due: const Due(minute: 20 * 60, reminders: {5}),
+        carryOver: true,
+      );
+      await store.insert(
+        day: today,
+        title: 'Stays put',
+        due: const Due(minute: 21 * 60, reminders: {5}),
+      );
+      final plan = await planner.plan(now: nine);
+      final sam = plan.where((p) => p.key == 't1').toList();
+      expect(sam, hasLength(ReminderPlanner.daysAhead + 1));
+      expect(sam.first.day, today);
+      expect(sam.last.day, today + ReminderPlanner.daysAhead);
+      expect(sam[1].fireAt, DateTime(2026, 9, 5, 19, 55));
+      expect(plan.where((p) => p.key == 't2'), hasLength(1));
+    },
+  );
+
+  test('a carried task waved away today still calls tomorrow', () async {
+    final todo = await store.insert(
+      day: today,
+      title: 'Call Sam',
+      due: const Due(minute: 20 * 60, reminders: {5}),
+      carryOver: true,
+    );
+    await store.save(todo.dismiss());
+    final plan = await planner.plan(now: nine);
+    expect(plan.map((p) => p.day), isNot(contains(today)));
+    expect(plan.first.day, today + 1);
+  });
+
   test('the plan is in firing order and capped', () async {
     for (var each = 0; each < 5; each++) {
       await store.insertSeries(

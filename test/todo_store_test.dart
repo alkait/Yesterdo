@@ -360,6 +360,65 @@ void main() {
     });
   });
 
+  group('carrying over', () {
+    test('what was left undone comes on to today, oldest highest', () async {
+      await store.insert(day: day - 3, title: 'Oldest', carryOver: true);
+      await store.insert(day: day - 1, title: 'Newer', carryOver: true);
+      final finished = await store.insert(
+        day: day - 2,
+        title: 'Finished',
+        carryOver: true,
+      );
+      await store.save(finished.toggled(1));
+      await store.insert(day: day - 2, title: 'Stays');
+      await store.insert(day: day + 1, title: 'Ahead', carryOver: true);
+      await store.insert(day: day, title: 'Today');
+
+      final moved = await store.carryForward(today: day);
+      expect(moved.map((todo) => todo.title), ['Oldest', 'Newer']);
+      expect(await titlesOn(day), ['Oldest', 'Newer', 'Today']);
+      expect(await titlesOn(day - 3), isEmpty);
+      expect(await titlesOn(day - 2), ['Stays', 'Finished']);
+      expect(await titlesOn(day + 1), ['Ahead']);
+      // Still set to carry, so a day left undone again moves it on again.
+      expect((await store.todosOn(day)).first.carryOver, isTrue);
+      expect(await store.carryForward(today: day), isEmpty);
+    });
+
+    test('however long ago, and with its pin and its time', () async {
+      final left = await store.insert(
+        day: day - 400,
+        title: 'Long ago',
+        due: const Due(minute: 9 * 60, reminders: {15}),
+        carryOver: true,
+      );
+      await store.save(left.withPinned(true).dismiss());
+      final moved = (await store.carryForward(today: day)).single;
+      expect(moved.pinned, isTrue);
+      expect(moved.due?.minute, 9 * 60);
+      expect(moved.dismissed, isFalse, reason: 'a new day is a new call');
+    });
+
+    test('the days ahead are read as they will stand', () async {
+      await store.insert(
+        day: day,
+        title: 'Carries',
+        due: const Due(minute: 9 * 60),
+        carryOver: true,
+      );
+      await store.insert(day: day, title: 'Stays');
+      await store.insert(day: day + 1, title: 'Tomorrow');
+      final ahead = await store.daysAhead(today: day, last: day + 2);
+      // A new task goes on top of its day, so Stays heads today.
+      expect(ahead[day]!.map((todo) => todo.title), ['Stays', 'Carries']);
+      expect(ahead[day + 1]!.map((todo) => todo.title), [
+        'Carries',
+        'Tomorrow',
+      ]);
+      expect(ahead[day + 2]!.map((todo) => todo.title), ['Carries']);
+    });
+  });
+
   test('cutting both ends can leave a single day standing', () async {
     final id = await startDaily();
     await store.endSeriesFrom(recurrenceId: id, day: day + 3);

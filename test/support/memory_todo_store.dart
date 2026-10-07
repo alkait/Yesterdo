@@ -49,6 +49,7 @@ class MemoryTodoStore implements TodoStore {
     Due? due,
     int? position,
     bool pinned = false,
+    bool carryOver = false,
   }) {
     final todo = Todo(
       id: _nextTodoId++,
@@ -57,6 +58,7 @@ class MemoryTodoStore implements TodoStore {
       position: position ?? _topPosition(day),
       due: due,
       pinned: pinned,
+      carryOver: carryOver,
     );
     _dayOf(day).add(todo);
     return Future.value(todo);
@@ -245,6 +247,16 @@ class MemoryTodoStore implements TodoStore {
   );
 
   @override
+  Future<List<Todo>> carryForward({required int today}) =>
+      composeCarryForward(this, today: today);
+
+  @override
+  Future<Map<int, List<Todo>>> daysAhead({
+    required int today,
+    required int last,
+  }) => composeDaysAhead(this, today: today, last: last);
+
+  @override
   Future<void> ignoreMissed({required int recurrenceId, required int day}) {
     final known = _ignored[recurrenceId];
     if (known == null || known < day) _ignored[recurrenceId] = day;
@@ -254,6 +266,18 @@ class MemoryTodoStore implements TodoStore {
   @override
   Future<Map<int, int>> ignoredMissed() =>
       Future.value(Map<int, int>.of(_ignored));
+
+  @override
+  Future<List<CarriedTask>> leftToCarryBefore(int day) {
+    final days = _byDay.keys.where((each) => each < day).toList()..sort();
+    return Future.value([
+      for (final each in days)
+        for (final todo in [
+          ..._byDay[each]!,
+        ]..sort((a, b) => a.position.compareTo(b.position)))
+          if (todo.carries) CarriedTask(day: each, todo: todo),
+    ]);
+  }
 
   @override
   Future<List<SearchHit>> oneOffsMatching(String query) => Future.value([

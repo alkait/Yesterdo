@@ -66,13 +66,15 @@ class GlancePlanner {
 
   /// The pinned tasks of today and of the days ahead, each day in the order
   /// the app shows it. Done has already let go of its pin, so none is done.
+  /// The days are read as they will stand, so a pinned task that carries
+  /// itself over is on tomorrow's list too, ahead of the app being opened.
   Future<List<GlancePin>> pinned({required DateTime now}) async {
     final today = now.epochDay;
+    final ahead = await _store.daysAhead(today: today, last: today + daysAhead);
     return <GlancePin>[
-      for (var day = today; day <= today + daysAhead; day++)
-        for (final todo in (await _store.todosOn(
-          day,
-        )).where((todo) => todo.pinned && !todo.done).take(cap))
+      for (final MapEntry(key: day, value: todos) in ahead.entries)
+        for (final todo
+            in todos.where((todo) => todo.pinned && !todo.done).take(cap))
           GlancePin(
             day: day,
             key: todo.key,

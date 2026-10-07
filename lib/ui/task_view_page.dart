@@ -140,6 +140,11 @@ class TaskViewPage extends ConsumerWidget {
                     onPin: _pinnable(todo)
                         ? () => ref.read(todosProvider.notifier).togglePin(todo)
                         : null,
+                    onCarryOver: _pinnable(todo) && !todo.repeats
+                        ? () => ref
+                              .read(todosProvider.notifier)
+                              .toggleCarryOver(todo)
+                        : null,
                   ),
               ],
             ),
@@ -370,15 +375,25 @@ class _ChecklistRunState extends State<_ChecklistRun>
 /// same rows the editor has, without the chevrons. Only what is set is shown. A
 /// repeating task has a History row too, the one row here that leads on,
 /// which says how many showings were done and opens them day by day. Last
-/// comes the pin, the editor's own switch, which is worked here too.
+/// come the pin and carry over, the editor's own switches, which are worked
+/// here too.
 class _Particulars extends ConsumerWidget {
-  const _Particulars({required this.todo, required this.day, this.onPin});
+  const _Particulars({
+    required this.todo,
+    required this.day,
+    this.onPin,
+    this.onCarryOver,
+  });
 
   final Todo todo;
   final int day;
 
   /// Pins the task or lets it go. Without one there is no Pin row.
   final VoidCallback? onPin;
+
+  /// Sets the task to carry itself over, or stops it. Without one there is
+  /// no Carry over row: a repeating task has none.
+  final VoidCallback? onCarryOver;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -446,6 +461,17 @@ class _Particulars extends ConsumerWidget {
               icon: Icons.push_pin_outlined,
               value: todo.pinned,
               onChanged: (_) => onPin(),
+            ),
+          ],
+          if (onCarryOver case final onCarryOver?) ...[
+            const BrandedDivider(),
+            BrandedToggleRow(
+              key: const ValueKey('carry-over'),
+              label: 'Carry over',
+              icon: Icons.arrow_forward_rounded,
+              detail: 'Moves to today if left undone',
+              value: todo.carryOver,
+              onChanged: (_) => onCarryOver(),
             ),
           ],
         ],

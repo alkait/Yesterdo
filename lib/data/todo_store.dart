@@ -18,7 +18,8 @@ abstract class TodoStore {
 
   /// Writes a new one-off, at the top of the day unless a [position] is
   /// given. Words come as a [body], or as plain [title] words for short.
-  /// [pinned] is for a task that takes the place of a pinned one.
+  /// [pinned] is for a task that takes the place of a pinned one, and
+  /// [carryOver] for one that moves itself on while undone.
   Future<Todo> insert({
     required int day,
     String? title,
@@ -26,6 +27,7 @@ abstract class TodoStore {
     Due? due,
     int? position,
     bool pinned = false,
+    bool carryOver = false,
   });
 
   /// Starts a repeating task, at the top of [day] unless a [position] is
@@ -96,6 +98,11 @@ abstract class TodoStore {
   /// Per rule, the last day whose missed showings have been ignored.
   Future<Map<int, int>> ignoredMissed();
 
+  /// The tasks that carry themselves over and were left undone on a day
+  /// before [day], each with the day it sits on, earliest day first and in
+  /// the day's position order within it. However far back.
+  Future<List<CarriedTask>> leftToCarryBefore(int day);
+
   /// Every picture any task or rule refers to, for the sweep that clears
   /// the rest out.
   Future<Set<String>> allImages();
@@ -125,6 +132,18 @@ abstract class TodoStore {
     now: now,
   );
 
+  /// Brings every task that carries itself over, left undone on a day
+  /// before [today], on to today. Composed in [composeCarryForward], so
+  /// both stores answer alike.
+  Future<List<Todo>> carryForward({required int today});
+
+  /// The days from [today] to [last] as they will stand if nobody touches
+  /// them. Composed in [composeDaysAhead], so both stores answer alike.
+  Future<Map<int, List<Todo>>> daysAhead({
+    required int today,
+    required int last,
+  });
+
   /// Everything answering to [query], latest day first. Composed once, in
   /// [composeSearch], so both stores answer alike.
   Future<List<SearchHit>> search(String query, {required int today}) async =>
@@ -137,6 +156,14 @@ abstract class TodoStore {
         );
 }
 
+/// A task that carries itself over, on the day it was left on.
+class CarriedTask {
+  const CarriedTask({required this.day, required this.todo});
+
+  final int day;
+  final Todo todo;
+}
+
 /// A rule and its written-down showings, keyed by day. What the history is
 /// composed from: a day the rule falls on reads its row here, or is taken
 /// as untouched when there is none.
@@ -145,4 +172,52 @@ class SeriesRows {
 
   final Recurrence recurrence;
   final Map<int, Todo> byDay;
+}
+
+/// Brings every task that carries itself over, left undone on a day before
+/// [today], on to today, above everything there and in the order they were
+/// left in. Returns the tasks as they now stand on today.
+Future<List<Todo>> composeCarryForward(
+  TodoStore store, {
+  required int today,
+}) async {
+  final left = await store.leftToCarryBefore(today);
+  final moved = <Todo>[];
+  // Each goes on top of the last, so the earliest left is moved last and
+  // lands highest.
+  for (final each in left.reversed) {
+    moved.insert(
+      0,
+      await store.moveToDay(
+        fromDay: each.day,
+        toDay: today,
+        todo: each.todo,
+        toTop: true,
+      ),
+    );
+  }
+  return moved;
+}
+
+/// The days from [today] to [last] as they will stand if nobody touches
+/// them: each day's own tasks, headed by the carry-over tasks left open on
+/// the days before it, which will be carried on to it when it comes. A new
+/// day is a new call, so a carried task arrives not waved away.
+Future<Map<int, List<Todo>>> composeDaysAhead(
+  TodoStore store, {
+  required int today,
+  required int last,
+}) async {
+  final ahead = <int, List<Todo>>{};
+  var carrying = <Todo>[];
+  for (var day = today; day <= last; day++) {
+    final own = await store.todosOn(day);
+    ahead[day] = <Todo>[...carrying, ...own];
+    carrying = <Todo>[
+      ...carrying,
+      for (final todo in own)
+        if (todo.carries) todo.copyWith(dismissed: false),
+    ];
+  }
+  return ahead;
 }

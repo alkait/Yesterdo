@@ -40,6 +40,7 @@ class SqliteTodoStore implements TodoStore {
     Due? due,
     int? position,
     bool pinned = false,
+    bool carryOver = false,
   }) async {
     position ??= await _topPosition(day);
     final draft = Todo(
@@ -48,6 +49,7 @@ class SqliteTodoStore implements TodoStore {
       position: position,
       due: due,
       pinned: pinned,
+      carryOver: carryOver,
     );
     final id = await _db.insert(_todos, draft.toRow(day));
     return draft.stored(id);
@@ -96,6 +98,7 @@ class SqliteTodoStore implements TodoStore {
       ...todo.due?.toRow() ?? Due.emptyRow,
       'dismissed': todo.dismissed ? 1 : 0,
       'pinned': todo.pinned ? 1 : 0,
+      'carry_over': todo.carryOver ? 1 : 0,
     },
     where: 'id = ?',
     whereArgs: [todo.id],
@@ -287,6 +290,16 @@ class SqliteTodoStore implements TodoStore {
   );
 
   @override
+  Future<List<Todo>> carryForward({required int today}) =>
+      composeCarryForward(this, today: today);
+
+  @override
+  Future<Map<int, List<Todo>>> daysAhead({
+    required int today,
+    required int last,
+  }) => composeDaysAhead(this, today: today, last: last);
+
+  @override
   Future<void> ignoreMissed({
     required int recurrenceId,
     required int day,
@@ -310,6 +323,22 @@ class SqliteTodoStore implements TodoStore {
     return <int, int>{
       for (final row in rows) row['id']! as int: row['ignored_through']! as int,
     };
+  }
+
+  @override
+  Future<List<CarriedTask>> leftToCarryBefore(int day) async {
+    final rows = await _db.query(
+      _todos,
+      where:
+          'carry_over = 1 AND done = 0 AND hidden = 0 '
+          'AND recurrence_id IS NULL AND day < ?',
+      whereArgs: [day],
+      orderBy: 'day, position',
+    );
+    return [
+      for (final row in rows)
+        CarriedTask(day: row['day']! as int, todo: Todo.fromRow(row)),
+    ];
   }
 
   /// `LIKE` narrows the read to rows that could answer; it is case-blind

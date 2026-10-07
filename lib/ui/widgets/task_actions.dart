@@ -78,6 +78,7 @@ Future<void> editTask(BuildContext context, WidgetRef ref, Todo todo) async {
       initialDue: todo.due,
       initialRepeat: rule,
       initialPinned: todo.pinned,
+      initialCarryOver: todo.carryOver,
       pinnable: !todo.done,
     ),
   );
