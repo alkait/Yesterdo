@@ -39,6 +39,19 @@ import UserNotifications
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
+  /// `FlutterAppDelegate` tells UIKit it does not answer to the remote
+  /// notification method unless a plugin claims it, so the override below
+  /// would never be called. It is claimed here instead.
+  override func responds(to aSelector: Selector!) -> Bool {
+    if aSelector
+      == #selector(
+        UIApplicationDelegate.application(_:didReceiveRemoteNotification:fetchCompletionHandler:))
+    {
+      return true
+    }
+    return super.responds(to: aSelector)
+  }
+
   /// A silent push from CloudKit: another device has written, so Dart is
   /// told to go and pull. Given a few seconds to do so before the system
   /// is told the work is done. Anything else goes on to the plugins.
