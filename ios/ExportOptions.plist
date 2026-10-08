@@ -4,6 +4,8 @@
 <dict>
 	<key>method</key>
 	<string>release-testing</string>
+	<key>iCloudContainerEnvironment</key>
+	<string>Development</string>
 	<key>teamID</key>
 	<string>X2YL9EV6SU</string>
 	<key>signingStyle</key>

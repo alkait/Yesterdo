@@ -225,6 +225,7 @@ class TodosController extends AsyncNotifier<List<Todo>> {
     await _store.save(updated);
     if (!ref.mounted) return;
     _show(_replacing(updated));
+    ref.read(cloudSyncProvider).nudge();
   }
 
   /// Ticks or unticks one item on a task's checklist, from the read view,
@@ -321,6 +322,7 @@ class TodosController extends AsyncNotifier<List<Todo>> {
     ];
     _show(<Todo>[...renumbered, ...items.sublist(open)]);
     await _store.reorder(renumbered);
+    if (ref.mounted) ref.read(cloudSyncProvider).nudge();
   }
 
   /// Writes a projected occurrence down so it can carry state of its own.
@@ -351,7 +353,8 @@ class TodosController extends AsyncNotifier<List<Todo>> {
   }
 
   /// After a write: the reminders, the icon's number and the widgets follow
-  /// the store, and what is left from earlier days is read again.
+  /// the store, what is left from earlier days is read again, and the
+  /// cloud is nudged to catch up behind.
   Future<void> _syncDevice() async {
     if (!ref.mounted) return;
     await ref.read(reminderSyncProvider).refresh(now: _now);
@@ -359,6 +362,7 @@ class TodosController extends AsyncNotifier<List<Todo>> {
     await ref.read(glanceSyncProvider).refresh(now: _now);
     if (!ref.mounted) return;
     ref.invalidate(backlogProvider);
+    ref.read(cloudSyncProvider).nudge();
   }
 
   /// Puts a list on screen and sets the timer for the next task to rise.

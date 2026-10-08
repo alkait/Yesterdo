@@ -9,7 +9,7 @@ import 'widgets/done_sound_picker_sheet.dart';
 import 'widgets/theme_picker_sheet.dart';
 
 /// The settings screen: which look the app is drawn in, whether the system
-/// lets it notify, and the version. Ten taps on the version turn developer
+/// lets it notify, where the iCloud sync stands, and the version. Ten taps on the version turn developer
 /// mode on; a row then appears to turn it off again.
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
@@ -52,6 +52,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final developer = ref.watch(developerModeProvider);
     final sounds = ref.watch(appSoundsProvider);
     final doneSound = ref.watch(doneSoundProvider);
+    final cloud = ref.watch(cloudStatusProvider);
+    final now = ref.watch(clockProvider)();
 
     return BrandedScaffold(
       children: [
@@ -129,6 +131,36 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                       ? () {}
                       : () => _onNotificationsTap(ref, permission),
                 ),
+                const SizedBox(height: Brand.gap),
+                const BrandedText(
+                  'iCloud',
+                  role: BrandedTextRole.caption,
+                  tone: BrandedTone.muted,
+                ),
+                // Read only: the sync runs on its own, and this is where
+                // it says how that is going.
+                BrandedFieldRow(
+                  key: const ValueKey('settings-icloud'),
+                  label: 'Sync',
+                  value: cloud.label,
+                ),
+                // The small print is a sentence, so it gets a line of its
+                // own to wrap on rather than the row's cut-short detail.
+                BrandedText(
+                  cloud.detail(now),
+                  key: const ValueKey('settings-icloud-detail'),
+                  role: BrandedTextRole.caption,
+                  tone: BrandedTone.muted,
+                ),
+                // What went wrong, in the words it came with, for whoever
+                // turned developer mode on.
+                if (developer && cloud.error != null)
+                  BrandedText(
+                    cloud.error!,
+                    key: const ValueKey('settings-icloud-error'),
+                    role: BrandedTextRole.caption,
+                    tone: BrandedTone.muted,
+                  ),
                 const SizedBox(height: Brand.gap),
                 const BrandedText(
                   'About',

@@ -28,6 +28,7 @@ import 'package:remind_me/ui/widgets/todo_list_view.dart';
 import 'package:remind_me/ui/widgets/todo_card.dart';
 import 'package:remind_me/ui/widgets/todo_tile.dart';
 
+import 'support/memory_cloud.dart';
 import 'support/memory_device_bridge.dart';
 import 'support/memory_reminder_scheduler.dart';
 import 'support/memory_settings_store.dart';
@@ -38,6 +39,7 @@ Widget bootApp({
   MemorySettingsStore? settings,
   MemoryReminderScheduler? scheduler,
   MemoryDeviceBridge? device,
+  MemoryCloudTransport? cloud,
   DateTime Function()? clock,
   AppThemeChoice theme = AppThemeChoice.ink,
   ReminderSound sound = ReminderSound.system,
@@ -50,6 +52,7 @@ Widget bootApp({
       scheduler ?? MemoryReminderScheduler(),
     ),
     deviceBridgeProvider.overrideWithValue(device ?? MemoryDeviceBridge()),
+    if (cloud != null) cloudTransportProvider.overrideWithValue(cloud),
     imagesDirectoryProvider.overrideWithValue(device?.directory ?? ''),
     if (clock != null) clockProvider.overrideWithValue(clock),
     initialThemeChoiceProvider.overrideWithValue(theme),

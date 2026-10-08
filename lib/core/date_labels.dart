@@ -68,6 +68,24 @@ String shortDate(DateTime date) =>
 String monthAndYear(DateTime date) =>
     '${_monthNames[date.month - 1]} ${date.year}';
 
+/// How long ago [then] was, as read at [now]: `just now`, `3 min ago`,
+/// `2 hours ago`, `yesterday`, or the date for anything older.
+String agoLabel(DateTime then, {required DateTime now}) {
+  final gone = now.difference(then);
+  if (gone.inMinutes < 1) return 'just now';
+  if (gone.inHours < 1) return '${gone.inMinutes} min ago';
+  if (gone.inHours < 24 && then.day == now.day) {
+    return gone.inHours == 1 ? '1 hour ago' : '${gone.inHours} hours ago';
+  }
+  final yesterday = DateTime(now.year, now.month, now.day - 1);
+  if (then.year == yesterday.year &&
+      then.month == yesterday.month &&
+      then.day == yesterday.day) {
+    return 'yesterday';
+  }
+  return 'on ${shortDate(then)}';
+}
+
 /// `9:05 AM`, or `09:05` when the device keeps a 24-hour clock.
 String timeLabel(int minuteOfDay, {bool twentyFourHour = false}) {
   final hour = minuteOfDay ~/ 60;

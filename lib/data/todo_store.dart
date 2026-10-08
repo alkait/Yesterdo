@@ -2,6 +2,7 @@ import 'due.dart';
 import 'repeat_rule.dart';
 import 'rich/task_body.dart';
 import 'search.dart';
+import 'sync_record.dart';
 import 'todo.dart';
 
 /// Everything the app needs from storage. One implementation ships with the
@@ -118,6 +119,28 @@ abstract class TodoStore {
 
   /// Rules whose words answer to [query].
   Future<List<Recurrence>> recurrencesMatching(String query);
+
+  /// Everything written or removed here since it was last sent, rules
+  /// ahead of todos.
+  Future<SyncBatch> pendingChanges();
+
+  /// Forgets what [sent] held, once it has been sent. A row written again
+  /// meanwhile stays to be sent.
+  Future<void> clearPending(SyncBatch sent);
+
+  /// Puts every row back among what is to be sent, as when the other side
+  /// has lost everything.
+  Future<void> markAllPending();
+
+  /// Takes in what another device sent, by [takesIncoming]: the latest
+  /// write wins and a removal beats an edit. A showing whose rule is not
+  /// held here is left out. Whether anything here changed.
+  Future<bool> applyRemote(SyncBatch incoming);
+
+  /// Where the other side's reading got to last time, or null for never.
+  Future<String?> syncToken();
+
+  Future<void> setSyncToken(String? token);
 
   /// The body meant by a pair of shorthand arguments.
   static TaskBody bodyOf(String? title, TaskBody? body) =>

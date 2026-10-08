@@ -1,4 +1,5 @@
 import AVFoundation
+import CloudKit
 import Flutter
 import UIKit
 import UserNotifications
@@ -9,10 +10,15 @@ import UserNotifications
   private var previewPlayer: AVAudioPlayer?
 
   private let images = ImageBridge()
+  private let cloud = CloudBridge()
 
   /// The channel into Dart, kept so a tapped widget can be announced. There
   /// is one engine, so one channel is all there is to hold.
   private static var channel: FlutterMethodChannel?
+
+  /// The cloud's own channel, kept so a silent push can say another device
+  /// has written.
+  private static var cloudChannel: FlutterMethodChannel?
 
   /// Tells Dart a widget has been tapped, so it comes and takes it. Dropped
   /// harmlessly when nothing is listening yet; Dart asks at launch too.
@@ -27,7 +33,30 @@ import UserNotifications
     // Notification taps arrive here first and are forwarded to the plugin,
     // so it can hand the tapped task to the app.
     UNUserNotificationCenter.current().delegate = self as? UNUserNotificationCenterDelegate
+    // Silent pushes from CloudKit say when another device has written.
+    // They need no permission from the user, only a registration.
+    application.registerForRemoteNotifications()
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  /// A silent push from CloudKit: another device has written, so Dart is
+  /// told to go and pull. Given a few seconds to do so before the system
+  /// is told the work is done. Anything else goes on to the plugins.
+  override func application(
+    _ application: UIApplication,
+    didReceiveRemoteNotification userInfo: [AnyHashable: Any],
+    fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
+  ) {
+    if let note = CKNotification(fromRemoteNotificationDictionary: userInfo),
+      note.subscriptionID == CloudBridge.subscriptionId
+    {
+      AppDelegate.cloudChannel?.invokeMethod("changed", arguments: nil)
+      DispatchQueue.main.asyncAfter(deadline: .now() + 8) { completionHandler(.newData) }
+      return
+    }
+    super.application(
+      application, didReceiveRemoteNotification: userInfo,
+      fetchCompletionHandler: completionHandler)
   }
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
@@ -81,6 +110,44 @@ import UserNotifications
         }
       default:
         result(FlutterMethodNotImplemented)
+      }
+    }
+
+    // The cloud, reached from Dart through `MethodChannelCloudTransport`.
+    let cloudChannel = FlutterMethodChannel(
+      name: "remindme/cloud", binaryMessenger: engineBridge.applicationRegistrar.messenger())
+    AppDelegate.cloudChannel = cloudChannel
+    cloudChannel.setMethodCallHandler { [weak self] (call: FlutterMethodCall, result: @escaping FlutterResult) in
+      guard let cloud = self?.cloud else {
+        result(nil)
+        return
+      }
+      Task {
+        switch call.method {
+        case "available":
+          let answer = await cloud.available()
+          DispatchQueue.main.async { result(answer) }
+        case "pull":
+          do {
+            let answer = try await cloud.pull(token: call.arguments as? String)
+            DispatchQueue.main.async { result(answer) }
+          } catch {
+            DispatchQueue.main.async {
+              result(FlutterError(code: "cloud", message: error.localizedDescription, details: nil))
+            }
+          }
+        case "push":
+          do {
+            try await cloud.push(call.arguments as? [String: Any] ?? [:])
+            DispatchQueue.main.async { result(nil) }
+          } catch {
+            DispatchQueue.main.async {
+              result(FlutterError(code: "cloud", message: error.localizedDescription, details: nil))
+            }
+          }
+        default:
+          DispatchQueue.main.async { result(FlutterMethodNotImplemented) }
+        }
       }
     }
   }

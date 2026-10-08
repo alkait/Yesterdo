@@ -86,30 +86,34 @@ class TaskViewPage extends ConsumerWidget {
           ),
         ),
         Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(
-              horizontal: Brand.gutter,
-              vertical: Brand.gap,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (final piece in _pieces(todo.body))
-                  switch (piece) {
-                    _Picture(:final image) => Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 6),
-                      child: BrandedImage(
-                        key: ValueKey('picture-$image'),
-                        path: '${ref.watch(imagesDirectoryProvider)}/$image',
-                        onTap: () => openBrandedPage<void>(
-                          context,
-                          (_) => ImageViewPage(
-                            path: '${ref.read(imagesDirectoryProvider)}/$image',
+          // One scrolling page, with each run of checklist items a sliver
+          // of it, so dragging an item to the edge scrolls the page.
+          child: CustomScrollView(
+            slivers: [
+              const SliverPadding(padding: EdgeInsets.only(top: Brand.gap)),
+              for (final piece in _pieces(todo.body))
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: Brand.gutter),
+                  sliver: switch (piece) {
+                    _Picture(:final image) => SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: BrandedImage(
+                          key: ValueKey('picture-$image'),
+                          path: '${ref.watch(imagesDirectoryProvider)}/$image',
+                          onTap: () => openBrandedPage<void>(
+                            context,
+                            (_) => ImageViewPage(
+                              path:
+                                  '${ref.read(imagesDirectoryProvider)}/$image',
+                            ),
                           ),
                         ),
                       ),
                     ),
-                    _Words(:final index) => _blockView(ref, todo, index),
+                    _Words(:final index) => SliverToBoxAdapter(
+                      child: _blockView(ref, todo, index),
+                    ),
                     _Checklist(:final start, :final length) => _ChecklistRun(
                       key: ValueKey('checklist-$start'),
                       ids: _idsFor(todo.body, start, length),
@@ -133,21 +137,28 @@ class TaskViewPage extends ConsumerWidget {
                           : null,
                     ),
                   },
-                if (todo.due != null || todo.repeats || _pinnable(todo))
-                  _Particulars(
-                    todo: todo,
-                    day: givenDay ?? ref.watch(selectedDayProvider).epochDay,
-                    onPin: _pinnable(todo)
-                        ? () => ref.read(todosProvider.notifier).togglePin(todo)
-                        : null,
-                    onCarryOver: _pinnable(todo) && !todo.repeats
-                        ? () => ref
-                              .read(todosProvider.notifier)
-                              .toggleCarryOver(todo)
-                        : null,
+                ),
+              if (todo.due != null || todo.repeats || _pinnable(todo))
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: Brand.gutter),
+                  sliver: SliverToBoxAdapter(
+                    child: _Particulars(
+                      todo: todo,
+                      day: givenDay ?? ref.watch(selectedDayProvider).epochDay,
+                      onPin: _pinnable(todo)
+                          ? () =>
+                                ref.read(todosProvider.notifier).togglePin(todo)
+                          : null,
+                      onCarryOver: _pinnable(todo) && !todo.repeats
+                          ? () => ref
+                                .read(todosProvider.notifier)
+                                .toggleCarryOver(todo)
+                          : null,
+                    ),
                   ),
-              ],
-            ),
+                ),
+              const SliverPadding(padding: EdgeInsets.only(bottom: Brand.gap)),
+            ],
           ),
         ),
       ],
@@ -238,6 +249,8 @@ class _Checklist extends _Piece {
 /// When one item changes place, ticked and sinking or unticked and rising,
 /// it flies there through a [TodoFlight] rather than jumping, as a card on
 /// the day does. A drag is left to the list, which animates the drop.
+///
+/// A sliver of the page, so a drag towards an edge scrolls the page.
 class _ChecklistRun extends StatefulWidget {
   const _ChecklistRun({
     super.key,
@@ -340,8 +353,7 @@ class _ChecklistRunState extends State<_ChecklistRun>
   @override
   Widget build(BuildContext context) {
     final flight = _flight;
-    return BrandedReorderableList(
-      embedded: true,
+    return BrandedReorderableSliver(
       itemCount: widget.ids.length + (flight == null ? 0 : 1),
       onReorder: widget.onReorder == null ? (_, _) {} : _drop,
       itemBuilder: (context, index) {

@@ -5,8 +5,8 @@ import '../../state/providers.dart';
 
 /// Reads the day again when the app comes back to the front. Time has
 /// passed, so a task may have fallen due meanwhile, the notifications laid
-/// down for the coming days are topped up, and permission is asked about
-/// afresh.
+/// down for the coming days are topped up, permission is asked about
+/// afresh, and the cloud is asked what other devices wrote meanwhile.
 class WakeRefresh extends ConsumerStatefulWidget {
   const WakeRefresh({super.key, required this.child});
 
@@ -34,6 +34,7 @@ class _WakeRefreshState extends ConsumerState<WakeRefresh>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) return;
     ref.read(todosProvider.notifier).refresh();
+    ref.read(cloudSyncProvider).nudge();
     // Permission may have been changed in the system's settings meanwhile.
     ref.invalidate(reminderPermissionProvider);
     // A widget tapped while the app was away may be waiting to be answered.

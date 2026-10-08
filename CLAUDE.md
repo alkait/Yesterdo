@@ -1,8 +1,10 @@
 # Yesterdo
 
-A day-at-a-time todo list for iPhone and iPad. Offline, local, no account, no
-sync. The code is the source of truth for what the app does; this file holds
-only the rules for working on it.
+A day-at-a-time todo list for iPhone and iPad. Local first and no account of
+its own: a device signed into iCloud syncs its tasks with the others on the
+same account, and one that is not stays local. The code is the source of
+truth for what the app does; this file holds only the rules for working on
+it.
 
 ## Name
 
@@ -64,8 +66,8 @@ only the rules for working on it.
 
 ## Data
 
-- Storage stays local SQLite. No network calls, no cloud, no sync, no
-  analytics packages.
+- Storage is local SQLite. The one thing that leaves the device is the
+  sync, through CloudKit; no other network calls, no analytics packages.
 - Go through the `TodoStore` interface. The app binds `SqliteTodoStore`,
   tests bind `MemoryTodoStore`. A new store method is added to both.
 - A setting goes through the `SettingsStore` interface. The app binds
@@ -103,6 +105,11 @@ only the rules for working on it.
   widget.
 - The schema is versioned. Add an `onUpgrade` branch and cover it in
   `test/migration_test.dart`, which runs against real SQLite.
+- Every row has a `uid`, which is what it is called on every device; the
+  integer `id` is this device's own and never crosses. A rule's showing is
+  named by `occurrenceUid`, from the rule's uid and the day, so two devices
+  acting on the same showing write one row, not two. `Todo.key` stays on
+  the local id.
 - The `Due.reminderChoices` bitmask is ordered. Add a choice at the end or
   every saved set shifts.
 - A task's plain `title` is derived from its `TaskBody`, never the other way
@@ -120,12 +127,44 @@ only the rules for working on it.
   Never delete a picture file directly; `ImageSweep` clears unreferenced
   ones through `TodoStore.allImages`.
 
+## Sync
+
+- Sync is on whenever the device is signed into iCloud, with no switch. It
+  goes through CloudKit's private database, in Swift, behind `CloudBridge`
+  and the `remindme/cloud` channel. Swift only moves records; what a record
+  holds, and whose write wins, is Dart's. No plugin.
+- Every write in a store stamps the row's `updated_at` and logs its uid in
+  the change log; a removal logs a tombstone. `pendingChanges` reads the
+  log, `clearPending` lets go of what was sent, `applyRemote` takes in what
+  came. A new store method that writes does the same, in both stores.
+- `takesIncoming` is the one place that decides whose write wins: the
+  latest write, and a removal beats an edit either way. A row not written
+  here since the last send is always taken, so both sides end up alike.
+- `CloudSync` is the one thing that talks to the transport: it pulls, then
+  pushes, so what goes up has been judged against what was there. It is
+  nudged after every write, on launch, on return to the front and on a
+  silent push, and never awaited by the interface. After a pull that
+  changed the store, `onPulled` reads the day again; `main` wires it.
+- Only tasks and rules cross. Settings are each device's own. Pictures go
+  with their record as assets and come down under the same file names, so
+  Dart still only ever sees names; the sweep runs before the first pull.
+- The CloudKit container is `iCloud.com.alkait.yesterdo`, in the
+  Development environment for the ad hoc builds. The entitlements say so,
+  and so must `iCloudContainerEnvironment` in `ios/ExportOptions.plist`,
+  since the export re-signs the app and switches it to Production
+  otherwise, where no record type is ever made on the fly. Deploying the
+  schema to Production is a step in the CloudKit console, not in code.
+- Tests bind `MemoryCloudTransport` over a `MemoryCloud` and sync two
+  stores through it; widget tests leave `cloudTransportProvider` alone,
+  which is no cloud at all.
+
 ## Reminders and the device
 
 - `flutter_local_notifications` is the one plugin the app carries. Nothing
   else may be added for it. What only the device can do goes through
-  `DeviceBridge`, a method channel handled in `AppDelegate`. The app binds
-  `MethodChannelDeviceBridge`, tests bind `MemoryDeviceBridge`.
+  `DeviceBridge`, a method channel handled in `AppDelegate`; the cloud has
+  its own, `remindme/cloud`. The app binds `MethodChannelDeviceBridge`,
+  tests bind `MemoryDeviceBridge`.
 - Go through the `ReminderScheduler` interface. The app binds
   `LocalReminderScheduler`, tests bind `MemoryReminderScheduler`.
 - The system is never told about a change directly. `ReminderPlanner`

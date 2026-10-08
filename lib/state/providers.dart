@@ -15,10 +15,14 @@ import '../platform/device_bridge.dart';
 import '../reminders/reminder_planner.dart';
 import '../reminders/reminder_scheduler.dart';
 import '../reminders/reminder_sync.dart';
+import '../sync/cloud_status.dart';
+import '../sync/cloud_sync.dart';
+import '../sync/cloud_transport.dart';
 import 'app_sounds.dart';
 import 'attention_request.dart';
 import 'backlog.dart';
 import 'backlog_controller.dart';
+import 'cloud_status_notifier.dart';
 import 'day_notice.dart';
 import 'developer_mode.dart';
 import 'done_sound_choice.dart';
@@ -94,6 +98,28 @@ final glanceSyncProvider = Provider<GlanceSync>(
     ref.watch(deviceBridgeProvider),
     ref.watch(themeChoiceProvider),
   ),
+);
+
+/// Bound to the device's CloudKit in `main`; tests bind a cloud of their
+/// own, or leave it, which is no cloud at all.
+final cloudTransportProvider = Provider<CloudTransport>(
+  (ref) => const NoCloudTransport(),
+);
+
+/// Keeps the store and the cloud matching. Nudged after every write, on
+/// launch, on return to the front, and when another device has written.
+/// Says where it stands through [cloudStatusProvider].
+final cloudSyncProvider = Provider<CloudSync>(
+  (ref) => CloudSync(
+    ref.watch(todoStoreProvider),
+    ref.watch(cloudTransportProvider),
+    clock: ref.watch(clockProvider),
+  )..onStatus = ref.read(cloudStatusProvider.notifier).set,
+);
+
+/// Where the sync stands, for Settings to read.
+final cloudStatusProvider = NotifierProvider<CloudStatusNotifier, CloudStatus>(
+  CloudStatusNotifier.new,
 );
 
 /// The rule behind a repeating task, as it stands on [day]; null for a

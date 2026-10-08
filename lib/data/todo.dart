@@ -22,6 +22,9 @@ class Todo {
     this.dismissed = false,
     this.pinned = false,
     this.carryOver = false,
+    this.uid,
+    this.recurrenceUid,
+    this.updatedAt = 0,
   }) : assert(title != null || body != null, 'words, one way or the other'),
        body = body ?? TaskBody.plain(title ?? '');
 
@@ -37,6 +40,9 @@ class Todo {
     dismissed: (row['dismissed'] as int? ?? 0) == 1,
     pinned: (row['pinned'] as int? ?? 0) == 1,
     carryOver: (row['carry_over'] as int? ?? 0) == 1,
+    uid: row['uid'] as String?,
+    recurrenceUid: row['recurrence_uid'] as String?,
+    updatedAt: row['updated_at'] as int? ?? 0,
   );
 
   /// The words as stored: the body's JSON when there is one, else the plain
@@ -53,6 +59,7 @@ class Todo {
     done: false,
     position: recurrence.position,
     recurrenceId: recurrence.id,
+    recurrenceUid: recurrence.uid,
     due: recurrence.due,
   );
 
@@ -94,6 +101,17 @@ class Todo {
   /// doing so until it is done. A one-off's alone: a rule comes back on its
   /// own, and its misses are Left behind's.
   final bool carryOver;
+
+  /// What the row is called on every device, or null while the task is
+  /// only projected. A rule's showing takes [occurrenceUid] when written.
+  final String? uid;
+
+  /// The uid of the rule this task comes from, or null for a one-off.
+  final String? recurrenceUid;
+
+  /// Epoch milliseconds of the write that made the row what it is. Zero
+  /// for a task never written.
+  final int updatedAt;
 
   bool get isStored => id != null;
   bool get repeats => recurrenceId != null;
@@ -159,6 +177,13 @@ class Todo {
 
   Todo stored(int rowId) => copyWith(id: rowId);
 
+  /// As written: given its row id, its uid and the moment of the write.
+  Todo written({required int id, required String uid, required int at}) =>
+      copyWith(id: id, uid: uid, updatedAt: at);
+
+  /// Stamped with the moment of a write.
+  Todo touched(int at) => copyWith(updatedAt: at);
+
   Todo copyWith({
     int? id,
     TaskBody? body,
@@ -172,6 +197,8 @@ class Todo {
     bool? dismissed,
     bool? pinned,
     bool? carryOver,
+    String? uid,
+    int? updatedAt,
   }) => Todo(
     id: id ?? this.id,
     body: body ?? this.body,
@@ -184,6 +211,9 @@ class Todo {
     dismissed: dismissed ?? this.dismissed,
     pinned: pinned ?? this.pinned,
     carryOver: carryOver ?? this.carryOver,
+    uid: uid ?? this.uid,
+    recurrenceUid: recurrenceUid,
+    updatedAt: updatedAt ?? this.updatedAt,
   );
 
   /// The two columns the words are kept in: the body, and the plain title
@@ -205,7 +235,18 @@ class Todo {
     'dismissed': dismissed ? 1 : 0,
     'pinned': pinned ? 1 : 0,
     'carry_over': carryOver ? 1 : 0,
+    'uid': uid,
+    'recurrence_uid': recurrenceUid,
+    'updated_at': updatedAt,
   };
+
+  /// The columns as they cross to another device: the row without the ids
+  /// that are this device's own. The rule is named by its uid.
+  Map<String, Object?> toSyncFields(int day) => toRow(day)
+    ..remove('id')
+    ..remove('recurrence_id')
+    ..remove('uid')
+    ..remove('updated_at');
 }
 
 /// Open tasks keep their position order, the pinned ones ahead of the rest.

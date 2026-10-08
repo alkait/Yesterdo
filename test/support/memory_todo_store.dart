@@ -2,6 +2,7 @@ import 'package:remind_me/data/due.dart';
 import 'package:remind_me/data/repeat_rule.dart';
 import 'package:remind_me/data/rich/task_body.dart';
 import 'package:remind_me/data/search.dart';
+import 'package:remind_me/data/sync_record.dart';
 import 'package:remind_me/data/todo.dart';
 import 'package:remind_me/data/todo_store.dart';
 
@@ -11,20 +12,33 @@ import 'package:remind_me/data/todo_store.dart';
 /// Pass [writeDelay] to make a write take real time, the way SQLite does.
 /// Frames are drawn while it waits, so a test can see what the interface
 /// does to a card that is on its way off the day.
+///
+/// Keeps a change log the way the shipping store does, so two of these
+/// can be synced through a memory cloud and the merge watched.
 class MemoryTodoStore implements TodoStore {
-  MemoryTodoStore({this.writeDelay = Duration.zero});
+  MemoryTodoStore({
+    this.writeDelay = Duration.zero,
+    DateTime Function() clock = DateTime.now,
+  }) : _clock = clock; // ignore: prefer_initializing_formals
 
   /// How long a write takes. Nothing by default.
   final Duration writeDelay;
+
+  final DateTime Function() _clock;
 
   Future<void> _written() =>
       writeDelay == Duration.zero ? Future.value() : Future.delayed(writeDelay);
 
   final Map<int, List<Todo>> _byDay = <int, List<Todo>>{};
   final List<Recurrence> _recurrences = <Recurrence>[];
-  final Map<int, int> _ignored = <int, int>{};
+
+  /// Uids written since the last send, each marked whether the row is gone.
+  final Map<String, bool> _pending = <String, bool>{};
+  String? _token;
   int _nextTodoId = 1;
   int _nextRecurrenceId = 1;
+
+  int get _now => _clock().millisecondsSinceEpoch;
 
   @override
   Future<List<Todo>> storedTodosOn(int day) =>
@@ -59,8 +73,11 @@ class MemoryTodoStore implements TodoStore {
       due: due,
       pinned: pinned,
       carryOver: carryOver,
+      uid: newUid(),
+      updatedAt: _now,
     );
     _dayOf(day).add(todo);
+    _log(todo.uid!);
     return Future.value(todo);
   }
 
@@ -74,31 +91,39 @@ class MemoryTodoStore implements TodoStore {
     int? position,
   }) {
     final id = _nextRecurrenceId++;
-    _recurrences.add(
-      Recurrence(
-        id: id,
-        body: TodoStore.bodyOf(title, body),
-        rule: rule,
-        position: position ?? _topPosition(day),
-        due: due,
-      ),
+    final recurrence = Recurrence(
+      id: id,
+      body: TodoStore.bodyOf(title, body),
+      rule: rule,
+      position: position ?? _topPosition(day),
+      due: due,
+      updatedAt: _now,
     );
+    _recurrences.add(recurrence);
+    _log(recurrence.uid);
     return Future.value(id);
   }
 
   @override
   Future<Todo> materialize({required int day, required Todo todo}) {
     if (todo.isStored) return Future.value(todo);
-    final written = todo.stored(_nextTodoId++);
+    final uid = todo.recurrenceUid == null
+        ? newUid()
+        : occurrenceUid(todo.recurrenceUid!, day);
+    final written = todo.written(id: _nextTodoId++, uid: uid, at: _now);
     _dayOf(day).add(written);
+    _log(uid);
     return Future.value(written);
   }
 
   @override
   Future<void> save(Todo todo) {
+    final stamped = todo.touched(_now);
     for (final items in _byDay.values) {
       final index = items.indexWhere((each) => each.id == todo.id);
-      if (index != -1) items[index] = todo;
+      if (index == -1) continue;
+      items[index] = stamped.copyWith(uid: items[index].uid);
+      _log(items[index].uid!);
     }
     return Future.value();
   }
@@ -114,9 +139,7 @@ class MemoryTodoStore implements TodoStore {
   @override
   Future<void> remove({required int day, required Todo todo}) {
     if (!todo.repeats) {
-      for (final items in _byDay.values) {
-        items.removeWhere((each) => each.id == todo.id);
-      }
+      _dropTodos((each) => each.id == todo.id);
       return Future.value();
     }
     final hidden = todo.copyWith(hidden: true);
@@ -144,19 +167,29 @@ class MemoryTodoStore implements TodoStore {
         pinned: todo.pinned,
       );
     }
+    final held = _dayOf(fromDay)
+        .where((each) => each.id == todo.id)
+        .firstOrNull;
     _dayOf(fromDay).removeWhere((each) => each.id == todo.id);
-    final moved = todo.repositioned(position).copyWith(dismissed: false);
+    final moved = todo
+        .repositioned(position)
+        .copyWith(
+          dismissed: false,
+          uid: held?.uid ?? todo.uid,
+          updatedAt: _now,
+        );
     _dayOf(toDay).add(moved);
+    if (moved.uid != null) _log(moved.uid!);
     return moved;
   }
 
   @override
   Future<void> removeSeries(int recurrenceId) {
-    for (final items in _byDay.values) {
-      items.removeWhere((each) => each.recurrenceId == recurrenceId);
+    _dropTodos((each) => each.recurrenceId == recurrenceId);
+    for (final each in _recurrences) {
+      if (each.id == recurrenceId) _pending[each.uid] = true;
     }
     _recurrences.removeWhere((each) => each.id == recurrenceId);
-    _ignored.remove(recurrenceId);
     return Future.value();
   }
 
@@ -168,17 +201,13 @@ class MemoryTodoStore implements TodoStore {
     final existing = _recurrences[index];
     if (day <= existing.rule.startDay) return removeSeries(recurrenceId);
 
-    for (final entry in _byDay.entries) {
-      if (entry.key >= day) {
-        entry.value.removeWhere((each) => each.recurrenceId == recurrenceId);
-      }
-    }
-    _recurrences[index] = Recurrence(
-      id: existing.id,
-      body: existing.body,
-      position: existing.position,
-      due: existing.due,
-      rule: existing.rule.copyWith(endDay: day - 1),
+    _dropTodos(
+      (each) => each.recurrenceId == recurrenceId,
+      onDays: (at) => at >= day,
+    );
+    _putRule(
+      index,
+      existing.copyWith(rule: existing.rule.copyWith(endDay: day - 1)),
     );
     return Future.value();
   }
@@ -192,17 +221,13 @@ class MemoryTodoStore implements TodoStore {
     final endDay = existing.rule.endDay;
     if (endDay != null && day >= endDay) return removeSeries(recurrenceId);
 
-    for (final entry in _byDay.entries) {
-      if (entry.key <= day) {
-        entry.value.removeWhere((each) => each.recurrenceId == recurrenceId);
-      }
-    }
-    _recurrences[index] = Recurrence(
-      id: existing.id,
-      body: existing.body,
-      position: existing.position,
-      due: existing.due,
-      rule: existing.rule.copyWith(startDay: day + 1),
+    _dropTodos(
+      (each) => each.recurrenceId == recurrenceId,
+      onDays: (at) => at <= day,
+    );
+    _putRule(
+      index,
+      existing.copyWith(rule: existing.rule.copyWith(startDay: day + 1)),
     );
     return Future.value();
   }
@@ -218,12 +243,14 @@ class MemoryTodoStore implements TodoStore {
     final words = TodoStore.bodyOf(title, body);
     final index = _recurrences.indexWhere((each) => each.id == recurrenceId);
     if (index != -1) {
-      _recurrences[index] = Recurrence(
-        id: recurrenceId,
-        body: words,
-        rule: rule,
-        position: _recurrences[index].position,
-        due: due,
+      _putRule(
+        index,
+        _recurrences[index].copyWith(
+          body: words,
+          rule: rule,
+          due: due,
+          clearDue: due == null,
+        ),
       );
     }
     for (final items in _byDay.values) {
@@ -231,7 +258,13 @@ class MemoryTodoStore implements TodoStore {
         if (items[at].recurrenceId == recurrenceId) {
           items[at] = items[at]
               .withBody(words.withTicksOf(items[at].body))
-              .copyWith(due: due, clearDue: due == null, dismissed: false);
+              .copyWith(
+                due: due,
+                clearDue: due == null,
+                dismissed: false,
+                updatedAt: _now,
+              );
+          _log(items[at].uid!);
         }
       }
     }
@@ -258,14 +291,20 @@ class MemoryTodoStore implements TodoStore {
 
   @override
   Future<void> ignoreMissed({required int recurrenceId, required int day}) {
-    final known = _ignored[recurrenceId];
-    if (known == null || known < day) _ignored[recurrenceId] = day;
+    final index = _recurrences.indexWhere((each) => each.id == recurrenceId);
+    if (index == -1) return Future.value();
+    final known = _recurrences[index].ignoredThrough;
+    if (known == null || known < day) {
+      _putRule(index, _recurrences[index].copyWith(ignoredThrough: day));
+    }
     return Future.value();
   }
 
   @override
-  Future<Map<int, int>> ignoredMissed() =>
-      Future.value(Map<int, int>.of(_ignored));
+  Future<Map<int, int>> ignoredMissed() => Future.value({
+    for (final each in _recurrences)
+      if (each.ignoredThrough != null) each.id: each.ignoredThrough!,
+  });
 
   @override
   Future<List<CarriedTask>> leftToCarryBefore(int day) {
@@ -326,6 +365,203 @@ class MemoryTodoStore implements TodoStore {
         },
       ),
     );
+  }
+
+  // Sync.
+
+  /// The uids still to be sent, for a test to look at.
+  Set<String> get pendingUids => _pending.keys.toSet();
+
+  @override
+  Future<SyncBatch> pendingChanges() {
+    final changed = <SyncRecord>[];
+    final deleted = <String>[];
+    for (final MapEntry(key: uid, value: gone) in _pending.entries) {
+      if (gone) {
+        deleted.add(uid);
+        continue;
+      }
+      final record = _recordFor(uid);
+      if (record != null) changed.add(record);
+    }
+    return Future.value(
+      SyncBatch(changed: rulesFirst(changed), deleted: deleted),
+    );
+  }
+
+  @override
+  Future<void> clearPending(SyncBatch sent) {
+    for (final uid in sent.deleted) {
+      if (_pending[uid] == true) _pending.remove(uid);
+    }
+    for (final record in sent.changed) {
+      if (_pending[record.uid] == false &&
+          _recordFor(record.uid)?.updatedAt == record.updatedAt) {
+        _pending.remove(record.uid);
+      }
+    }
+    return Future.value();
+  }
+
+  @override
+  Future<void> markAllPending() {
+    _pending.clear();
+    for (final items in _byDay.values) {
+      for (final todo in items) {
+        _pending[todo.uid!] = false;
+      }
+    }
+    for (final each in _recurrences) {
+      _pending[each.uid] = false;
+    }
+    return Future.value();
+  }
+
+  @override
+  Future<bool> applyRemote(SyncBatch incoming) {
+    var changed = false;
+    for (final uid in incoming.deleted) {
+      _pending.remove(uid);
+      final before = _count;
+      _dropTodos((each) => each.uid == uid, silently: true);
+      for (final rule
+          in _recurrences.where((each) => each.uid == uid).toList()) {
+        _dropTodos((each) => each.recurrenceId == rule.id, silently: true);
+        _recurrences.remove(rule);
+      }
+      changed |= _count != before;
+    }
+    for (final record in rulesFirst(incoming.changed)) {
+      if (!takesIncoming(
+        _localState(record.uid),
+        updatedAt: record.updatedAt,
+      )) {
+        continue;
+      }
+      changed |= switch (record.kind) {
+        SyncKind.rule => _takeRule(record),
+        SyncKind.todo => _takeTodo(record),
+      };
+    }
+    return Future.value(changed);
+  }
+
+  @override
+  Future<String?> syncToken() => Future.value(_token);
+
+  @override
+  Future<void> setSyncToken(String? token) {
+    _token = token;
+    return Future.value();
+  }
+
+  bool _takeRule(SyncRecord record) {
+    final index = _recurrences.indexWhere((each) => each.uid == record.uid);
+    final id = index == -1 ? _nextRecurrenceId++ : _recurrences[index].id;
+    final taken = Recurrence.fromRow({
+      ...record.fields,
+      'id': id,
+      'uid': record.uid,
+      'updated_at': record.updatedAt,
+    });
+    if (index == -1) {
+      _recurrences.add(taken);
+    } else {
+      _recurrences[index] = taken;
+    }
+    _pending.remove(record.uid);
+    return true;
+  }
+
+  bool _takeTodo(SyncRecord record) {
+    final ruleUid = record.fields['recurrence_uid'] as String?;
+    int? recurrenceId;
+    if (ruleUid != null) {
+      final rule = _recurrences
+          .where((each) => each.uid == ruleUid)
+          .firstOrNull;
+      if (rule == null) return false;
+      recurrenceId = rule.id;
+    }
+    final held = _find(record.uid);
+    final taken = Todo.fromRow({
+      ...record.fields,
+      'id': held?.todo.id ?? _nextTodoId++,
+      'recurrence_id': recurrenceId,
+      'uid': record.uid,
+      'updated_at': record.updatedAt,
+    });
+    _dropTodos((each) => each.uid == record.uid, silently: true);
+    _dayOf(record.fields['day']! as int).add(taken);
+    _pending.remove(record.uid);
+    return true;
+  }
+
+  LocalState _localState(String uid) {
+    final gone = _pending[uid];
+    final updatedAt =
+        _find(uid)?.todo.updatedAt ??
+        _recurrences.where((each) => each.uid == uid).firstOrNull?.updatedAt;
+    return LocalState(
+      updatedAt: updatedAt,
+      pending: gone != null,
+      deleted: gone == true,
+    );
+  }
+
+  SyncRecord? _recordFor(String uid) {
+    final held = _find(uid);
+    if (held != null) {
+      return SyncRecord(
+        kind: SyncKind.todo,
+        uid: uid,
+        updatedAt: held.todo.updatedAt,
+        fields: held.todo.toSyncFields(held.day),
+      );
+    }
+    final rule = _recurrences.where((each) => each.uid == uid).firstOrNull;
+    if (rule == null) return null;
+    return SyncRecord(
+      kind: SyncKind.rule,
+      uid: uid,
+      updatedAt: rule.updatedAt,
+      fields: rule.toSyncFields(),
+    );
+  }
+
+  CarriedTask? _find(String uid) {
+    for (final entry in _byDay.entries) {
+      for (final todo in entry.value) {
+        if (todo.uid == uid) return CarriedTask(day: entry.key, todo: todo);
+      }
+    }
+    return null;
+  }
+
+  int get _count =>
+      _recurrences.length +
+      _byDay.values.fold(0, (sum, items) => sum + items.length);
+
+  void _log(String uid) => _pending[uid] = false;
+
+  /// Takes rows out, leaving a tombstone for each unless [silently].
+  void _dropTodos(
+    bool Function(Todo) test, {
+    bool Function(int day)? onDays,
+    bool silently = false,
+  }) {
+    for (final MapEntry(key: day, value: items) in _byDay.entries) {
+      if (onDays != null && !onDays(day)) continue;
+      for (final todo in items.where(test).toList()) {
+        if (!silently && todo.uid != null) _pending[todo.uid!] = true;
+        items.remove(todo);
+      }
+    }
+  }
+
+  void _putRule(int index, Recurrence rule) {
+    _recurrences[index] = rule.copyWith(updatedAt: _now);
+    _log(rule.uid);
   }
 
   List<Todo> _dayOf(int day) => _byDay.putIfAbsent(day, () => <Todo>[]);

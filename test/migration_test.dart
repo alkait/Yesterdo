@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import 'package:remind_me/data/app_database.dart';
 import 'package:remind_me/data/repeat_rule.dart';
 import 'package:remind_me/data/sqlite_todo_store.dart';
+import 'package:remind_me/data/sync_record.dart';
 import 'package:remind_me/data/todo.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -162,8 +163,88 @@ Future<void> createVersionTen(Database db, int version) async {
   );
 }
 
+Future<void> createVersionEleven(Database db, int version) async {
+  await createVersionTen(db, version);
+  await db.execute(
+    'ALTER TABLE todos ADD COLUMN carry_over INTEGER NOT NULL DEFAULT 0',
+  );
+}
+
 void main() {
   setUpAll(sqfliteFfiInit);
+
+  test(
+    'a version 11 database names its rows and logs them all to be sent',
+    () async {
+      final directory = await Directory.systemTemp.createTemp('remind_me_test');
+      addTearDown(() => directory.delete(recursive: true));
+      final path = p.join(directory.path, 'remind_me.db');
+
+      var db = await databaseFactoryFfi.openDatabase(
+        path,
+        options: OpenDatabaseOptions(
+          version: 11,
+          onCreate: createVersionEleven,
+        ),
+      );
+      await db.insert('todos', <String, Object?>{
+        'day': 20699,
+        'title': 'Buy milk',
+        'position': 0,
+      });
+      final ruleId = await db.insert('recurrences', <String, Object?>{
+        'title': 'Stretch',
+        'kind': 'daily',
+        'weekdays': 0,
+        'month_days': 0,
+        'start_day': 20699,
+        'position': 1,
+      });
+      await db.insert('todos', <String, Object?>{
+        'day': 20700,
+        'title': 'Stretch',
+        'position': 1,
+        'recurrence_id': ruleId,
+        'done': 1,
+      });
+      await db.close();
+
+      db = await databaseFactoryFfi.openDatabase(
+        path,
+        options: OpenDatabaseOptions(
+          version: 12,
+          onCreate: AppDatabase.createSchema,
+          onUpgrade: AppDatabase.upgradeSchema,
+        ),
+      );
+      addTearDown(db.close);
+
+      final store = SqliteTodoStore(db);
+      final oneOff = (await store.todosOn(20699)).firstWhere((t) => !t.repeats);
+      expect(oneOff.uid, isNotNull);
+      expect(oneOff.recurrenceUid, isNull);
+
+      final rule = (await db.query('recurrences')).single;
+      final ruleUid = rule['uid'] as String;
+      expect(ruleUid, hasLength(32));
+      // The written-down showing is named after its rule and its day, as a
+      // showing written from now on is.
+      final showing = (await store.storedTodosOn(20700)).single;
+      expect(showing.recurrenceUid, ruleUid);
+      expect(showing.uid, occurrenceUid(ruleUid, 20700));
+      expect(showing.done, isTrue);
+
+      // Everything there is to be sent.
+      final pending = await store.pendingChanges();
+      expect(pending.deleted, isEmpty);
+      expect(
+        pending.changed.map((r) => r.uid),
+        unorderedEquals([oneOff.uid, ruleUid, showing.uid]),
+      );
+      expect(pending.changed.first.kind, SyncKind.rule);
+      expect(await store.syncToken(), isNull);
+    },
+  );
 
   test('a version 10 task is kept, stays put, and can carry over', () async {
     final directory = await Directory.systemTemp.createTemp('remind_me_test');
@@ -185,7 +266,7 @@ void main() {
     db = await databaseFactoryFfi.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 11,
+        version: 12,
         onCreate: AppDatabase.createSchema,
         onUpgrade: AppDatabase.upgradeSchema,
       ),
@@ -223,7 +304,7 @@ void main() {
     db = await databaseFactoryFfi.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 11,
+        version: 12,
         onCreate: AppDatabase.createSchema,
         onUpgrade: AppDatabase.upgradeSchema,
       ),
@@ -262,7 +343,7 @@ void main() {
       db = await databaseFactoryFfi.openDatabase(
         path,
         options: OpenDatabaseOptions(
-          version: 11,
+          version: 12,
           onCreate: AppDatabase.createSchema,
           onUpgrade: AppDatabase.upgradeSchema,
         ),
@@ -304,7 +385,7 @@ void main() {
     db = await databaseFactoryFfi.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 11,
+        version: 12,
         onCreate: AppDatabase.createSchema,
         onUpgrade: AppDatabase.upgradeSchema,
       ),
@@ -339,7 +420,7 @@ void main() {
     db = await databaseFactoryFfi.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 11,
+        version: 12,
         onCreate: AppDatabase.createSchema,
         onUpgrade: AppDatabase.upgradeSchema,
       ),
@@ -406,7 +487,7 @@ void main() {
       db = await databaseFactoryFfi.openDatabase(
         path,
         options: OpenDatabaseOptions(
-          version: 11,
+          version: 12,
           onCreate: AppDatabase.createSchema,
           onUpgrade: AppDatabase.upgradeSchema,
         ),
@@ -455,7 +536,7 @@ void main() {
     db = await databaseFactoryFfi.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 11,
+        version: 12,
         onCreate: AppDatabase.createSchema,
         onUpgrade: AppDatabase.upgradeSchema,
       ),
@@ -503,7 +584,7 @@ void main() {
     db = await databaseFactoryFfi.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 11,
+        version: 12,
         onCreate: AppDatabase.createSchema,
         onUpgrade: AppDatabase.upgradeSchema,
       ),
@@ -561,7 +642,7 @@ void main() {
     db = await databaseFactoryFfi.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 11,
+        version: 12,
         onCreate: AppDatabase.createSchema,
         onUpgrade: AppDatabase.upgradeSchema,
       ),
@@ -615,7 +696,7 @@ void main() {
     db = await databaseFactoryFfi.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 11,
+        version: 12,
         onCreate: AppDatabase.createSchema,
         onUpgrade: AppDatabase.upgradeSchema,
       ),
@@ -674,7 +755,7 @@ void main() {
     final fresh = await databaseFactoryFfi.openDatabase(
       p.join(directory.path, 'fresh.db'),
       options: OpenDatabaseOptions(
-        version: 11,
+        version: 12,
         onCreate: AppDatabase.createSchema,
       ),
     );
@@ -692,6 +773,7 @@ void main() {
       8: createVersionEight,
       9: createVersionNine,
       10: createVersionTen,
+      11: createVersionEleven,
     };
     for (final MapEntry(key: version, value: create) in shipped.entries) {
       final upgradedPath = p.join(directory.path, 'upgraded_$version.db');
@@ -703,20 +785,40 @@ void main() {
       upgraded = await databaseFactoryFfi.openDatabase(
         upgradedPath,
         options: OpenDatabaseOptions(
-          version: 11,
+          version: 12,
           onCreate: AppDatabase.createSchema,
           onUpgrade: AppDatabase.upgradeSchema,
         ),
       );
       addTearDown(upgraded.close);
 
-      for (final table in ['todos', 'recurrences', 'settings']) {
+      for (final table in [
+        'todos',
+        'recurrences',
+        'settings',
+        'sync_changes',
+        'sync_state',
+      ]) {
         expect(
           await columnsOf(upgraded, table),
           await columnsOf(fresh, table),
           reason: '$table from version $version',
         );
       }
+      // The uid indexes too, since a doubled uid would be two rows for one.
+      Future<Set<String>> indexesOf(Database db) async => {
+        for (final row in await db.query(
+          'sqlite_master',
+          columns: ['name'],
+          where: "type = 'index' AND name LIKE '%uid%'",
+        ))
+          row['name']! as String,
+      };
+      expect(
+        await indexesOf(upgraded),
+        await indexesOf(fresh),
+        reason: 'indexes from version $version',
+      );
     }
   });
 }

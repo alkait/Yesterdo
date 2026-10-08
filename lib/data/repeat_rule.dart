@@ -2,6 +2,7 @@ import '../core/date_labels.dart';
 import '../core/day.dart';
 import 'due.dart';
 import 'rich/task_body.dart';
+import 'sync_record.dart';
 import 'todo.dart';
 
 enum RepeatKind { daily, weekly, monthly, custom }
@@ -261,14 +262,21 @@ class Recurrence {
     required this.rule,
     required this.position,
     this.due,
+    String? uid,
+    this.updatedAt = 0,
+    this.ignoredThrough,
   }) : assert(title != null || body != null, 'words, one way or the other'),
-       body = (body ?? TaskBody.plain(title ?? '')).unticked();
+       body = (body ?? TaskBody.plain(title ?? '')).unticked(),
+       uid = uid ?? newUid();
 
   factory Recurrence.fromRow(Map<String, Object?> row) => Recurrence(
     id: row['id']! as int,
     body: Todo.bodyFromRow(row),
     position: row['position']! as int,
     due: Due.fromRow(row),
+    uid: row['uid'] as String?,
+    updatedAt: row['updated_at'] as int? ?? 0,
+    ignoredThrough: row['ignored_through'] as int?,
     rule: RepeatRule(
       kind: RepeatKind.values.byName(row['kind']! as String),
       startDay: row['start_day']! as int,
@@ -292,7 +300,42 @@ class Recurrence {
   /// The time it is due on every day it falls on, or null for none.
   final Due? due;
 
+  /// What the rule is called on every device.
+  final String uid;
+
+  /// Epoch milliseconds of the write that made the row what it is.
+  final int updatedAt;
+
+  /// The last day whose missed showings were let go, or null for none.
+  final int? ignoredThrough;
+
   bool fallsOn(int day) => rule.fallsOn(day);
+
+  Recurrence copyWith({
+    TaskBody? body,
+    RepeatRule? rule,
+    int? position,
+    Due? due,
+    bool clearDue = false,
+    int? updatedAt,
+    int? ignoredThrough,
+  }) => Recurrence(
+    id: id,
+    body: body ?? this.body,
+    rule: rule ?? this.rule,
+    position: position ?? this.position,
+    due: clearDue ? null : (due ?? this.due),
+    uid: uid,
+    updatedAt: updatedAt ?? this.updatedAt,
+    ignoredThrough: ignoredThrough ?? this.ignoredThrough,
+  );
+
+  /// The columns as they cross to another device: everything but the id
+  /// that is this device's own.
+  Map<String, Object?> toSyncFields() => <String, Object?>{
+    ...rowFor(body: body, rule: rule, position: position, due: due),
+    'ignored_through': ignoredThrough,
+  };
 
   static Map<String, Object?> rowFor({
     required TaskBody body,

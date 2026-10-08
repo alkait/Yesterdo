@@ -4,7 +4,7 @@ import 'package:sqflite/sqflite.dart';
 /// Owns the on-device SQLite file. Nothing leaves the device.
 abstract final class AppDatabase {
   static const _fileName = 'remind_me.db';
-  static const _version = 11;
+  static const _version = 12;
 
   static Future<Database> open() async {
     final path = p.join(await getDatabasesPath(), _fileName);
@@ -34,12 +34,17 @@ CREATE TABLE todos (
   dismissed INTEGER NOT NULL DEFAULT 0,
   body TEXT,
   pinned INTEGER NOT NULL DEFAULT 0,
-  carry_over INTEGER NOT NULL DEFAULT 0
+  carry_over INTEGER NOT NULL DEFAULT 0,
+  uid TEXT,
+  recurrence_uid TEXT,
+  updated_at INTEGER NOT NULL DEFAULT 0
 )''');
     await db.execute('CREATE INDEX todos_day_idx ON todos (day)');
+    await _createTodoUidIndex(db);
     await _createRecurrences(db);
     await _createOccurrenceIndex(db);
     await _createSettings(db);
+    await _createSyncTables(db);
   }
 
   /// Version 1 knew nothing of repeating tasks. Version 2 had nowhere to keep
@@ -47,7 +52,8 @@ CREATE TABLE todos (
   /// no due times. Version 5 held one reminder per task and no sound.
   /// Version 6 held plain words only. Version 7 had no custom repeats.
   /// Version 8 could not have a rule's missed showings ignored. Version 9
-  /// could not pin a task. Version 10 could not carry a task over.
+  /// could not pin a task. Version 10 could not carry a task over. Version
+  /// 11 knew its rows by local ids alone and had nothing to sync with.
   static Future<void> upgradeSchema(Database db, int from, int to) async {
     if (from < 2) {
       await db.execute('ALTER TABLE todos ADD COLUMN recurrence_id INTEGER');
@@ -87,6 +93,76 @@ CREATE TABLE todos (
         'ALTER TABLE todos ADD COLUMN carry_over INTEGER NOT NULL DEFAULT 0',
       );
     }
+    if (from < 12) await _addSync(db, recurrencesToo: from >= 4);
+  }
+
+  /// Version 11 knew its rows by local ids alone. Now every row has a uid
+  /// that goes with it to other devices, the moment it was last written,
+  /// and a change log of what is still to be sent. Everything already
+  /// here is to be sent, so it all goes in the log. A rule's showing is
+  /// named after the rule and its day, so both devices name it alike.
+  static Future<void> _addSync(
+    Database db, {
+    required bool recurrencesToo,
+  }) async {
+    await db.execute('ALTER TABLE todos ADD COLUMN uid TEXT');
+    await db.execute('ALTER TABLE todos ADD COLUMN recurrence_uid TEXT');
+    await db.execute(
+      'ALTER TABLE todos ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0',
+    );
+    await _createTodoUidIndex(db);
+    if (recurrencesToo) {
+      await db.execute('ALTER TABLE recurrences ADD COLUMN uid TEXT');
+      await db.execute(
+        'ALTER TABLE recurrences ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0',
+      );
+      await _createRecurrenceUidIndex(db);
+    }
+    await _createSyncTables(db);
+
+    await db.execute(
+      'UPDATE recurrences SET uid = lower(hex(randomblob(16))) WHERE uid IS NULL',
+    );
+    await db.execute('''
+UPDATE todos SET recurrence_uid =
+  (SELECT uid FROM recurrences WHERE recurrences.id = todos.recurrence_id)
+WHERE recurrence_id IS NOT NULL''');
+    await db.execute(
+      "UPDATE todos SET uid = recurrence_uid || '-' || day "
+      'WHERE uid IS NULL AND recurrence_uid IS NOT NULL',
+    );
+    await db.execute(
+      'UPDATE todos SET uid = lower(hex(randomblob(16))) WHERE uid IS NULL',
+    );
+    await db.execute(
+      "INSERT OR IGNORE INTO sync_changes (uid, kind) SELECT uid, 'todo' FROM todos",
+    );
+    await db.execute(
+      "INSERT OR IGNORE INTO sync_changes (uid, kind) SELECT uid, 'rule' FROM recurrences",
+    );
+  }
+
+  static Future<void> _createTodoUidIndex(Database db) =>
+      db.execute('CREATE UNIQUE INDEX todos_uid_idx ON todos (uid)');
+
+  static Future<void> _createRecurrenceUidIndex(Database db) => db.execute(
+    'CREATE UNIQUE INDEX recurrences_uid_idx ON recurrences (uid)',
+  );
+
+  /// What is still to be sent, by uid, and where the other side's reading
+  /// got to.
+  static Future<void> _createSyncTables(Database db) async {
+    await db.execute('''
+CREATE TABLE sync_changes (
+  uid TEXT PRIMARY KEY,
+  kind TEXT NOT NULL,
+  deleted INTEGER NOT NULL DEFAULT 0
+)''');
+    await db.execute('''
+CREATE TABLE sync_state (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+)''');
   }
 
   /// Version 6 held plain words only. Version 7 had no custom repeats. The body column holds them styled;
@@ -172,11 +248,14 @@ CREATE TABLE recurrences (
   reminder INTEGER,
   sound TEXT,
   body TEXT,
-  days TEXT
+  days TEXT,
+  uid TEXT,
+  updated_at INTEGER NOT NULL DEFAULT 0
 )''');
     await db.execute(
       'CREATE INDEX recurrences_start_idx ON recurrences (start_day)',
     );
+    await _createRecurrenceUidIndex(db);
   }
 
   /// A rule writes down at most one occurrence per day.
