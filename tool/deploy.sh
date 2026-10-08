@@ -1,6 +1,8 @@
 #!/bin/zsh
 # Builds an ad hoc IPA and hands it to the ios-app-hoster on the Pi, which
-# serves it at https://ios-apps.alkait.xyz. Prints the install link.
+# serves it at https://ios-apps.alkait.xyz. Prints the install link. Then
+# builds the same version for this Mac through tool/mac.sh, so the Mac is
+# on the build the phones are offered.
 #
 # The token is HOSTER_TOKEN, read from .env, which git ignores.
 # Pass --upload-only to send the IPA already in build/ without rebuilding.
@@ -44,3 +46,5 @@ if [[ -z "$link" ]]; then
 fi
 
 echo "Install link: $link"
+
+tool/mac.sh

@@ -6,6 +6,7 @@ import '../state/developer_mode.dart';
 import '../state/providers.dart';
 import 'branded/branded.dart';
 import 'widgets/done_sound_picker_sheet.dart';
+import 'widgets/text_size_picker_sheet.dart';
 import 'widgets/theme_picker_sheet.dart';
 
 /// The settings screen: which look the app is drawn in, whether the system
@@ -48,6 +49,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     final chosen = ref.watch(themeChoiceProvider);
+    final textSize = ref.watch(textSizeProvider);
     final permission = ref.watch(reminderPermissionProvider).value;
     final developer = ref.watch(developerModeProvider);
     final sounds = ref.watch(appSoundsProvider);
@@ -87,6 +89,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   label: 'Theme',
                   value: chosen.label,
                   onTap: () => showThemePicker(context),
+                ),
+                const BrandedDivider(),
+                BrandedFieldRow(
+                  key: const ValueKey('settings-text-size'),
+                  label: 'Text size',
+                  value: textSize.label,
+                  onTap: () => showTextSizePicker(context),
                 ),
                 const SizedBox(height: Brand.gap),
                 const BrandedText(

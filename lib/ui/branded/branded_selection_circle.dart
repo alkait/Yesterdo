@@ -4,7 +4,8 @@ import 'brand.dart';
 
 /// The circle this app uses to say "this one". Filled when selected, an
 /// outline when it is merely worth noting, invisible otherwise. Shared by the
-/// checkbox and the calendar so both can never drift apart.
+/// checkbox and the calendar so both can never drift apart. Drawn to the
+/// text size, so it grows with the words beside it.
 class BrandedSelectionCircle extends StatelessWidget {
   const BrandedSelectionCircle({
     super.key,
@@ -27,11 +28,12 @@ class BrandedSelectionCircle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final drawn = MediaQuery.textScalerOf(context).scale(size);
     return AnimatedContainer(
       duration: Brand.quick,
       curve: Brand.curve,
-      width: size,
-      height: size,
+      width: drawn,
+      height: drawn,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         shape: BoxShape.circle,

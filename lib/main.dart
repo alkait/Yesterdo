@@ -16,6 +16,7 @@ import 'state/app_sounds.dart';
 import 'state/done_sound_choice.dart';
 import 'state/last_sound.dart';
 import 'state/recent_searches.dart';
+import 'state/text_size_choice.dart';
 import 'state/theme_choice.dart';
 
 Future<void> main() async {
@@ -26,6 +27,7 @@ Future<void> main() async {
   final settings = SqliteSettingsStore(database);
   // Read before the first frame too, so the saved look is the first one seen.
   final theme = await ThemeChoice.load(settings);
+  final textSize = await TextSizeChoice.load(settings);
   final sound = await LastSound.load(settings);
   final developer = await DeveloperMode.load(settings);
   final sounds = await AppSounds.load(settings);
@@ -45,6 +47,7 @@ Future<void> main() async {
       appVersionProvider.overrideWithValue(version),
       settingsStoreProvider.overrideWithValue(settings),
       initialThemeChoiceProvider.overrideWithValue(theme),
+      initialTextSizeProvider.overrideWithValue(textSize),
       initialSoundProvider.overrideWithValue(sound),
       initialDeveloperModeProvider.overrideWithValue(developer),
       initialAppSoundsProvider.overrideWithValue(sounds),

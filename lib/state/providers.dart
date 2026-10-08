@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/app_theme.dart';
 import '../core/day.dart';
+import '../core/text_size.dart';
 import '../data/done_sound.dart';
 import '../data/reminder_sound.dart';
 import '../data/repeat_rule.dart';
@@ -31,6 +32,7 @@ import 'recent_searches.dart';
 import 'repeat_history.dart';
 import 'selected_day.dart';
 import 'spotlight.dart';
+import 'text_size_choice.dart';
 import 'theme_choice.dart';
 import 'todos_controller.dart';
 
@@ -68,6 +70,18 @@ final initialThemeChoiceProvider = Provider<AppThemeChoice>(
 
 final themeChoiceProvider = NotifierProvider<ThemeChoice, AppThemeChoice>(
   ThemeChoice.new,
+);
+
+/// The text size in force when the app came up. `main` overrides it with
+/// the saved choice; left alone, it is the one the app ships in.
+final initialTextSizeProvider = Provider<AppTextSize>(
+  (ref) => AppTextSize.fallback,
+);
+
+/// How large the words are drawn. `BrandedApp` is the only widget that
+/// reads it; everything else gets the size through the `MediaQuery`.
+final textSizeProvider = NotifierProvider<TextSizeChoice, AppTextSize>(
+  TextSizeChoice.new,
 );
 
 /// Bound to the system's notifications in `main`; tests bind a recorder.

@@ -33,6 +33,11 @@ it.
   a device is tried by the user.
 - A stale `build/` directory causes a lipo failure on the next build. Clear it
   with `fvm flutter clean`.
+- The app runs on an Apple silicon Mac as a Designed for iPad app, the
+  same iOS build and not a macOS target: `tool/mac.sh` drives the Xcode
+  build for the Mac destination, wraps the bundle the way macOS wraps an
+  iPad app, and installs it in `~/Applications`. Do not add a `macos/`
+  target.
 
 ## Deploy
 
@@ -45,7 +50,11 @@ it.
   builds an ad hoc IPA through `ios/ExportOptions.plist` and uploads it to
   the ios-app-hoster on the Pi (`~/Documents/code/alkait/ios-app-hoster`,
   served at `https://ios-apps.alkait.xyz`). Every deploy gives a new link,
-  and the page behind it lists the earlier builds too.
+  and the page behind it keeps the build before it, for going back. It
+  then runs `tool/mac.sh`, which builds the same version for this Mac,
+  installs it in `~/Applications/Yesterdo.app` and opens it, so the Mac is
+  on the build the phones are offered. The Mac app is launched from there,
+  through Spotlight or the Dock.
 - The hoster token is `HOSTER_TOKEN` in `.env`, which git ignores. It is
   never committed or written into a reply.
 - The link installs only on devices registered with the team. A new device
@@ -249,6 +258,11 @@ lands in one place and shows up everywhere.
   everything else gets its colours through the `ColorScheme`.
 - `main` reads saved settings before the first frame and binds them to the
   `initial…` providers, so the app never flashes one state and switches.
+- Text size is a setting, `AppTextSize`, applied once in `BrandedApp` as a
+  factor over the system's text scale. Everything reads it through the
+  `MediaQuery`: `BrandedText` through its scaler, `BrandedIcon` and
+  `BrandedSelectionCircle` by scaling their points. Rows grow to fit;
+  gutters and gaps do not scale, as on a phone.
 - Flat means no Material elevation and no ripple. Keep splash and highlight
   transparent. The one shadow is `BrandedCard`'s open-card shadow.
 - Cap content width for iPad rather than letting rows stretch. Check a phone

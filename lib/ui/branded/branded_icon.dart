@@ -11,7 +11,8 @@ enum BrandedIconSize {
   final double points;
 }
 
-/// The only way to put an icon on screen.
+/// The only way to put an icon on screen. Drawn to the text size, so an
+/// icon grows with the words beside it.
 class BrandedIcon extends StatelessWidget {
   const BrandedIcon(
     this.icon, {
@@ -27,7 +28,7 @@ class BrandedIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Icon(
     icon,
-    size: size.points,
+    size: MediaQuery.textScalerOf(context).scale(size.points),
     color: tone.resolve(Theme.of(context).colorScheme),
   );
 }
