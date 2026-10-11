@@ -1,13 +1,151 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="/icon.svg"><link rel="stylesheet" href="/style.css"><title>Yesterdo</title><meta name="description" content="A day-at-a-time todo list for iPhone and iPad. Private, local first, synced through your own iCloud."></head><body><main><header><img src="/icon.svg" alt=""><a href="/">Yesterdo</a></header>
-<h1>One day at a time.</h1>
-<p class="lead">A calm todo list for iPhone, iPad and Mac. Today's tasks, nothing more, and yesterday's unfinished ones when you want them.</p>
-<a class="cta" href="mailto:alkait+yesterdo@gmail.com?subject=Yesterdo">Coming soon to the App Store</a>
-<ul class="features">
-<li><b>A day, not a backlog</b><span>Each day holds its own list. Swipe to the next or the one before.</span></li>
-<li><b>Left behind, on your terms</b><span>Carry a task over to today, or let it go quietly.</span></li>
-<li><b>Repeats and reminders</b><span>Tasks that come back, and a nudge when one is due.</span></li>
-<li><b>Checklists and pictures</b><span>Rich notes inside a task, ticked where you read them.</span></li>
-<li><b>Widgets</b><span>Due now and Pinned, on the Home and Lock Screen.</span></li>
-<li><b>Yours alone</b><span>No account, no ads, no tracking. Syncs only through your own iCloud.</span></li>
-</ul>
-<footer><a href="/">Home</a><a href="/privacy">Privacy</a><a href="/support">Support</a><span>© 2026 Alkait</span></footer></main></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Yesterdo</title>
+<meta name="description" content="A calm todo list for iPhone and iPad, one day at a time. Free forever, no in-app purchases, no data collected, open source.">
+<meta property="og:title" content="Yesterdo: be present, make progress">
+<meta property="og:description" content="A calm todo list, one day at a time. Free forever, no data collected, open source.">
+<meta property="og:image" content="https://yesterdo.netlify.app/img/iphone-1.jpg">
+<link rel="icon" href="/icon.svg">
+<script>try{var l=localStorage.getItem("look");if(l)document.documentElement.dataset.look=l}catch(e){}</script>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<div class="bar"><div class="bar-in">
+  <a class="brand" href="/"><img data-look-icon src="/img/icon-ink.png" alt="">Yesterdo</a>
+  <nav>
+    <a class="hide" href="#features">Features</a>
+    <a class="hide" href="#looks">Looks</a>
+    <a href="/privacy">Privacy</a>
+    <a href="/support">Support</a>
+  </nav>
+</div></div>
+
+<header class="hero">
+  <img class="icon" data-look-icon src="/img/icon-ink.png" alt="Yesterdo">
+  <h1>Be present.<br>Make progress.</h1>
+  <p>Another todo app? Why not. A calm list, one day at a time, that never fights with you.</p>
+  <div class="ctas">
+    <a class="btn" href="#get">
+      <svg viewBox="0 0 24 24"><path d="M16.37 1.43c0 1.14-.42 2.2-1.25 3.04-.9.9-1.98 1.42-3.15 1.33-.15-1.1.4-2.24 1.2-3.07.89-.92 2.08-1.44 3.2-1.3zM20.5 17.1c-.55 1.27-.82 1.84-1.53 2.96-.99 1.56-2.39 3.5-4.12 3.52-1.54.01-1.94-1-4.03-.99-2.09.01-2.53 1.01-4.07.99-1.73-.02-3.05-1.77-4.04-3.33C-.07 15.88-.36 10.8 1.38 8.13 2.62 6.24 4.57 5.13 6.4 5.13c1.87 0 3.04 1.02 4.58 1.02 1.5 0 2.41-1.02 4.57-1.02 1.63 0 3.36.89 4.6 2.42-4.04 2.21-3.38 7.98.35 9.55z"/></svg>
+      Coming soon to the App Store
+    </a>
+    <a class="btn ghost" href="https://github.com/alkait/Yesterdo">View the source</a>
+  </div>
+  <div class="note">For iPhone and iPad. Free, forever.</div>
+</header>
+
+
+<section id="features" class="center" style="padding-bottom:0">
+  <p class="kicker">Features</p>
+  <h2>Everything a day needs.<br>Nothing it doesn't.</h2>
+  <p class="lede">Pick a look as you scroll:</p>
+  <div class="pick">
+    <button class="look" data-pick="ink"><i style="background:var(--dot-ink)"></i>Ink</button>
+    <button class="look" data-pick="ocean"><i style="background:var(--dot-ocean)"></i>Ocean</button>
+    <button class="look" data-pick="forest"><i style="background:var(--dot-forest)"></i>Forest</button>
+    <button class="look" data-pick="blossom"><i style="background:var(--dot-blossom)"></i>Blossom</button>
+  </div>
+</section>
+
+<section>
+  <div class="row">
+    <div class="words">
+      <p class="kicker">One day at a time</p>
+      <h2>Today, and nothing more.</h2>
+      <p class="lede">Each day holds its own list. Swipe to tomorrow to plan ahead, or back to see what you did. Today stays short enough to finish.</p>
+      <ul>
+        <li><b>Pin</b> what matters to the top of its day.</li>
+        <li><b>Times and reminders</b> that call when a task is due.</li>
+        <li><b>Repeats</b> every day, on chosen weekdays, or monthly.</li>
+      </ul>
+    </div>
+    <div class="phone"><img src="/img/iphone-1.jpg" alt="Today's list" loading="lazy"></div>
+  </div>
+</section>
+
+<section>
+  <div class="row flip">
+    <div class="phone"><img src="/img/iphone-5.jpg" alt="A task calling for attention" loading="lazy"></div>
+    <div class="words">
+      <p class="kicker">Nothing piles up</p>
+      <h2>Unfinished? That's fine.</h2>
+      <p class="lede">Yesterday's leftovers wait quietly under Left behind. Bring one to today, send it to another day, or let it go. No red badges, no guilt.</p>
+      <ul>
+        <li><b>Carry over</b> moves a task to today on its own.</li>
+        <li><b>Ignore if not done</b> lets a task pass without a word.</li>
+        <li><b>Snooze or Not today</b> when a reminder comes at the wrong time.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="row">
+    <div class="words">
+      <p class="kicker">More than a line</p>
+      <h2>Checklists, notes and pictures.</h2>
+      <p class="lede">A task can hold a whole plan. Tick items off as you go and they sink out of the way. Add a picture from the camera or your photos.</p>
+      <ul>
+        <li><b>Paste a bulleted list</b> and it comes in as a checklist.</li>
+        <li><b>Share</b> a task's words with any app.</li>
+        <li><b>Search</b> across every day you've written.</li>
+      </ul>
+    </div>
+    <div class="phone"><img src="/img/iphone-6.jpg" alt="A task with a checklist" loading="lazy"></div>
+  </div>
+</section>
+
+<section id="looks" class="center">
+  <p class="kicker">Four looks</p>
+  <h2>Yours, in light and dark.</h2>
+  <p class="lede">Ink, Ocean, Forest and Blossom, each with its own app icon. Tap one to see this page in it.</p>
+  <div class="looks">
+    <figure data-pick="ink"><div class="phone"><img src="/img/iphone-1.jpg" alt="Ink look" loading="lazy"></div><button class="look" data-pick="ink"><i style="background:var(--dot-ink)"></i>Ink</button></figure>
+    <figure data-pick="ocean"><div class="phone"><img src="/img/iphone-2.jpg" alt="Ocean look" loading="lazy"></div><button class="look" data-pick="ocean"><i style="background:var(--dot-ocean)"></i>Ocean</button></figure>
+    <figure data-pick="forest"><div class="phone"><img src="/img/iphone-3.jpg" alt="Forest look, dark" loading="lazy"></div><button class="look" data-pick="forest"><i style="background:var(--dot-forest)"></i>Forest</button></figure>
+    <figure data-pick="blossom"><div class="phone"><img src="/img/iphone-4.jpg" alt="Blossom look, dark" loading="lazy"></div><button class="look" data-pick="blossom"><i style="background:var(--dot-blossom)"></i>Blossom</button></figure>
+  </div>
+</section>
+
+<section class="center">
+  <p class="kicker">Everywhere you are</p>
+  <h2>iPhone and iPad, in sync.</h2>
+  <p class="lede">Your tasks follow you through your own iCloud. Widgets for the Home Screen show what's due and what's pinned.</p>
+  <div class="tablet" style="max-width:820px;margin:56px auto 0"><img src="/img/ipad-1.jpg" alt="Yesterdo on iPad" loading="lazy"></div>
+  <div class="grid">
+    <div class="cell"><h3>iCloud sync</h3><p>Between your devices, in your private iCloud. Never through a server of ours.</p></div>
+    <div class="cell"><h3>Widgets</h3><p>Due now and Pinned, so the day is a glance away.</p></div>
+    <div class="cell"><h3>Works offline</h3><p>Everything lives on your device first. No account to make.</p></div>
+    <div class="cell"><h3>Reminder sounds</h3><p>Pick the chime that suits you, and a sound for done.</p></div>
+    <div class="cell"><h3>Right to left</h3><p>Arabic and Hebrew tasks lay themselves out properly.</p></div>
+    <div class="cell"><h3>Mac too</h3><p>Runs on Apple silicon Macs, straight from the App Store.</p></div>
+  </div>
+</section>
+
+<section id="get">
+  <div class="promise">
+    <p class="kicker">No catch</p>
+    <h2>Premium. Free. Forever.</h2>
+    <p class="lede" style="margin:0 auto">Every feature, for everyone, with nothing held back.</p>
+    <div class="points">
+      <div><b>Free</b><span>Every feature, always.</span></div>
+      <div><b>No purchases</b><span>No subscription, no ads.</span></div>
+      <div><b>No data collected</b><span>Not a byte. <a href="/privacy">Privacy</a></span></div>
+      <div><b>Open source</b><span>MIT licence. <a href="https://github.com/alkait/Yesterdo">GitHub</a></span></div>
+    </div>
+  </div>
+</section>
+
+<footer class="foot"><div class="foot-in">
+  <a href="/privacy">Privacy</a>
+  <a href="/support">Support</a>
+  <a href="https://github.com/alkait/Yesterdo">Source</a>
+  <span>2026 Alkait</span>
+</div></footer>
+<script src="/look.js"></script>
+</body>
+</html>
