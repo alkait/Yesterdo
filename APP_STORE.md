@@ -41,10 +41,11 @@ URLs: marketing https://yesterdo.netlify.app · privacy https://yesterdo.netlify
 
 ## 8. Ship (CLI)
 - [x] `tool/appstore.sh` → wait for processing (`fastlane pilot builds` to poll).
-- [ ] Optional: TestFlight build 15 on your own devices while in review; it uses Production CloudKit like the store build.
-- [x] `cd ios && fastlane submit` — 2.4.3 (15) submitted 11 Oct 2026, Waiting for Review.
+- [x] TestFlight: internal group "Me" (automatic distribution). Build 15 installed over the ad hoc app on the phone and on the Mac (TestFlight for Mac); local data kept, first sync reset into Production and uploaded everything.
+- [x] `cd ios && fastlane submit` — 2.4.3 (15) submitted 11 Oct 2026, withdrawn once for the new description (`fastlane withdraw`), resubmitted the same day. Waiting for Review.
+- [x] Header and search results images (`design/store/`, 5244×2950), checked uncropped in the Device Preview on iPhone, iPad and iPhone Duo.
 - [x] Release: automatic after approval (the version was already set so; nothing to press).
 
 ## After
-- [ ] Swap the landing page button for the App Store link, `tool/site.sh`.
-- [ ] Keep the ad hoc `tool/deploy.sh` path (Development CloudKit) separate from the store build (Production CloudKit): they don't share data.
+- [ ] Swap the landing page's "Coming soon" button for the App Store link, then `tool/site.sh`.
+- [ ] Once released, retire the ad hoc path: `tool/deploy.sh` and `tool/mac.sh` still build for Development CloudKit, which no longer shares data with the phone and Mac. Until then, deploy as is.

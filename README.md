@@ -1,6 +1,7 @@
 # Yesterdo
 
-A day-at-a-time todo list for iPhone and iPad. Offline, local, no account, no sync.
+A day-at-a-time todo list for iPhone and iPad. Local first, no account; tasks sync
+through the user's own iCloud. https://yesterdo.netlify.app
 
 ## Running it
 
