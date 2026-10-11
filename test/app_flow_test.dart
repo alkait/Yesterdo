@@ -11,6 +11,7 @@ import 'package:remind_me/core/date_labels.dart';
 import 'package:remind_me/core/day.dart';
 import 'package:remind_me/data/due.dart';
 import 'package:remind_me/data/reminder_sound.dart';
+import 'package:remind_me/platform/update_checker.dart';
 import 'package:remind_me/reminders/reminder_scheduler.dart';
 import 'package:remind_me/state/developer_mode.dart';
 import 'package:remind_me/state/last_sound.dart';
@@ -32,6 +33,7 @@ import 'support/memory_cloud.dart';
 import 'support/memory_device_bridge.dart';
 import 'support/memory_reminder_scheduler.dart';
 import 'support/memory_settings_store.dart';
+import 'support/memory_update_checker.dart';
 import 'support/memory_todo_store.dart';
 
 Widget bootApp({
@@ -1679,6 +1681,18 @@ void main() {
     expect(fieldFocus().hasFocus, isTrue);
   });
 
+  testWidgets('editing leaves the keyboard down until the words are tapped', (
+    tester,
+  ) async {
+    await tester.pumpWidget(bootApp());
+    await tester.pumpAndSettle();
+    await addTask(tester, 'Buy milk');
+    await actOn(tester, 'Buy milk', 'Edit');
+    expect(find.text('Edit task'), findsOneWidget);
+    final field = tester.widget<TextField>(find.byType(TextField));
+    expect(field.focusNode!.hasFocus, isFalse);
+  });
+
   testWidgets(
     'in developer mode the rehearsal button rings the reminder in ten seconds',
     (tester) async {
@@ -1747,6 +1761,65 @@ void main() {
     expect(find.text('2.3.4'), findsOneWidget);
   });
 
+  testWidgets('settings offers a newer build and opens its link', (
+    tester,
+  ) async {
+    final device = MemoryDeviceBridge();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appVersionProvider.overrideWithValue('2.3.0'),
+          appBuildProvider.overrideWithValue(10),
+          updateCheckerProvider.overrideWithValue(
+            const MemoryUpdateChecker(
+              AvailableBuild(
+                version: '2.4.0',
+                build: 11,
+                url: 'https://example.com/latest',
+              ),
+            ),
+          ),
+        ],
+        child: bootApp(device: device),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.settings_outlined));
+    await tester.pumpAndSettle();
+    expect(find.text('2.4.0 (11)'), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const ValueKey('settings-update')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('settings-update')));
+    await tester.pumpAndSettle();
+    expect(device.opened, ['https://example.com/latest']);
+  });
+
+  testWidgets('settings offers no update when this build is the latest', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appBuildProvider.overrideWithValue(11),
+          updateCheckerProvider.overrideWithValue(
+            const MemoryUpdateChecker(
+              AvailableBuild(
+                version: '2.4.0',
+                build: 11,
+                url: 'https://example.com/latest',
+              ),
+            ),
+          ),
+        ],
+        child: bootApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.settings_outlined));
+    await tester.pumpAndSettle();
+    expect(find.text('Update'), findsNothing);
+  });
+
   testWidgets('ten taps on the version turn developer mode on, and it sticks', (
     tester,
   ) async {
@@ -1758,6 +1831,9 @@ void main() {
     expect(find.text('Version'), findsOneWidget);
     expect(find.text('Turn developer mode off'), findsNothing);
 
+    // About is the last section, below the fold on a phone.
+    await tester.ensureVisible(find.text('Version'));
+    await tester.pumpAndSettle();
     for (var tap = 0; tap < DeveloperMode.tapsToEnable - 1; tap++) {
       await tester.tap(find.text('Version'));
       await tester.pump();
@@ -1773,6 +1849,8 @@ void main() {
     expect(settings.values[DeveloperMode.settingKey], 'on');
 
     // The button turns it off again.
+    await tester.ensureVisible(find.text('Turn developer mode off'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Turn developer mode off'));
     await tester.pumpAndSettle();
     expect(find.text('Turn developer mode off'), findsNothing);
@@ -3469,6 +3547,70 @@ void main() {
       await tester.tap(find.text('Save'));
       await tester.pumpAndSettle();
       expect(tileFor(tester, 'Post letter').todo.carryOver, isFalse);
+    });
+
+    testWidgets('a task set to be ignored if not done is written so', (
+      tester,
+    ) async {
+      final store = MemoryTodoStore();
+      await tester.pumpWidget(bootApp(store: store));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Add a task'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'Post letter');
+      await tester.pump();
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('skip-backlog-row')),
+      );
+      await tester.tap(find.byKey(const ValueKey('skip-backlog-row')));
+      await tester.pump();
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+      expect(tileFor(tester, 'Post letter').todo.skipBacklog, isTrue);
+
+      // A repeating task keeps the row, and the rule takes the flag.
+      await actOn(tester, 'Post letter', 'Edit');
+      await chooseRepeat(tester, 'Every day');
+      expect(find.byKey(const ValueKey('skip-backlog-row')), findsOneWidget);
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+      expect(tileFor(tester, 'Post letter').todo.skipBacklog, isTrue);
+      expect((await store.todosOn(today + 1)).single.skipBacklog, isTrue);
+    });
+
+    testWidgets('ignore if not done is worked on the task\'s own screen', (
+      tester,
+    ) async {
+      final store = MemoryTodoStore();
+      await tester.pumpWidget(bootApp(store: store));
+      await tester.pumpAndSettle();
+      await addTask(tester, 'Post letter');
+      await addTask(tester, 'Take the pills', repeat: 'Every day');
+      await tester.tap(find.text('Post letter'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('skip-backlog')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Back'));
+      await tester.pumpAndSettle();
+      expect(tileFor(tester, 'Post letter').todo.skipBacklog, isTrue);
+
+      // For a repeating task it is the rule's, so every showing takes it.
+      await tester.tap(find.text('Take the pills'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('skip-backlog')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Back'));
+      await tester.pumpAndSettle();
+      expect(tileFor(tester, 'Take the pills').todo.skipBacklog, isTrue);
+      expect((await store.todosOn(today + 1)).single.skipBacklog, isTrue);
+
+      // Done has nothing to offer.
+      await tester.tap(circleOn('Post letter'));
+      await tester.pump(reorderDelay);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Post letter'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('skip-backlog')), findsNothing);
     });
 
     testWidgets('carry over is worked on the task\'s own screen', (

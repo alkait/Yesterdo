@@ -154,6 +154,11 @@ class TaskViewPage extends ConsumerWidget {
                                 .read(todosProvider.notifier)
                                 .toggleCarryOver(todo)
                           : null,
+                      onSkipBacklog: _pinnable(todo)
+                          ? () => ref
+                                .read(todosProvider.notifier)
+                                .toggleSkipBacklog(todo)
+                          : null,
                     ),
                   ),
                 ),
@@ -395,6 +400,7 @@ class _Particulars extends ConsumerWidget {
     required this.day,
     this.onPin,
     this.onCarryOver,
+    this.onSkipBacklog,
   });
 
   final Todo todo;
@@ -406,6 +412,10 @@ class _Particulars extends ConsumerWidget {
   /// Sets the task to carry itself over, or stops it. Without one there is
   /// no Carry over row: a repeating task has none.
   final VoidCallback? onCarryOver;
+
+  /// Sets the task to be ignored if not done, or not. Null when it is not
+  /// offered.
+  final VoidCallback? onSkipBacklog;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -484,6 +494,17 @@ class _Particulars extends ConsumerWidget {
               detail: 'Moves to today if left undone',
               value: todo.carryOver,
               onChanged: (_) => onCarryOver(),
+            ),
+          ],
+          if (onSkipBacklog case final onSkipBacklog?) ...[
+            const BrandedDivider(),
+            BrandedToggleRow(
+              key: const ValueKey('skip-backlog'),
+              label: 'Ignore if not done',
+              icon: Icons.visibility_off_outlined,
+              detail: 'Not raised in Left behind',
+              value: todo.skipBacklog,
+              onChanged: (_) => onSkipBacklog(),
             ),
           ],
         ],

@@ -64,6 +64,7 @@ class MemoryTodoStore implements TodoStore {
     int? position,
     bool pinned = false,
     bool carryOver = false,
+    bool skipBacklog = false,
   }) {
     final todo = Todo(
       id: _nextTodoId++,
@@ -73,6 +74,7 @@ class MemoryTodoStore implements TodoStore {
       due: due,
       pinned: pinned,
       carryOver: carryOver,
+      skipBacklog: skipBacklog,
       uid: newUid(),
       updatedAt: _now,
     );
@@ -89,6 +91,7 @@ class MemoryTodoStore implements TodoStore {
     required RepeatRule rule,
     Due? due,
     int? position,
+    bool skipBacklog = false,
   }) {
     final id = _nextRecurrenceId++;
     final recurrence = Recurrence(
@@ -97,6 +100,7 @@ class MemoryTodoStore implements TodoStore {
       rule: rule,
       position: position ?? _topPosition(day),
       due: due,
+      skipBacklog: skipBacklog,
       updatedAt: _now,
     );
     _recurrences.add(recurrence);
@@ -165,6 +169,7 @@ class MemoryTodoStore implements TodoStore {
         due: todo.due,
         position: position,
         pinned: todo.pinned,
+        skipBacklog: todo.skipBacklog,
       );
     }
     final held = _dayOf(fromDay)
@@ -239,6 +244,7 @@ class MemoryTodoStore implements TodoStore {
     TaskBody? body,
     required RepeatRule rule,
     Due? due,
+    bool skipBacklog = false,
   }) {
     final words = TodoStore.bodyOf(title, body);
     final index = _recurrences.indexWhere((each) => each.id == recurrenceId);
@@ -250,6 +256,7 @@ class MemoryTodoStore implements TodoStore {
           rule: rule,
           due: due,
           clearDue: due == null,
+          skipBacklog: skipBacklog,
         ),
       );
     }
@@ -262,6 +269,7 @@ class MemoryTodoStore implements TodoStore {
                 due: due,
                 clearDue: due == null,
                 dismissed: false,
+                skipBacklog: skipBacklog,
                 updatedAt: _now,
               );
           _log(items[at].uid!);

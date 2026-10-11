@@ -10,8 +10,9 @@ import 'widgets/text_size_picker_sheet.dart';
 import 'widgets/theme_picker_sheet.dart';
 
 /// The settings screen: which look the app is drawn in, whether the system
-/// lets it notify, where the iCloud sync stands, and the version. Ten taps on the version turn developer
-/// mode on; a row then appears to turn it off again.
+/// lets it notify, where the iCloud sync stands, the version and, when the
+/// hoster has a newer build, the way to it. Ten taps on the version turn
+/// developer mode on; a row then appears to turn it off again.
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
 
@@ -56,6 +57,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final doneSound = ref.watch(doneSoundProvider);
     final cloud = ref.watch(cloudStatusProvider);
     final now = ref.watch(clockProvider)();
+    final update = ref.watch(availableUpdateProvider).value;
 
     return BrandedScaffold(
       children: [
@@ -79,121 +81,140 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const BrandedText(
-                  'Look',
-                  role: BrandedTextRole.caption,
-                  tone: BrandedTone.muted,
+                BrandedSection(
+                  title: 'Look',
+                  children: [
+                    BrandedFieldRow(
+                      key: const ValueKey('settings-theme'),
+                      label: 'Theme',
+                      value: chosen.label,
+                      onTap: () => showThemePicker(context),
+                    ),
+                    BrandedFieldRow(
+                      key: const ValueKey('settings-text-size'),
+                      label: 'Text size',
+                      value: textSize.label,
+                      onTap: () => showTextSizePicker(context),
+                    ),
+                  ],
                 ),
-                BrandedFieldRow(
-                  key: const ValueKey('settings-theme'),
-                  label: 'Theme',
-                  value: chosen.label,
-                  onTap: () => showThemePicker(context),
+                const SizedBox(height: Brand.sectionGap),
+                BrandedSection(
+                  title: 'Sounds',
+                  children: [
+                    BrandedToggleRow(
+                      key: const ValueKey('settings-sounds'),
+                      label: 'App sounds',
+                      value: sounds,
+                      onChanged: ref.read(appSoundsProvider.notifier).set,
+                    ),
+                    BrandedFieldRow(
+                      key: const ValueKey('settings-done-sound'),
+                      label: 'Done sound',
+                      value: doneSound.label,
+                      onTap: () => showDoneSoundPicker(context),
+                    ),
+                  ],
                 ),
-                const BrandedDivider(),
-                BrandedFieldRow(
-                  key: const ValueKey('settings-text-size'),
-                  label: 'Text size',
-                  value: textSize.label,
-                  onTap: () => showTextSizePicker(context),
+                const SizedBox(height: Brand.sectionGap),
+                BrandedSection(
+                  title: 'Notifications',
+                  children: [
+                    BrandedFieldRow(
+                      key: const ValueKey('settings-notifications'),
+                      label: 'Reminders',
+                      value: switch (permission) {
+                        null => '',
+                        ReminderPermission.notAsked => 'Not asked yet',
+                        ReminderPermission.granted => 'Allowed',
+                        ReminderPermission.denied => 'Not allowed',
+                      },
+                      detail: switch (permission) {
+                        ReminderPermission.notAsked => 'Tap to allow',
+                        ReminderPermission.denied => 'Turn on in Settings',
+                        _ => null,
+                      },
+                      onTap: permission == null
+                          ? () {}
+                          : () => _onNotificationsTap(ref, permission),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: Brand.gap),
-                const BrandedText(
-                  'Sounds',
-                  role: BrandedTextRole.caption,
-                  tone: BrandedTone.muted,
+                const SizedBox(height: Brand.sectionGap),
+                BrandedSection(
+                  title: 'iCloud',
+                  children: [
+                    // Read only: the sync runs on its own, and this is where
+                    // it says how that is going.
+                    BrandedFieldRow(
+                      key: const ValueKey('settings-icloud'),
+                      label: 'Sync',
+                      value: cloud.label,
+                    ),
+                    // The small print is a sentence, so it gets a line of
+                    // its own to wrap on rather than the row's cut-short
+                    // detail.
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: Brand.rowPadding),
+                      child: BrandedText(
+                        cloud.detail(now),
+                        key: const ValueKey('settings-icloud-detail'),
+                        role: BrandedTextRole.caption,
+                        tone: BrandedTone.muted,
+                      ),
+                    ),
+                    // What went wrong, in the words it came with, for
+                    // whoever turned developer mode on.
+                    if (developer && cloud.error != null)
+                      Padding(
+                        padding: const EdgeInsets.only(
+                          bottom: Brand.rowPadding,
+                        ),
+                        child: BrandedText(
+                          cloud.error!,
+                          key: const ValueKey('settings-icloud-error'),
+                          role: BrandedTextRole.caption,
+                          tone: BrandedTone.muted,
+                        ),
+                      ),
+                  ],
                 ),
-                BrandedToggleRow(
-                  key: const ValueKey('settings-sounds'),
-                  label: 'App sounds',
-                  value: sounds,
-                  onChanged: ref.read(appSoundsProvider.notifier).set,
+                const SizedBox(height: Brand.sectionGap),
+                BrandedSection(
+                  title: 'About',
+                  children: [
+                    // A plain label, so nobody is invited to tap it; ten
+                    // taps still turn developer mode on for those who know.
+                    GestureDetector(
+                      key: const ValueKey('settings-version'),
+                      behavior: HitTestBehavior.opaque,
+                      onTap: _onVersionTap,
+                      child: BrandedFieldRow(
+                        label: 'Version',
+                        value: ref.watch(appVersionProvider),
+                      ),
+                    ),
+                    // Only when the hoster has a newer build: its version
+                    // and the way to it, which is the install page in the
+                    // browser.
+                    if (update case final update?)
+                      BrandedFieldRow(
+                        key: const ValueKey('settings-update'),
+                        label: 'Update',
+                        value: update.label,
+                        detail: 'Tap to install',
+                        onTap: () =>
+                            ref.read(deviceBridgeProvider).openUrl(update.url),
+                      ),
+                    if (developer)
+                      BrandedTextButton(
+                        key: const ValueKey('settings-developer'),
+                        label: 'Turn developer mode off',
+                        onTap: () =>
+                            ref.read(developerModeProvider.notifier).set(false),
+                      ),
+                  ],
                 ),
-                const BrandedDivider(),
-                BrandedFieldRow(
-                  key: const ValueKey('settings-done-sound'),
-                  label: 'Done sound',
-                  value: doneSound.label,
-                  onTap: () => showDoneSoundPicker(context),
-                ),
-                const SizedBox(height: Brand.gap),
-                const BrandedText(
-                  'Notifications',
-                  role: BrandedTextRole.caption,
-                  tone: BrandedTone.muted,
-                ),
-                BrandedFieldRow(
-                  key: const ValueKey('settings-notifications'),
-                  label: 'Reminders',
-                  value: switch (permission) {
-                    null => '',
-                    ReminderPermission.notAsked => 'Not asked yet',
-                    ReminderPermission.granted => 'Allowed',
-                    ReminderPermission.denied => 'Not allowed',
-                  },
-                  detail: switch (permission) {
-                    ReminderPermission.notAsked => 'Tap to allow',
-                    ReminderPermission.denied => 'Turn on in Settings',
-                    _ => null,
-                  },
-                  onTap: permission == null
-                      ? () {}
-                      : () => _onNotificationsTap(ref, permission),
-                ),
-                const SizedBox(height: Brand.gap),
-                const BrandedText(
-                  'iCloud',
-                  role: BrandedTextRole.caption,
-                  tone: BrandedTone.muted,
-                ),
-                // Read only: the sync runs on its own, and this is where
-                // it says how that is going.
-                BrandedFieldRow(
-                  key: const ValueKey('settings-icloud'),
-                  label: 'Sync',
-                  value: cloud.label,
-                ),
-                // The small print is a sentence, so it gets a line of its
-                // own to wrap on rather than the row's cut-short detail.
-                BrandedText(
-                  cloud.detail(now),
-                  key: const ValueKey('settings-icloud-detail'),
-                  role: BrandedTextRole.caption,
-                  tone: BrandedTone.muted,
-                ),
-                // What went wrong, in the words it came with, for whoever
-                // turned developer mode on.
-                if (developer && cloud.error != null)
-                  BrandedText(
-                    cloud.error!,
-                    key: const ValueKey('settings-icloud-error'),
-                    role: BrandedTextRole.caption,
-                    tone: BrandedTone.muted,
-                  ),
-                const SizedBox(height: Brand.gap),
-                const BrandedText(
-                  'About',
-                  role: BrandedTextRole.caption,
-                  tone: BrandedTone.muted,
-                ),
-                // A plain label, so nobody is invited to tap it; ten taps
-                // still turn developer mode on for those who know.
-                GestureDetector(
-                  key: const ValueKey('settings-version'),
-                  behavior: HitTestBehavior.opaque,
-                  onTap: _onVersionTap,
-                  child: BrandedFieldRow(
-                    label: 'Version',
-                    value: ref.watch(appVersionProvider),
-                  ),
-                ),
-                if (developer)
-                  BrandedTextButton(
-                    key: const ValueKey('settings-developer'),
-                    label: 'Turn developer mode off',
-                    onTap: () =>
-                        ref.read(developerModeProvider.notifier).set(false),
-                  ),
               ],
             ),
           ),

@@ -14,6 +14,12 @@ abstract final class Brand {
   static const cardPaddingV = 10.0;
   static const cardMinHeight = 44.0;
 
+  /// A settings section: the space between one panel and the next, and
+  /// how far its title stands in from the panel's edge.
+  static const sectionGap = 24.0;
+  static const sectionTitleInset = 12.0;
+  static const sectionTitleGap = 6.0;
+
   /// How many lines of words a card shows before ellipsising.
   static const cardLines = 2;
   static const borderWidth = 1.0;

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/day.dart';
+import '../data/repeat_rule.dart';
 import '../data/rich/task_body.dart';
 import '../data/todo.dart';
 import '../data/todo_store.dart';
@@ -46,6 +47,7 @@ class TodosController extends AsyncNotifier<List<Todo>> {
         body: draft.body,
         rule: draft.repeat!,
         due: draft.due,
+        skipBacklog: draft.skipBacklog,
       );
       final key = Todo.seriesKey(id);
       if (draft.pinned) await _keepPin(day: draft.day, key: key);
@@ -61,6 +63,7 @@ class TodosController extends AsyncNotifier<List<Todo>> {
       due: draft.due,
       pinned: draft.pinned,
       carryOver: draft.carryOver,
+      skipBacklog: draft.skipBacklog,
     );
     if (!ref.mounted) return todo.key;
     // Written for another day, it belongs to no list on screen. The banner
@@ -151,6 +154,38 @@ class TodosController extends AsyncNotifier<List<Todo>> {
     await _syncDevice();
   }
 
+  /// Sets a task to be ignored if not done, or stops it. A rule takes it
+  /// for every showing, so the series is written, as a change of time is.
+  Future<void> toggleSkipBacklog(Todo todo) async {
+    final value = !todo.skipBacklog;
+    if (todo.repeats) {
+      final rule = await _ruleOf(todo);
+      if (rule == null) return;
+      await _store.saveSeries(
+        recurrenceId: rule.id,
+        body: rule.body,
+        rule: rule.rule,
+        due: rule.due,
+        skipBacklog: value,
+      );
+      await _reload();
+      return;
+    }
+    final updated = todo.withSkipBacklog(value);
+    await _store.save(updated);
+    if (!ref.mounted) return;
+    _show(_replacing(updated));
+    await _syncDevice();
+  }
+
+  /// The rule behind a repeating task, as it stands.
+  Future<Recurrence?> _ruleOf(Todo todo) async {
+    for (final rule in await _store.recurrencesFor(_day)) {
+      if (rule.id == todo.recurrenceId) return rule;
+    }
+    return null;
+  }
+
   /// Applies an edit. Words, time and rule all belong to the series, so
   /// editing a repeating task changes every day it appears on. Says which
   /// task it is afterwards, by key: an edit can make a one-off of a rule or
@@ -171,6 +206,7 @@ class TodosController extends AsyncNotifier<List<Todo>> {
         body: draft.body,
         rule: draft.repeat!,
         due: draft.due,
+        skipBacklog: draft.skipBacklog,
       );
     } else if (todo.repeats) {
       // Repeating no more: the series goes, and a one-off takes its place on
@@ -183,6 +219,7 @@ class TodosController extends AsyncNotifier<List<Todo>> {
         position: todo.position,
         pinned: draft.pinned,
         carryOver: draft.carryOver,
+        skipBacklog: draft.skipBacklog,
       );
       key = written.key;
     } else if (draft.repeat != null) {
@@ -194,6 +231,7 @@ class TodosController extends AsyncNotifier<List<Todo>> {
         rule: draft.repeat!,
         due: draft.due,
         position: todo.position,
+        skipBacklog: draft.skipBacklog,
       );
       key = Todo.seriesKey(id);
       // A pin is a thing of the day, so the rule cannot hold it: its showing
@@ -204,7 +242,8 @@ class TodosController extends AsyncNotifier<List<Todo>> {
           .withBody(draft.body)
           .withDue(draft.due)
           .withPinned(draft.pinned)
-          .withCarryOver(draft.carryOver);
+          .withCarryOver(draft.carryOver)
+          .withSkipBacklog(draft.skipBacklog);
       await _store.save(saved);
       // A day picked in the editor sends it on, the same way Not today does.
       if (draft.day != _day) {

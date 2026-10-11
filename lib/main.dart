@@ -8,6 +8,7 @@ import 'data/sqlite_settings_store.dart';
 import 'data/sqlite_todo_store.dart';
 import 'platform/device_bridge.dart';
 import 'platform/image_sweep.dart';
+import 'platform/update_checker.dart';
 import 'reminders/local_reminder_scheduler.dart';
 import 'state/providers.dart';
 import 'sync/cloud_transport.dart';
@@ -40,11 +41,15 @@ Future<void> main() async {
   final store = SqliteTodoStore(database);
   final images = await device.imagesDirectory();
   final version = await device.appVersion();
+  final build = int.tryParse(await device.appBuild()) ?? 0;
   final container = ProviderContainer(
     overrides: [
       todoStoreProvider.overrideWithValue(store),
       imagesDirectoryProvider.overrideWithValue(images),
       appVersionProvider.overrideWithValue(version),
+      appBuildProvider.overrideWithValue(build),
+      if (!storeBuild)
+        updateCheckerProvider.overrideWithValue(const HosterUpdateChecker()),
       settingsStoreProvider.overrideWithValue(settings),
       initialThemeChoiceProvider.overrideWithValue(theme),
       initialTextSizeProvider.overrideWithValue(textSize),

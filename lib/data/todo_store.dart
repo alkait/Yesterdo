@@ -19,8 +19,9 @@ abstract class TodoStore {
 
   /// Writes a new one-off, at the top of the day unless a [position] is
   /// given. Words come as a [body], or as plain [title] words for short.
-  /// [pinned] is for a task that takes the place of a pinned one, and
-  /// [carryOver] for one that moves itself on while undone.
+  /// [pinned] is for a task that takes the place of a pinned one,
+  /// [carryOver] for one that moves itself on while undone, and
+  /// [skipBacklog] for one Left behind is never to raise.
   Future<Todo> insert({
     required int day,
     String? title,
@@ -29,10 +30,12 @@ abstract class TodoStore {
     int? position,
     bool pinned = false,
     bool carryOver = false,
+    bool skipBacklog = false,
   });
 
   /// Starts a repeating task, at the top of [day] unless a [position] is
-  /// given, and returns the rule's id.
+  /// given, and returns the rule's id. With [skipBacklog], its missed
+  /// showings are never raised in Left behind.
   ///
   /// Nothing more on purpose: a rule need not fire on the day it was made,
   /// so what the day holds afterwards is [mergeDay]'s to say, not this call's.
@@ -43,6 +46,7 @@ abstract class TodoStore {
     required RepeatRule rule,
     Due? due,
     int? position,
+    bool skipBacklog = false,
   });
 
   /// Writes down a projected occurrence so it can carry state of its own.
@@ -79,16 +83,17 @@ abstract class TodoStore {
   /// before it. A cut at or after the rule's end removes it outright.
   Future<void> startSeriesAfter({required int recurrenceId, required int day});
 
-  /// Rewrites the series. Words, rule and time all belong to it, so every
-  /// written-down occurrence takes the new ones too. Ticks do not: the rule
-  /// takes the words open, and each occurrence keeps its own ticks on
-  /// them, through [TaskBody.withTicksOf].
+  /// Rewrites the series. Words, rule, time and [skipBacklog] all belong
+  /// to it, so every written-down occurrence takes the new ones too. Ticks
+  /// do not: the rule takes the words open, and each occurrence keeps its
+  /// own ticks on them, through [TaskBody.withTicksOf].
   Future<void> saveSeries({
     required int recurrenceId,
     String? title,
     TaskBody? body,
     required RepeatRule rule,
     Due? due,
+    bool skipBacklog = false,
   });
 
   /// Leaves a rule's missed showings on the days up to and including [day]

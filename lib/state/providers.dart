@@ -13,6 +13,7 @@ import '../data/todo_store.dart';
 import '../glance/glance_planner.dart';
 import '../glance/glance_sync.dart';
 import '../platform/device_bridge.dart';
+import '../platform/update_checker.dart';
 import '../reminders/reminder_planner.dart';
 import '../reminders/reminder_scheduler.dart';
 import '../reminders/reminder_sync.dart';
@@ -207,6 +208,29 @@ final imagesDirectoryProvider = Provider<String>(
 /// The version the app was built as, read from the device in `main` before
 /// the first frame.
 final appVersionProvider = Provider<String>((ref) => '');
+
+/// The build number the app was built as, read the same way. Zero until
+/// bound, which no hoster build is, so nothing is offered by mistake.
+final appBuildProvider = Provider<int>((ref) => 0);
+
+/// Bound to the hoster in `main`; widget tests leave it, which knows of
+/// no build at all.
+final updateCheckerProvider = Provider<UpdateChecker>(
+  (ref) => const NoUpdateChecker(),
+);
+
+/// The newer build the hoster offers, or null when this one is the latest
+/// or nothing could be learnt. Let go when Settings closes, so it is
+/// asked afresh the next time it opens.
+final availableUpdateProvider = FutureProvider.autoDispose<AvailableBuild?>((
+  ref,
+) async {
+  final latest = await ref.watch(updateCheckerProvider).latest();
+  if (latest == null || latest.build <= ref.watch(appBuildProvider)) {
+    return null;
+  }
+  return latest;
+});
 
 /// Whether the app's own sounds were on last time, bound in `main` before
 /// the first frame.

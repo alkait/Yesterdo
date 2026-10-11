@@ -265,6 +265,7 @@ class Recurrence {
     String? uid,
     this.updatedAt = 0,
     this.ignoredThrough,
+    this.skipBacklog = false,
   }) : assert(title != null || body != null, 'words, one way or the other'),
        body = (body ?? TaskBody.plain(title ?? '')).unticked(),
        uid = uid ?? newUid();
@@ -277,6 +278,7 @@ class Recurrence {
     uid: row['uid'] as String?,
     updatedAt: row['updated_at'] as int? ?? 0,
     ignoredThrough: row['ignored_through'] as int?,
+    skipBacklog: (row['skip_backlog'] as int? ?? 0) == 1,
     rule: RepeatRule(
       kind: RepeatKind.values.byName(row['kind']! as String),
       startDay: row['start_day']! as int,
@@ -309,6 +311,10 @@ class Recurrence {
   /// The last day whose missed showings were let go, or null for none.
   final int? ignoredThrough;
 
+  /// Its missed showings are never raised in Left behind. Every showing
+  /// takes it, as it takes the time.
+  final bool skipBacklog;
+
   bool fallsOn(int day) => rule.fallsOn(day);
 
   Recurrence copyWith({
@@ -319,6 +325,7 @@ class Recurrence {
     bool clearDue = false,
     int? updatedAt,
     int? ignoredThrough,
+    bool? skipBacklog,
   }) => Recurrence(
     id: id,
     body: body ?? this.body,
@@ -328,12 +335,19 @@ class Recurrence {
     uid: uid,
     updatedAt: updatedAt ?? this.updatedAt,
     ignoredThrough: ignoredThrough ?? this.ignoredThrough,
+    skipBacklog: skipBacklog ?? this.skipBacklog,
   );
 
   /// The columns as they cross to another device: everything but the id
   /// that is this device's own.
   Map<String, Object?> toSyncFields() => <String, Object?>{
-    ...rowFor(body: body, rule: rule, position: position, due: due),
+    ...rowFor(
+      body: body,
+      rule: rule,
+      position: position,
+      due: due,
+      skipBacklog: skipBacklog,
+    ),
     'ignored_through': ignoredThrough,
   };
 
@@ -342,11 +356,13 @@ class Recurrence {
     required RepeatRule rule,
     required int position,
     Due? due,
+    bool skipBacklog = false,
   }) => <String, Object?>{
     ...Todo.bodyColumns(body.unticked()),
     ...ruleColumns(rule),
     'position': position,
     ...due?.toRow() ?? Due.emptyRow,
+    'skip_backlog': skipBacklog ? 1 : 0,
   };
 
   /// The columns a rule is written into, shared by insert and update.

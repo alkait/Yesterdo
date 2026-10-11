@@ -14,6 +14,7 @@ class TaskDraft {
     this.repeat,
     this.pinned = false,
     this.carryOver = false,
+    this.skipBacklog = false,
   }) : assert(title != null || body != null, 'words, one way or the other'),
        body = (body ?? TaskBody.plain(title ?? '')).trimmed();
 
@@ -32,6 +33,10 @@ class TaskDraft {
   /// Moves itself on to today when left undone on an earlier day. A
   /// one-off's alone: a repeating task has no use for it.
   final bool carryOver;
+
+  /// Ignored if not done: Left behind never raises it. A repeating task's
+  /// rule takes it, and every showing with it.
+  final bool skipBacklog;
 
   /// The words stripped of every style.
   String get title => body.plainText;

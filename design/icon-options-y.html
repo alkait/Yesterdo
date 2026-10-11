@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yesterdo Y Icons</title>
+<style>
+  :root {
+    --page: #f3f3f5; --card: #ffffff; --text: #0b0b0c; --sub: #8a8a8e; --line: #e6e6e9;
+    --bg: #0b0b0c; --fg: #ffffff; --accent: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --page: #000; --card: #131315; --text: #f5f5f7; --sub: #8a8a8e; --line: #2c2c31; }
+  }
+  body[data-look="ink"]     { --bg: #0b0b0c; --fg: #ffffff; --accent: #ffffff; }
+  body[data-look="paper"]   { --bg: #ffffff; --fg: #0b0b0c; --accent: #0b0b0c; }
+  body[data-look="ocean"]   { --bg: #0a1220; --fg: #f4f7fb; --accent: #7fb2ff; }
+  body[data-look="forest"]  { --bg: #0b140c; --fg: #f5f8f3; --accent: #8cd19a; }
+  body[data-look="blossom"] { --bg: #170a11; --fg: #fcf5f8; --accent: #f49ac1; }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--text);
+         font: 15px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 28px; margin: 0 0 4px; letter-spacing: -0.02em; }
+  p.lead { color: var(--sub); margin: 0 0 20px; }
+  .looks { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 28px; }
+  .looks button { border: 1px solid var(--line); background: var(--card); color: var(--text);
+                  padding: 6px 14px; border-radius: 999px; font: inherit; cursor: pointer; }
+  .looks button[aria-pressed="true"] { background: var(--text); color: var(--page); border-color: var(--text); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+  .opt { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 20px;
+         display: flex; flex-direction: column; gap: 14px; cursor: pointer; transition: border-color .15s; }
+  .opt.picked { border-color: var(--text); box-shadow: 0 0 0 2px var(--text); }
+  .icons { display: flex; align-items: flex-end; gap: 12px; }
+  .icon { background: var(--bg); border-radius: 22.37%; overflow: hidden; flex: none;
+          box-shadow: 0 0 0 1px rgba(127,127,127,.18); }
+  .icon svg { display: block; width: 100%; height: 100%; }
+  .big { width: 128px; height: 128px; }
+  .small { width: 60px; height: 60px; }
+  .tiny { width: 29px; height: 29px; border-radius: 7px; }
+  h2 { font-size: 17px; margin: 0; }
+  h2 span { color: var(--sub); font-weight: 500; margin-right: 6px; }
+  .opt p { margin: 4px 0 0; color: var(--sub); }
+  .current { opacity: .75; }
+  footer { margin-top: 28px; color: var(--sub); }
+
+  .f  { fill: var(--fg); }   .a  { fill: var(--accent); }   .b  { fill: var(--bg); }
+  .sf { stroke: var(--fg); fill: none; }  .sa { stroke: var(--accent); fill: none; }
+  .sb { stroke: var(--bg); fill: none; }
+  svg path, svg line, svg circle { stroke-linecap: round; stroke-linejoin: round; }
+</style>
+</head>
+<body data-look="ink">
+<main>
+  <h1>Yesterdo Y-tick options</h1>
+  <p class="lead">Twelve takes on the Y that is also a tick, each at App Store, Home Screen and Settings size. Switch the look to see them in every palette; click one to mark it.</p>
+  <div class="looks" id="looks">
+    <button data-look="ink" aria-pressed="true">Ink</button>
+    <button data-look="paper">Paper</button>
+    <button data-look="ocean">Ocean</button>
+    <button data-look="forest">Forest</button>
+    <button data-look="blossom">Blossom</button>
+  </div>
+  <div class="grid" id="grid"></div>
+  <footer id="pick">Nothing picked yet.</footer>
+</main>
+<script>
+  // The Y-tick: a short arm, a long arm, and a stem dropped from the joint.
+  const T = 'M350 470 L480 600 L770 270', S = 'M480 600 L480 810';
+  const C = 'translate(-48 -28)';
+  const inCircle = s => `translate(512 512) scale(${s}) translate(-560 -540)`;
+  const options = [
+    ['Last round’s Y-tick', 'For comparison.', `<g transform="${C}">
+      <path d="${T}" class="sf" stroke-width="100"/><path d="${S}" class="sa" stroke-width="100"/></g>`, true],
+    ['Plain', 'The mark alone, one colour, nothing else.', `<g transform="${C}">
+      <path d="${T}" class="sf" stroke-width="100"/><path d="${S}" class="sf" stroke-width="100"/></g>`],
+    ['Ticked today', 'The tick in colour; the stem below it faint, holding it up.', `<g transform="${C}">
+      <path d="${S}" class="sf" stroke-width="100" opacity=".32"/><path d="${T}" class="sa" stroke-width="100"/></g>`],
+    ['Half yesterday', 'The short arm faint as yesterday; the long arm and stem are today.', `<g transform="${C}">
+      <path d="M350 470 L480 600" class="sf" stroke-width="100" opacity=".3"/>
+      <path d="M770 270 L480 600 L480 810" class="sa" stroke-width="100"/></g>`],
+    ['Done circle', 'The mark knocked out of the filled circle a done card shows.', `
+      <circle cx="512" cy="512" r="360" class="a"/>
+      <g transform="${inCircle(.62)}"><path d="${T}" class="sb" stroke-width="110"/><path d="${S}" class="sb" stroke-width="110"/></g>`],
+    ['Ring', 'The mark inside an open ring, the circle before it is filled.', `
+      <circle cx="512" cy="512" r="350" class="sf" stroke-width="40" opacity=".5"/>
+      <g transform="${inCircle(.6)}"><path d="${T}" class="sa" stroke-width="115"/><path d="${S}" class="sa" stroke-width="115"/></g>`],
+    ['Lowercase y', 'A handwritten y: the tick’s long stroke runs on into the tail.', `
+      <path d="M415 470 L555 600" class="sf" stroke-width="96"/>
+      <path d="M740 260 L485 735 Q440 815 345 805" class="sa" stroke-width="96"/>`],
+    ['Out of the box', 'A ticked box, the stem dropping out through its floor.', `<g transform="translate(27 -10)">
+      <rect x="250" y="230" width="470" height="470" rx="100" class="sf" stroke-width="48"/>
+      <path d="M470 600 L470 820" class="sb" stroke-width="150" style="stroke-linecap:butt"/>
+      <path d="M360 460 L470 570 L620 400" class="sa" stroke-width="72"/>
+      <path d="M470 570 L470 820" class="sa" stroke-width="72"/></g>`],
+    ['Heavy', 'Thick and blunt, so it still reads at Settings size.', `<g transform="translate(512 512) scale(.9) translate(-560 -540)">
+      <path d="${T}" class="sf" stroke-width="165"/><path d="${S}" class="sf" stroke-width="165"/></g>`],
+    ['Fine line', 'A thin stroke with a coloured joint where the three meet.', `<g transform="${C}">
+      <path d="${T}" class="sf" stroke-width="44"/><path d="${S}" class="sf" stroke-width="44"/>
+      <circle cx="480" cy="600" r="62" class="a"/></g>`],
+    ['Horizon', 'The tick against a coloured sky, the stem planted below the line.', `
+      <rect x="0" y="0" width="1024" height="572" class="a"/>
+      <g transform="${C}"><path d="${S}" class="sf" stroke-width="100"/><path d="${T}" class="sb" stroke-width="100"/></g>`],
+    ['Fading root', 'The stem fades as it goes down, as the day behind does.', `
+      <defs><linearGradient id="root" gradientUnits="userSpaceOnUse" x1="0" y1="600" x2="0" y2="860">
+        <stop offset="0" style="stop-color:var(--fg)"/><stop offset="1" style="stop-color:var(--fg);stop-opacity:0"/></linearGradient></defs>
+      <g transform="${C}"><path d="${S}" stroke="url(#root)" fill="none" stroke-width="100" style="stroke-linecap:butt"/>
+      <path d="${T}" class="sa" stroke-width="100"/></g>`],
+    ['Y with a dot', 'The stem stops short of a dot, like an exclamation: done!', `<g transform="${C}">
+      <path d="${T}" class="sf" stroke-width="100"/><path d="M480 600 L480 690" class="sf" stroke-width="100"/>
+      <circle cx="480" cy="818" r="56" class="a"/></g>`],
+    ['Italic', 'Leaning forward, as if written quickly in the morning.', `<g transform="translate(512 512) skewX(-12) translate(-512 -512)"><g transform="${C}">
+      <path d="${T}" class="sf" stroke-width="100"/><path d="${S}" class="sa" stroke-width="100"/></g></g>`],
+  ];
+  const grid = document.getElementById('grid');
+  options.forEach(([name, idea, art, ref], n) => {
+    const opt = document.createElement('section');
+    opt.className = 'opt' + (ref ? ' current' : '');
+    opt.dataset.n = n;
+    const svg = `<svg viewBox="0 0 1024 1024">${art}</svg>`;
+    opt.innerHTML = `<div class="icons">${['big', 'small', 'tiny'].map(s => `<div class="icon ${s}">${svg}</div>`).join('')}</div>
+      <div><h2><span>${n}</span>${name}</h2><p>${idea}</p></div>`;
+    grid.appendChild(opt);
+  });
+  const looks = document.getElementById('looks');
+  looks.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    document.body.dataset.look = b.dataset.look;
+    looks.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b));
+  });
+  const pick = document.getElementById('pick');
+  grid.addEventListener('click', e => {
+    const opt = e.target.closest('.opt'); if (!opt) return;
+    document.querySelectorAll('.opt').forEach(o => o.classList.toggle('picked', o === opt));
+    pick.textContent = 'Picked: #' + opt.dataset.n + ' ' + opt.querySelector('h2').lastChild.textContent;
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,111 @@
+# App Store Connect, driven from the command line with the API key named
+# in .env (ASC_KEY_ID, ASC_ISSUER_ID); the key itself stays outside the
+# repo, in ~/.appstoreconnect/private_keys. The binary goes up through
+# tool/appstore.sh; these lanes handle what is said about it.
+#
+#   fastlane metadata   push the texts, URLs, categories, review notes,
+#                       screenshots and age rating
+#   fastlane submit     send the newest processed build for review
+#   fastlane withdraw   take a waiting submission back, so the version
+#                       can be edited and submitted again
+
+default_platform(:ios)
+
+ROOT = File.expand_path("../..", __dir__)
+
+def env_file
+  File.readlines(File.join(ROOT, ".env")).each_with_object({}) do |line, env|
+    key, value = line.strip.split("=", 2)
+    env[key] = value if key && value && !key.start_with?("#")
+  end
+end
+
+def api_key
+  env = env_file
+  app_store_connect_api_key(
+    key_id: env.fetch("ASC_KEY_ID"),
+    issuer_id: env.fetch("ASC_ISSUER_ID"),
+    key_filepath: File.expand_path("~/.appstoreconnect/private_keys/AuthKey_#{env.fetch("ASC_KEY_ID")}.p8"),
+  )
+end
+
+# The version name in pubspec.yaml, the one place it is written.
+def version_name
+  File.read(File.join(ROOT, "pubspec.yaml"))[/^version:\s*([^+\s]+)/, 1]
+end
+
+# Answers every age rating question with none, through the API, since
+# deliver does not know the newer questions.
+def set_age_rating(key)
+  app = Spaceship::ConnectAPI::App.find(CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier))
+  token = Spaceship::ConnectAPI.token.text
+  auth = { "Authorization" => "Bearer #{token}", "Content-Type" => "application/json" }
+  require "net/http"
+  base = "https://api.appstoreconnect.apple.com/v1"
+  info = JSON.parse(Net::HTTP.get(URI("#{base}/apps/#{app.id}/appInfos"), auth))["data"]
+    .find { |i| i.dig("attributes", "appStoreState") != "READY_FOR_SALE" }
+  declaration = JSON.parse(Net::HTTP.get(URI("#{base}/appInfos/#{info["id"]}/ageRatingDeclaration"), auth))["data"]
+  none = %w[
+    alcoholTobaccoOrDrugUseOrReferences contests gamblingSimulated gunsOrOtherWeapons
+    horrorOrFearThemes matureOrSuggestiveThemes medicalOrTreatmentInformation
+    profanityOrCrudeHumor sexualContentGraphicAndNudity sexualContentOrNudity
+    violenceCartoonOrFantasy violenceRealistic violenceRealisticProlongedGraphicOrSadistic
+  ].to_h { |k| [k, "NONE"] }
+  no = %w[
+    advertising ageAssurance gambling healthOrWellnessTopics lootBox
+    messagingAndChat parentalControls unrestrictedWebAccess userGeneratedContent
+  ].to_h { |k| [k, false] }
+  body = { data: { type: "ageRatingDeclarations", id: declaration["id"], attributes: none.merge(no) } }
+  uri = URI("#{base}/ageRatingDeclarations/#{declaration["id"]}")
+  response = Net::HTTP.start(uri.host, uri.port, use_ssl: true) do |http|
+    http.patch(uri.path, body.to_json, auth)
+  end
+  UI.user_error!("Age rating: #{response.body}") unless response.is_a?(Net::HTTPSuccess)
+  UI.success("Age rating set: none throughout")
+end
+
+platform :ios do
+  lane :metadata do
+    key = api_key
+    shots = Dir.glob(File.join(__dir__, "screenshots/*/*.png")).any?
+    deliver(
+      api_key: key,
+      app_version: version_name,
+      skip_binary_upload: true,
+      skip_screenshots: !shots,
+      overwrite_screenshots: shots,
+      run_precheck_before_submit: false,
+      force: true,
+    )
+    set_age_rating(key)
+  end
+
+  lane :submit do
+    deliver(
+      api_key: api_key,
+      app_version: version_name,
+      skip_binary_upload: true,
+      skip_metadata: true,
+      skip_screenshots: true,
+      submit_for_review: true,
+      automatic_release: true,
+      run_precheck_before_submit: false,
+      force: true,
+      submission_information: {
+        add_id_info_uses_idfa: false,
+        export_compliance_uses_encryption: false,
+        content_rights_contains_third_party_content: true,
+        content_rights_has_rights: true,
+      },
+    )
+  end
+
+  lane :withdraw do
+    api_key
+    app = Spaceship::ConnectAPI::App.find(CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier))
+    submission = app.get_in_progress_review_submission(platform: Spaceship::ConnectAPI::Platform::IOS)
+    UI.user_error!("Nothing is waiting for review.") unless submission
+    submission.cancel_submission
+    UI.success("Submission withdrawn")
+  end
+end

@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yesterdo Icons</title>
+<style>
+  :root {
+    --page: #f3f3f5; --card: #ffffff; --text: #0b0b0c; --sub: #8a8a8e; --line: #e6e6e9;
+    --bg: #0b0b0c; --fg: #ffffff; --accent: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --page: #000; --card: #131315; --text: #f5f5f7; --sub: #8a8a8e; --line: #2c2c31; }
+  }
+  body[data-look="ink"]     { --bg: #0b0b0c; --fg: #ffffff; --accent: #ffffff; }
+  body[data-look="paper"]   { --bg: #ffffff; --fg: #0b0b0c; --accent: #0b0b0c; }
+  body[data-look="ocean"]   { --bg: #0a1220; --fg: #f4f7fb; --accent: #7fb2ff; }
+  body[data-look="forest"]  { --bg: #0b140c; --fg: #f5f8f3; --accent: #8cd19a; }
+  body[data-look="blossom"] { --bg: #170a11; --fg: #fcf5f8; --accent: #f49ac1; }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--text);
+         font: 15px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 28px; margin: 0 0 4px; letter-spacing: -0.02em; }
+  p.lead { color: var(--sub); margin: 0 0 20px; }
+  .looks { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 28px; }
+  .looks button { border: 1px solid var(--line); background: var(--card); color: var(--text);
+                  padding: 6px 14px; border-radius: 999px; font: inherit; cursor: pointer; }
+  .looks button[aria-pressed="true"] { background: var(--text); color: var(--page); border-color: var(--text); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+  .opt { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 20px;
+         display: flex; flex-direction: column; gap: 14px; cursor: pointer; transition: border-color .15s; }
+  .opt.picked { border-color: var(--text); box-shadow: 0 0 0 2px var(--text); }
+  .icons { display: flex; align-items: flex-end; gap: 12px; }
+  .icon { background: var(--bg); border-radius: 22.37%; overflow: hidden; flex: none;
+          box-shadow: 0 0 0 1px rgba(127,127,127,.18); }
+  .icon svg { display: block; width: 100%; height: 100%; }
+  .big { width: 128px; height: 128px; }
+  .small { width: 60px; height: 60px; }
+  .tiny { width: 29px; height: 29px; border-radius: 7px; }
+  h2 { font-size: 17px; margin: 0; }
+  h2 span { color: var(--sub); font-weight: 500; margin-right: 6px; }
+  .opt p { margin: 4px 0 0; color: var(--sub); }
+  .current { opacity: .75; }
+  footer { margin-top: 28px; color: var(--sub); }
+
+  .f  { fill: var(--fg); }   .a  { fill: var(--accent); }   .b  { fill: var(--bg); }
+  .sf { stroke: var(--fg); fill: none; }  .sa { stroke: var(--accent); fill: none; }
+  .sb { stroke: var(--bg); fill: none; }
+  svg path, svg line, svg circle { stroke-linecap: round; stroke-linejoin: round; }
+</style>
+</head>
+<body data-look="ink">
+<main>
+  <h1>Yesterdo icon options</h1>
+  <p class="lead">Twelve ideas, each at App Store, Home Screen and Settings size. Switch the look to see them in every palette; click one to mark it.</p>
+  <div class="looks" id="looks">
+    <button data-look="ink" aria-pressed="true">Ink</button>
+    <button data-look="paper">Paper</button>
+    <button data-look="ocean">Ocean</button>
+    <button data-look="forest">Forest</button>
+    <button data-look="blossom">Blossom</button>
+  </div>
+
+  <div class="grid" id="grid">
+
+    <!-- 0 current -->
+    <section class="opt current" data-n="0">
+      <div class="icons" data-svg>
+        <svg viewBox="0 0 1024 1024">
+          <circle cx="512" cy="512" r="340" class="f" opacity=".2"/>
+          <path d="M330 505 L468 640 L710 383" class="sf" stroke-width="92"/>
+        </svg>
+      </div>
+      <div><h2><span>0</span>Current</h2><p>For comparison.</p></div>
+    </section>
+
+    <!-- 1 -->
+    <section class="opt" data-n="1">
+      <div class="icons" data-svg>
+        <svg viewBox="0 0 1024 1024">
+          <path d="M270 540 L430 700 L760 330" class="sf" stroke-width="96"/>
+          <path d="M600 330 L790 300 L765 490" class="sa" stroke-width="96"/>
+        </svg>
+      </div>
+      <div><h2><span>1</span>Carry forward</h2><p>The tick runs on into an arrow: what is left today goes on to the next.</p></div>
+    </section>
+
+    <!-- 2 -->
+    <section class="opt" data-n="2">
+      <div class="icons" data-svg>
+        <svg viewBox="0 0 1024 1024">
+          <rect x="200" y="190" width="490" height="490" rx="100" class="f" opacity=".28"/>
+          <rect x="334" y="344" width="490" height="490" rx="100" class="a"/>
+          <path d="M455 595 L555 695 L715 515" class="sb" stroke-width="74"/>
+        </svg>
+      </div>
+      <div><h2><span>2</span>Yesterday’s page</h2><p>Today’s card in front, yesterday’s fading behind it.</p></div>
+    </section>
+
+    <!-- 3 -->
+    <section class="opt" data-n="3">
+      <div class="icons" data-svg>
+        <svg viewBox="0 0 1024 1024">
+          <path d="M262 660 A250 250 0 0 1 762 660 Z" class="a"/>
+          <line x1="170" y1="660" x2="854" y2="660" class="sf" stroke-width="44"/>
+          <line x1="512" y1="210" x2="512" y2="290" class="sa" stroke-width="44"/>
+          <line x1="245" y1="330" x2="295" y2="380" class="sa" stroke-width="44"/>
+          <line x1="779" y1="330" x2="729" y2="380" class="sa" stroke-width="44"/>
+          <path d="M418 560 L488 625 L612 495" class="sb" stroke-width="60"/>
+          <line x1="300" y1="780" x2="724" y2="780" class="sf" stroke-width="44" opacity=".3"/>
+        </svg>
+      </div>
+      <div><h2><span>3</span>New day</h2><p>A tick rising like the sun over the horizon.</p></div>
+    </section>
+
+    <!-- 4 -->
+    <section class="opt" data-n="4">
+      <div class="icons" data-svg>
+        <svg viewBox="0 0 1024 1024">
+          <path d="M350 470 L480 600 L770 270" class="sf" stroke-width="100"/>
+          <line x1="480" y1="600" x2="480" y2="810" class="sa" stroke-width="100"/>
+        </svg>
+      </div>
+      <div><h2><span>4</span>Y-tick</h2><p>A monogram: the tick grows a stem and becomes the Y of Yesterdo.</p></div>
+    </section>
+
+    <!-- 5 -->
+    <section class="opt" data-n="5">
+      <div class="icons" data-svg>
+        <svg viewBox="0 0 1024 1024">
+          <path d="M512 182 A330 330 0 0 0 512 842 Z" class="f" opacity=".22"/>
+          <circle cx="512" cy="512" r="330" class="sf" stroke-width="50"/>
+          <path d="M372 520 L478 625 L670 418" class="sa" stroke-width="84"/>
+        </svg>
+      </div>
+      <div><h2><span>5</span>Day dial</h2><p>The day as a circle, half of it gone; the tick is for the half that is left.</p></div>
+    </section>
+
+    <!-- 6 -->
+    <section class="opt" data-n="6">
+      <div class="icons" data-svg>
+        <svg viewBox="0 0 1024 1024">
+          <defs><clipPath id="cal"><rect x="222" y="250" width="580" height="560" rx="96"/></clipPath></defs>
+          <g clip-path="url(#cal)">
+            <rect x="222" y="250" width="580" height="560" class="f"/>
+            <rect x="222" y="250" width="580" height="150" class="a"/>
+          </g>
+          <line x1="380" y1="200" x2="380" y2="300" class="sf" stroke-width="56"/>
+          <line x1="644" y1="200" x2="644" y2="300" class="sf" stroke-width="56"/>
+          <path d="M392 600 L482 690 L640 515" class="sb" stroke-width="74"/>
+        </svg>
+      </div>
+      <div><h2><span>6</span>Calendar page</h2><p>One leaf of a desk calendar, ticked. A day at a time, literally.</p></div>
+    </section>
+
+    <!-- 7 -->
+    <section class="opt" data-n="7">
+      <div class="icons" data-svg>
+        <svg viewBox="0 0 1024 1024">
+          <circle cx="512" cy="512" r="370" class="sa" stroke-width="30" opacity=".18"/>
+          <circle cx="512" cy="512" r="275" class="sa" stroke-width="36" opacity=".45"/>
+          <circle cx="512" cy="512" r="175" class="a"/>
+          <path d="M440 515 L497 570 L590 468" class="sb" stroke-width="52"/>
+        </svg>
+      </div>
+      <div><h2><span>7</span>Calling</h2><p>The done circle with the breath a calling card takes.</p></div>
+    </section>
+
+    <!-- 8 -->
+    <section class="opt" data-n="8">
+      <div class="icons" data-svg>
+        <svg viewBox="0 0 1024 1024">
+          <circle cx="320" cy="340" r="62" class="a"/>
+          <path d="M292 340 L313 360 L350 318" class="sb" stroke-width="22"/>
+          <line x1="440" y1="340" x2="760" y2="340" class="sf" stroke-width="56" opacity=".35"/>
+          <circle cx="320" cy="512" r="56" class="sf" stroke-width="22"/>
+          <line x1="440" y1="512" x2="720" y2="512" class="sf" stroke-width="56"/>
+          <circle cx="320" cy="684" r="56" class="sf" stroke-width="22"/>
+          <line x1="440" y1="684" x2="640" y2="684" class="sf" stroke-width="56"/>
+        </svg>
+      </div>
+      <div><h2><span>8</span>The list</h2><p>Three rows, the first already done and fading, as the day reads.</p></div>
+    </section>
+
+    <!-- 9 -->
+    <section class="opt" data-n="9">
+      <div class="icons" data-svg>
+        <svg viewBox="0 0 1024 1024">
+          <circle cx="280" cy="660" r="58" class="f" opacity=".35"/>
+          <path d="M280 560 C280 310, 700 260, 740 600" class="sf" stroke-width="72"/>
+          <path d="M640 520 L742 640 L830 510" class="sa" stroke-width="72"/>
+        </svg>
+      </div>
+      <div><h2><span>9</span>Bring it over</h2><p>An arc from yesterday’s dot, landing on today.</p></div>
+    </section>
+
+    <!-- 10 -->
+    <section class="opt" data-n="10">
+      <div class="icons" data-svg>
+        <svg viewBox="0 0 1024 1024">
+          <path d="M280 520 L450 690" class="sf" stroke-width="120" opacity=".3"/>
+          <path d="M450 690 L770 335" class="sa" stroke-width="120"/>
+        </svg>
+      </div>
+      <div><h2><span>10</span>Half yesterday</h2><p>A bare tick: the short stroke is yesterday, faint; the long one today.</p></div>
+    </section>
+
+    <!-- 11 -->
+    <section class="opt" data-n="11">
+      <div class="icons" data-svg>
+        <svg viewBox="0 0 1024 1024">
+          <path d="M250 270 Q250 250 270 250 H754 Q774 250 774 270 V630 L630 774 H270 Q250 774 250 754 Z" class="a"/>
+          <path d="M774 630 H660 Q630 630 630 660 V774 Z" class="f" opacity=".45"/>
+          <path d="M370 500 L465 595 L635 410" class="sb" stroke-width="76"/>
+        </svg>
+      </div>
+      <div><h2><span>11</span>Sticky note</h2><p>The note on the fridge, with its corner turned.</p></div>
+    </section>
+
+    <!-- 12 -->
+    <section class="opt" data-n="12">
+      <div class="icons" data-svg>
+        <svg viewBox="0 0 1024 1024">
+          <defs>
+            <linearGradient id="dusk" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" style="stop-color:var(--fg);stop-opacity:.12"/>
+              <stop offset="1" style="stop-color:var(--accent)"/>
+            </linearGradient>
+          </defs>
+          <circle cx="512" cy="512" r="330" fill="url(#dusk)"/>
+          <path d="M378 520 L478 618 L660 420" class="sb" stroke-width="84"/>
+        </svg>
+      </div>
+      <div><h2><span>12</span>Night into day</h2><p>The done circle shading from yesterday’s dark into today’s colour.</p></div>
+    </section>
+
+  </div>
+  <footer id="pick">Nothing picked yet.</footer>
+</main>
+<script>
+  // Repeat each icon at three sizes.
+  document.querySelectorAll('[data-svg]').forEach(box => {
+    const svg = box.querySelector('svg');
+    box.innerHTML = '';
+    ['big', 'small', 'tiny'].forEach(size => {
+      const tile = document.createElement('div');
+      tile.className = 'icon ' + size;
+      tile.appendChild(svg.cloneNode(true));
+      box.appendChild(tile);
+    });
+  });
+  const looks = document.getElementById('looks');
+  looks.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    document.body.dataset.look = b.dataset.look;
+    looks.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b));
+  });
+  const pick = document.getElementById('pick');
+  document.getElementById('grid').addEventListener('click', e => {
+    const opt = e.target.closest('.opt'); if (!opt) return;
+    document.querySelectorAll('.opt').forEach(o => o.classList.toggle('picked', o === opt));
+    pick.textContent = 'Picked: #' + opt.dataset.n + ' ' + opt.querySelector('h2').lastChild.textContent;
+  });
+</script>
+</body>
+</html>

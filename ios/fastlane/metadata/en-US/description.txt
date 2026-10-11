@@ -1,0 +1,14 @@
+Another todo app? Why not.
+
+A calm list, one day at a time, that never fights with you.
+
+Premium features, free forever. No in-app purchases. No data collected. Open source.
+
+• A list for each day
+• Left behind and carry over
+• Repeats, reminders, pins
+• Checklists and pictures
+• Search
+• Widgets
+• iCloud sync
+• Four looks, light and dark

@@ -52,3 +52,9 @@ app.*.map.json
 
 # Secrets for tool/deploy.sh
 .env
+site/.netlify/
+
+# Reviewer contact details stay local; the repo is public.
+ios/fastlane/metadata/review_information/
+ios/fastlane/report.xml
+ios/fastlane/README.md

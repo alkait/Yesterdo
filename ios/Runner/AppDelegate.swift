@@ -104,6 +104,8 @@ import UserNotifications
         result(GlanceBridge.take())
       case "appVersion":
         result(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String)
+      case "appBuild":
+        result(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String)
       case "openUrl":
         if let raw = call.arguments as? String, let url = URL(string: raw) {
           UIApplication.shared.open(url)

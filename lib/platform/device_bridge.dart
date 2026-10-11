@@ -40,6 +40,9 @@ abstract class DeviceBridge {
   /// The version the app was built as, which is the one in `pubspec.yaml`.
   Future<String> appVersion();
 
+  /// The build number, the one after the `+` in `pubspec.yaml`.
+  Future<String> appBuild();
+
   /// Hands a web address to the system to open.
   Future<void> openUrl(String url);
 
@@ -90,6 +93,10 @@ class MethodChannelDeviceBridge implements DeviceBridge {
   @override
   Future<String> appVersion() async =>
       await _channel.invokeMethod<String>('appVersion') ?? '';
+
+  @override
+  Future<String> appBuild() async =>
+      await _channel.invokeMethod<String>('appBuild') ?? '';
 
   @override
   Future<void> openUrl(String url) => _channel.invokeMethod('openUrl', url);

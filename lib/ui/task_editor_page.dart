@@ -20,7 +20,7 @@ import 'widgets/time_picker_sheet.dart';
 
 /// The full screen where a task's words are written, its time and repeat
 /// are chosen, it is pinned or let go, and it is set to carry itself over
-/// or not. Adding and editing both land here, and it hands the draft
+/// or to be ignored if not done, or not. Adding and editing both land here, and it hands the draft
 /// back through the navigator. The words are styled in place, with the
 /// format bar over the keyboard.
 class TaskEditorPage extends ConsumerStatefulWidget {
@@ -33,7 +33,9 @@ class TaskEditorPage extends ConsumerStatefulWidget {
     this.initialRepeat,
     this.initialPinned = false,
     this.initialCarryOver = false,
+    this.initialSkipBacklog = false,
     this.pinnable = true,
+    this.focusOnArrival = true,
   });
 
   final String heading;
@@ -46,10 +48,16 @@ class TaskEditorPage extends ConsumerStatefulWidget {
   final RepeatRule? initialRepeat;
   final bool initialPinned;
   final bool initialCarryOver;
+  final bool initialSkipBacklog;
 
-  /// Whether a pin, and with it carrying over, is offered. A done task has
-  /// neither to offer.
+  /// Whether a pin, and with it carrying over and being ignored if not
+  /// done, is offered. A done task has none of them to offer.
   final bool pinnable;
+
+  /// Whether the keyboard is asked for once the screen has slid in. A new
+  /// task wants words at once; an edit is as often a change to a row, so
+  /// it waits to be tapped.
+  final bool focusOnArrival;
 
   @override
   ConsumerState<TaskEditorPage> createState() => _TaskEditorPageState();
@@ -66,16 +74,19 @@ class _TaskEditorPageState extends ConsumerState<TaskEditorPage> {
   late RepeatRule? _repeat = widget.initialRepeat;
   late bool _pinned = widget.initialPinned;
   late bool _carryOver = widget.initialCarryOver;
+  late bool _skipBacklog = widget.initialSkipBacklog;
   late final _arrival = ArrivalFocus(_focusEditor);
 
   /// Whether there is anything to save. Save stays greyed until there is.
   bool get _hasWords => _body.hasWords;
 
   /// The keyboard is asked for only once the screen has finished sliding
-  /// in, at the end of the words.
+  /// in, at the end of the words, and only when the screen was opened for
+  /// words.
   @override
   void initState() {
     super.initState();
+    if (!widget.focusOnArrival) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _arrival.arm(context);
     });
@@ -106,6 +117,7 @@ class _TaskEditorPageState extends ConsumerState<TaskEditorPage> {
         pinned: _pinned,
         // A repeating task comes back on its own, so it carries nothing.
         carryOver: _repeat == null && _carryOver,
+        skipBacklog: _skipBacklog,
       ),
     );
   }
@@ -285,6 +297,15 @@ class _TaskEditorPageState extends ConsumerState<TaskEditorPage> {
                       onChanged: (value) => setState(() => _carryOver = value),
                     ),
                   ],
+                  const BrandedDivider(),
+                  BrandedToggleRow(
+                    key: const ValueKey('skip-backlog-row'),
+                    label: 'Ignore if not done',
+                    icon: Icons.visibility_off_outlined,
+                    detail: 'Not raised in Left behind',
+                    value: _skipBacklog,
+                    onChanged: (value) => setState(() => _skipBacklog = value),
+                  ),
                 ],
               ],
             ),

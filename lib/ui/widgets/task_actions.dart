@@ -79,7 +79,10 @@ Future<void> editTask(BuildContext context, WidgetRef ref, Todo todo) async {
       initialRepeat: rule,
       initialPinned: todo.pinned,
       initialCarryOver: todo.carryOver,
+      initialSkipBacklog: todo.skipBacklog,
       pinnable: !todo.done,
+      // The words are there already; the keyboard waits for a tap.
+      focusOnArrival: false,
     ),
   );
   if (draft == null) return;

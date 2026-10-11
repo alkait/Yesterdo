@@ -184,12 +184,14 @@ void main() {
         title: 'Stretch',
         rule: RepeatRule.daily(day),
         due: const Due(minute: 8 * 60),
+        skipBacklog: true,
       );
       await a.sync.refresh();
       await b.sync.refresh();
 
       expect(await b.titlesOn(day + 3), ['Stretch']);
       expect((await b.store.todosOn(day + 3)).single.due?.minute, 8 * 60);
+      expect((await b.store.todosOn(day + 3)).single.skipBacklog, isTrue);
 
       // Both devices tick the same showing while apart.
       final onA = (await a.store.todosOn(day + 1)).single;

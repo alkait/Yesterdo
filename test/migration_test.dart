@@ -10,6 +10,7 @@ import 'package:remind_me/data/repeat_rule.dart';
 import 'package:remind_me/data/sqlite_todo_store.dart';
 import 'package:remind_me/data/sync_record.dart';
 import 'package:remind_me/data/todo.dart';
+import 'package:remind_me/state/backlog.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 /// The schema as version 1 shipped it, kept here so the upgrade is tested
@@ -170,8 +171,96 @@ Future<void> createVersionEleven(Database db, int version) async {
   );
 }
 
+/// The schema as version 12 shipped it: every row named by a uid, and a
+/// change log of what is still to be sent.
+Future<void> createVersionTwelve(Database db, int version) async {
+  await createVersionEleven(db, version);
+  await db.execute('ALTER TABLE todos ADD COLUMN uid TEXT');
+  await db.execute('ALTER TABLE todos ADD COLUMN recurrence_uid TEXT');
+  await db.execute(
+    'ALTER TABLE todos ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0',
+  );
+  await db.execute('CREATE UNIQUE INDEX todos_uid_idx ON todos (uid)');
+  await db.execute('ALTER TABLE recurrences ADD COLUMN uid TEXT');
+  await db.execute(
+    'ALTER TABLE recurrences ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0',
+  );
+  await db.execute(
+    'CREATE UNIQUE INDEX recurrences_uid_idx ON recurrences (uid)',
+  );
+  await db.execute('''
+CREATE TABLE sync_changes (
+  uid TEXT PRIMARY KEY,
+  kind TEXT NOT NULL,
+  deleted INTEGER NOT NULL DEFAULT 0
+)''');
+  await db.execute('''
+CREATE TABLE sync_state (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+)''');
+}
+
 void main() {
   setUpAll(sqfliteFfiInit);
+
+  test('a version 12 task is kept, left behind, and can be ignored', () async {
+    final directory = await Directory.systemTemp.createTemp('remind_me_test');
+    addTearDown(() => directory.delete(recursive: true));
+    final path = p.join(directory.path, 'remind_me.db');
+
+    var db = await databaseFactoryFfi.openDatabase(
+      path,
+      options: OpenDatabaseOptions(
+        version: 12,
+        onCreate: createVersionTwelve,
+      ),
+    );
+    await db.insert('todos', <String, Object?>{
+      'day': 20699,
+      'title': 'Buy milk',
+      'position': 0,
+      'uid': 'milk',
+    });
+    await db.insert('recurrences', <String, Object?>{
+      'title': 'Stretch',
+      'kind': 'daily',
+      'weekdays': 0,
+      'month_days': 0,
+      'start_day': 20698,
+      'position': 1,
+      'uid': 'stretch',
+    });
+    await db.close();
+
+    db = await databaseFactoryFfi.openDatabase(
+      path,
+      options: OpenDatabaseOptions(
+        version: 13,
+        onCreate: AppDatabase.createSchema,
+        onUpgrade: AppDatabase.upgradeSchema,
+      ),
+    );
+    addTearDown(db.close);
+
+    final store = SqliteTodoStore(db);
+    final todos = await store.todosOn(20699);
+    expect(todos.map((t) => t.title), ['Buy milk', 'Stretch']);
+    expect(todos.map((t) => t.skipBacklog), [false, false]);
+    // Nothing from before is ignored.
+    final before = await Backlog.read(store, today: 20700);
+    expect(before.entries.map((e) => e.todo.title), ['Buy milk', 'Stretch']);
+
+    await store.save(todos.first.withSkipBacklog(true));
+    final rule = (await store.recurrencesFor(20699)).single;
+    await store.saveSeries(
+      recurrenceId: rule.id,
+      body: rule.body,
+      rule: rule.rule,
+      skipBacklog: true,
+    );
+    expect(await Backlog.read(store, today: 20700), isEmpty);
+  });
 
   test(
     'a version 11 database names its rows and logs them all to be sent',
@@ -212,7 +301,7 @@ void main() {
       db = await databaseFactoryFfi.openDatabase(
         path,
         options: OpenDatabaseOptions(
-          version: 12,
+          version: 13,
           onCreate: AppDatabase.createSchema,
           onUpgrade: AppDatabase.upgradeSchema,
         ),
@@ -266,7 +355,7 @@ void main() {
     db = await databaseFactoryFfi.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 12,
+        version: 13,
         onCreate: AppDatabase.createSchema,
         onUpgrade: AppDatabase.upgradeSchema,
       ),
@@ -304,7 +393,7 @@ void main() {
     db = await databaseFactoryFfi.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 12,
+        version: 13,
         onCreate: AppDatabase.createSchema,
         onUpgrade: AppDatabase.upgradeSchema,
       ),
@@ -343,7 +432,7 @@ void main() {
       db = await databaseFactoryFfi.openDatabase(
         path,
         options: OpenDatabaseOptions(
-          version: 12,
+          version: 13,
           onCreate: AppDatabase.createSchema,
           onUpgrade: AppDatabase.upgradeSchema,
         ),
@@ -385,7 +474,7 @@ void main() {
     db = await databaseFactoryFfi.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 12,
+        version: 13,
         onCreate: AppDatabase.createSchema,
         onUpgrade: AppDatabase.upgradeSchema,
       ),
@@ -420,7 +509,7 @@ void main() {
     db = await databaseFactoryFfi.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 12,
+        version: 13,
         onCreate: AppDatabase.createSchema,
         onUpgrade: AppDatabase.upgradeSchema,
       ),
@@ -487,7 +576,7 @@ void main() {
       db = await databaseFactoryFfi.openDatabase(
         path,
         options: OpenDatabaseOptions(
-          version: 12,
+          version: 13,
           onCreate: AppDatabase.createSchema,
           onUpgrade: AppDatabase.upgradeSchema,
         ),
@@ -536,7 +625,7 @@ void main() {
     db = await databaseFactoryFfi.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 12,
+        version: 13,
         onCreate: AppDatabase.createSchema,
         onUpgrade: AppDatabase.upgradeSchema,
       ),
@@ -584,7 +673,7 @@ void main() {
     db = await databaseFactoryFfi.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 12,
+        version: 13,
         onCreate: AppDatabase.createSchema,
         onUpgrade: AppDatabase.upgradeSchema,
       ),
@@ -642,7 +731,7 @@ void main() {
     db = await databaseFactoryFfi.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 12,
+        version: 13,
         onCreate: AppDatabase.createSchema,
         onUpgrade: AppDatabase.upgradeSchema,
       ),
@@ -696,7 +785,7 @@ void main() {
     db = await databaseFactoryFfi.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 12,
+        version: 13,
         onCreate: AppDatabase.createSchema,
         onUpgrade: AppDatabase.upgradeSchema,
       ),
@@ -755,7 +844,7 @@ void main() {
     final fresh = await databaseFactoryFfi.openDatabase(
       p.join(directory.path, 'fresh.db'),
       options: OpenDatabaseOptions(
-        version: 12,
+        version: 13,
         onCreate: AppDatabase.createSchema,
       ),
     );
@@ -774,6 +863,7 @@ void main() {
       9: createVersionNine,
       10: createVersionTen,
       11: createVersionEleven,
+      12: createVersionTwelve,
     };
     for (final MapEntry(key: version, value: create) in shipped.entries) {
       final upgradedPath = p.join(directory.path, 'upgraded_$version.db');
@@ -785,7 +875,7 @@ void main() {
       upgraded = await databaseFactoryFfi.openDatabase(
         upgradedPath,
         options: OpenDatabaseOptions(
-          version: 12,
+          version: 13,
           onCreate: AppDatabase.createSchema,
           onUpgrade: AppDatabase.upgradeSchema,
         ),

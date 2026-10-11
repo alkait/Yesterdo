@@ -25,6 +25,7 @@ export 'branded_icon.dart';
 export 'branded_image.dart';
 export 'branded_route.dart';
 export 'branded_scaffold.dart';
+export 'branded_section.dart';
 export 'branded_selection_circle.dart';
 export 'branded_sheet.dart';
 export 'branded_slide_switcher.dart';

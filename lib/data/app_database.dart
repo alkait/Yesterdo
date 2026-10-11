@@ -4,7 +4,7 @@ import 'package:sqflite/sqflite.dart';
 /// Owns the on-device SQLite file. Nothing leaves the device.
 abstract final class AppDatabase {
   static const _fileName = 'remind_me.db';
-  static const _version = 12;
+  static const _version = 13;
 
   static Future<Database> open() async {
     final path = p.join(await getDatabasesPath(), _fileName);
@@ -35,6 +35,7 @@ CREATE TABLE todos (
   body TEXT,
   pinned INTEGER NOT NULL DEFAULT 0,
   carry_over INTEGER NOT NULL DEFAULT 0,
+  skip_backlog INTEGER NOT NULL DEFAULT 0,
   uid TEXT,
   recurrence_uid TEXT,
   updated_at INTEGER NOT NULL DEFAULT 0
@@ -54,6 +55,7 @@ CREATE TABLE todos (
   /// Version 8 could not have a rule's missed showings ignored. Version 9
   /// could not pin a task. Version 10 could not carry a task over. Version
   /// 11 knew its rows by local ids alone and had nothing to sync with.
+  /// Version 12 raised every task left undone.
   static Future<void> upgradeSchema(Database db, int from, int to) async {
     if (from < 2) {
       await db.execute('ALTER TABLE todos ADD COLUMN recurrence_id INTEGER');
@@ -94,6 +96,18 @@ CREATE TABLE todos (
       );
     }
     if (from < 12) await _addSync(db, recurrencesToo: from >= 4);
+    // Version 12 could not have a task ignored if left undone. Same caveat
+    // about a fresh `recurrences` table.
+    if (from < 13) {
+      await db.execute(
+        'ALTER TABLE todos ADD COLUMN skip_backlog INTEGER NOT NULL DEFAULT 0',
+      );
+      if (from >= 4) {
+        await db.execute(
+          'ALTER TABLE recurrences ADD COLUMN skip_backlog INTEGER NOT NULL DEFAULT 0',
+        );
+      }
+    }
   }
 
   /// Version 11 knew its rows by local ids alone. Now every row has a uid
@@ -249,6 +263,7 @@ CREATE TABLE recurrences (
   sound TEXT,
   body TEXT,
   days TEXT,
+  skip_backlog INTEGER NOT NULL DEFAULT 0,
   uid TEXT,
   updated_at INTEGER NOT NULL DEFAULT 0
 )''');

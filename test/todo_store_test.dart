@@ -360,6 +360,63 @@ void main() {
     });
   });
 
+  group('ignoring if not done', () {
+    test('a one-off keeps the flag through insert and save', () async {
+      final left = await store.insert(
+        day: day,
+        title: 'Optional',
+        skipBacklog: true,
+      );
+      expect(left.skipBacklog, isTrue);
+      expect((await store.todosOn(day)).single.skipBacklog, isTrue);
+      await store.save(left.withSkipBacklog(false));
+      expect((await store.todosOn(day)).single.skipBacklog, isFalse);
+    });
+
+    test('a rule gives it to every showing, written or not', () async {
+      final id = await store.insertSeries(
+        day: day,
+        title: 'Stretch',
+        rule: RepeatRule.daily(day),
+        skipBacklog: true,
+      );
+      expect((await store.recurrencesFor(day)).single.skipBacklog, isTrue);
+      final projected = (await store.todosOn(day + 1)).single;
+      expect(projected.skipBacklog, isTrue);
+      final written = await store.materialize(day: day + 1, todo: projected);
+      expect((await store.todosOn(day + 1)).single.skipBacklog, isTrue);
+
+      // Saving the series reaches the written showing too.
+      await store.saveSeries(
+        recurrenceId: id,
+        title: 'Stretch',
+        rule: RepeatRule.daily(day),
+        skipBacklog: false,
+      );
+      expect((await store.recurrencesFor(day)).single.skipBacklog, isFalse);
+      expect((await store.todosOn(day + 1)).single.id, written.id);
+      expect((await store.todosOn(day + 1)).single.skipBacklog, isFalse);
+      expect((await store.todosOn(day + 2)).single.skipBacklog, isFalse);
+    });
+
+    test('a showing moved to another day keeps it', () async {
+      await store.insertSeries(
+        day: day,
+        title: 'Stretch',
+        rule: RepeatRule.daily(day),
+        skipBacklog: true,
+      );
+      final showing = (await store.todosOn(day)).single;
+      final moved = await store.moveToDay(
+        fromDay: day,
+        toDay: day + 3,
+        todo: showing,
+      );
+      expect(moved.repeats, isFalse);
+      expect(moved.skipBacklog, isTrue);
+    });
+  });
+
   group('carrying over', () {
     test('what was left undone comes on to today, oldest highest', () async {
       await store.insert(day: day - 3, title: 'Oldest', carryOver: true);

@@ -53,6 +53,7 @@ class SqliteTodoStore implements TodoStore {
     int? position,
     bool pinned = false,
     bool carryOver = false,
+    bool skipBacklog = false,
   }) async {
     position ??= await _topPosition(day);
     final at = _now;
@@ -63,6 +64,7 @@ class SqliteTodoStore implements TodoStore {
       due: due,
       pinned: pinned,
       carryOver: carryOver,
+      skipBacklog: skipBacklog,
       uid: newUid(),
       updatedAt: at,
     );
@@ -79,6 +81,7 @@ class SqliteTodoStore implements TodoStore {
     required RepeatRule rule,
     Due? due,
     int? position,
+    bool skipBacklog = false,
   }) async {
     position ??= await _topPosition(day);
     final uid = newUid();
@@ -88,6 +91,7 @@ class SqliteTodoStore implements TodoStore {
         rule: rule,
         position: position,
         due: due,
+        skipBacklog: skipBacklog,
       ),
       'uid': uid,
       'updated_at': _now,
@@ -125,6 +129,7 @@ class SqliteTodoStore implements TodoStore {
         'dismissed': todo.dismissed ? 1 : 0,
         'pinned': todo.pinned ? 1 : 0,
         'carry_over': todo.carryOver ? 1 : 0,
+        'skip_backlog': todo.skipBacklog ? 1 : 0,
         'updated_at': _now,
       },
       where: 'id = ?',
@@ -186,6 +191,7 @@ class SqliteTodoStore implements TodoStore {
         due: todo.due,
         position: position,
         pinned: todo.pinned,
+        skipBacklog: todo.skipBacklog,
       );
     }
     // A new day is a new call, so a wave-away from the old one no longer
@@ -272,16 +278,18 @@ class SqliteTodoStore implements TodoStore {
     TaskBody? body,
     required RepeatRule rule,
     Due? due,
+    bool skipBacklog = false,
   }) async {
     final words = TodoStore.bodyOf(title, body);
     await _updateRecurrence(recurrenceId, {
       ...Todo.bodyColumns(words.unticked()),
       ...Recurrence.ruleColumns(rule),
       ...due?.toRow() ?? Due.emptyRow,
+      'skip_backlog': skipBacklog ? 1 : 0,
     });
-    // Written-down occurrences carry their own copy of the words and the
-    // time, each with its own ticks. A new time is a new call, so a
-    // wave-away no longer holds.
+    // Written-down occurrences carry their own copy of the words, the
+    // time and whether Left behind lets them be, each with its own ticks.
+    // A new time is a new call, so a wave-away no longer holds.
     final rows = await _db.query(
       _todos,
       columns: ['id', 'title', 'body'],
@@ -297,6 +305,7 @@ class SqliteTodoStore implements TodoStore {
           ...Todo.bodyColumns(words.withTicksOf(Todo.bodyFromRow(row))),
           ...due?.toRow() ?? Due.emptyRow,
           'dismissed': 0,
+          'skip_backlog': skipBacklog ? 1 : 0,
           'updated_at': at,
         },
         where: 'id = ?',

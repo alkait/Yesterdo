@@ -22,6 +22,7 @@ class Todo {
     this.dismissed = false,
     this.pinned = false,
     this.carryOver = false,
+    this.skipBacklog = false,
     this.uid,
     this.recurrenceUid,
     this.updatedAt = 0,
@@ -40,6 +41,7 @@ class Todo {
     dismissed: (row['dismissed'] as int? ?? 0) == 1,
     pinned: (row['pinned'] as int? ?? 0) == 1,
     carryOver: (row['carry_over'] as int? ?? 0) == 1,
+    skipBacklog: (row['skip_backlog'] as int? ?? 0) == 1,
     uid: row['uid'] as String?,
     recurrenceUid: row['recurrence_uid'] as String?,
     updatedAt: row['updated_at'] as int? ?? 0,
@@ -61,6 +63,7 @@ class Todo {
     recurrenceId: recurrence.id,
     recurrenceUid: recurrence.uid,
     due: recurrence.due,
+    skipBacklog: recurrence.skipBacklog,
   );
 
   /// Row id, or null while the task is only projected from a rule.
@@ -101,6 +104,11 @@ class Todo {
   /// doing so until it is done. A one-off's alone: a rule comes back on its
   /// own, and its misses are Left behind's.
   final bool carryOver;
+
+  /// Left alone if undone when its day has passed: Left behind never raises
+  /// it. A one-off's own; a rule's showing takes it from the rule, as it
+  /// takes its time.
+  final bool skipBacklog;
 
   /// What the row is called on every device, or null while the task is
   /// only projected. A rule's showing takes [occurrenceUid] when written.
@@ -153,6 +161,8 @@ class Todo {
 
   Todo withCarryOver(bool value) => copyWith(carryOver: value);
 
+  Todo withSkipBacklog(bool value) => copyWith(skipBacklog: value);
+
   /// Whether it will move itself on if [day] passes with it undone.
   bool get carries => carryOver && !done && !repeats && !hidden;
 
@@ -197,6 +207,7 @@ class Todo {
     bool? dismissed,
     bool? pinned,
     bool? carryOver,
+    bool? skipBacklog,
     String? uid,
     int? updatedAt,
   }) => Todo(
@@ -211,6 +222,7 @@ class Todo {
     dismissed: dismissed ?? this.dismissed,
     pinned: pinned ?? this.pinned,
     carryOver: carryOver ?? this.carryOver,
+    skipBacklog: skipBacklog ?? this.skipBacklog,
     uid: uid ?? this.uid,
     recurrenceUid: recurrenceUid,
     updatedAt: updatedAt ?? this.updatedAt,
@@ -235,6 +247,7 @@ class Todo {
     'dismissed': dismissed ? 1 : 0,
     'pinned': pinned ? 1 : 0,
     'carry_over': carryOver ? 1 : 0,
+    'skip_backlog': skipBacklog ? 1 : 0,
     'uid': uid,
     'recurrence_uid': recurrenceUid,
     'updated_at': updatedAt,

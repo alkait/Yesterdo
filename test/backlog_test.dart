@@ -43,6 +43,60 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  test('a task ignored if not done is passed over until that is undone', () async {
+    final store = MemoryTodoStore();
+    final left = await store.insert(
+      day: today - 1,
+      title: 'Optional',
+      skipBacklog: true,
+    );
+    final id = await store.insertSeries(
+      day: today - 3,
+      title: 'Optional stretch',
+      rule: RepeatRule.daily(today - 3),
+      skipBacklog: true,
+    );
+    // A written-down showing is passed over the same.
+    final showing = (await store.todosOn(today - 2)).single;
+    await store.materialize(day: today - 2, todo: showing);
+    expect(await Backlog.read(store, today: today), isEmpty);
+
+    await store.save(left.withSkipBacklog(false));
+    final rule = (await store.recurrencesFor(today)).single;
+    await store.saveSeries(
+      recurrenceId: id,
+      body: rule.body,
+      rule: rule.rule,
+      skipBacklog: false,
+    );
+    final backlog = await Backlog.read(store, today: today);
+    expect(backlog.entries.map((e) => e.todo.title), [
+      'Optional',
+      'Optional stretch',
+    ]);
+    expect(backlog.count, 4);
+  });
+
+  testWidgets('a task ignored if not done is not counted or listed', (
+    tester,
+  ) async {
+    final store = await seeded();
+    await store.insert(day: today - 1, title: 'Optional', skipBacklog: true);
+    await store.insertSeries(
+      day: today - 3,
+      title: 'Optional stretch',
+      rule: RepeatRule.daily(today - 3),
+      skipBacklog: true,
+    );
+    await tester.pumpWidget(bootApp(store: store, clock: () => at(9, 0)));
+    await tester.pumpAndSettle();
+    expect(find.text('5 left from earlier days'), findsOneWidget);
+
+    await openBacklog(tester);
+    expect(find.text('Optional'), findsNothing);
+    expect(find.text('Optional stretch'), findsNothing);
+  });
+
   testWidgets('today says how much was left, and lists it newest first', (
     tester,
   ) async {

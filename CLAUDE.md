@@ -58,7 +58,33 @@ it.
 - The hoster token is `HOSTER_TOKEN` in `.env`, which git ignores. It is
   never committed or written into a reply.
 - The link installs only on devices registered with the team. A new device
-  is registered first, then the app is deployed again.
+  is registered first, then the app is deployed again. Registering takes
+  the device plugged in, paired and with Developer Mode on; one
+  `xcodebuild` for it with `-allowProvisioningDeviceRegistration` does it.
+- The App Store build is `tool/appstore.sh`: the same app built with
+  `APP_STORE` set (`storeBuild`), exported through
+  `ios/ExportOptions-AppStore.plist`, which points CloudKit at Production,
+  and uploaded with the App Store Connect API key named in `.env`. A
+  store build never binds `HosterUpdateChecker`, so it makes no request
+  to the hoster and Settings offers no Update row. Its CloudKit data is
+  not the ad hoc builds'.
+- The store listing is `ios/fastlane/`: `fastlane metadata` pushes the
+  texts, screenshots and age rating, `fastlane submit` sends the newest
+  build for review, `fastlane withdraw` takes it back. Nothing is
+  submitted without the user's word. `tool/screenshots.sh` takes the
+  store shots. The reviewer's contact details in
+  `metadata/review_information` are git-ignored: the repo is public.
+- The static site, the landing, privacy and support pages, is `site/`,
+  deployed to https://yesterdo.netlify.app with `tool/site.sh`. The
+  privacy page says what the app does with data; change it when that
+  changes.
+- `ios/Runner/PrivacyInfo.xcprivacy` declares no tracking, no collected
+  data and the reasons for the required-reason APIs the app uses. A new
+  such API in Swift is a new reason there.
+- The hoster answers `GET /com.alkait.yesterdo/latest` with the newest
+  build's version, build number and link; that is what the update row in
+  Settings reads. A change to the hoster is deployed from its own repo
+  with its `deploy_to_pi.sh`.
 
 ## State
 
@@ -75,8 +101,12 @@ it.
 
 ## Data
 
-- Storage is local SQLite. The one thing that leaves the device is the
-  sync, through CloudKit; no other network calls, no analytics packages.
+- Storage is local SQLite. Two things leave the device: the sync, through
+  CloudKit, and one request to the hoster for the newest build, through
+  `UpdateChecker`, made only when Settings is open. No other network
+  calls, no analytics packages. The ad hoc app binds `HosterUpdateChecker`,
+  tests bind `MemoryUpdateChecker`; a build is newer by its build number
+  alone, and Settings offers it under Version with its install link.
 - Go through the `TodoStore` interface. The app binds `SqliteTodoStore`,
   tests bind `MemoryTodoStore`. A new store method is added to both.
 - A setting goes through the `SettingsStore` interface. The app binds
@@ -107,6 +137,12 @@ it.
   on tomorrow before the app is opened; Due now is not read ahead, since a
   widget cannot tell one showing from the next. Left behind passes a
   carrying task over.
+- Ignore if not done is `skipBacklog`: Left behind never raises the task,
+  and nothing else changes. A one-off holds it on its row. A rule holds it
+  too, and every showing takes it as it takes the time: `Todo.projected`
+  copies it and `saveSeries` writes it down to every written showing, so
+  `Backlog.read` reads the row's flag alone. A showing moved to another
+  day keeps it on the copy.
 - `Todo.id` is null while a task is only projected. Key widgets, swipe state
   and sort ties on `Todo.key`, never on the id.
 - Questions about a rule's showings, such as whether it has any before or
@@ -163,6 +199,10 @@ it.
   since the export re-signs the app and switches it to Production
   otherwise, where no record type is ever made on the fly. Deploying the
   schema to Production is a step in the CloudKit console, not in code.
+- The Production schema is deployed and only grows by deploying from
+  Development in the CloudKit console. A new record type or field is
+  written once in Development, then deployed, before a store build that
+  writes it ships; Production never makes one on the fly.
 - Tests bind `MemoryCloudTransport` over a `MemoryCloud` and sync two
   stores through it; widget tests leave `cloudTransportProvider` alone,
   which is no cloud at all.
@@ -282,8 +322,10 @@ lands in one place and shows up everywhere.
   A reminder hangs off the time: its row is inert until a time is set, and
   clearing the time clears the reminders with it. `Due` still holds all
   three together in the data.
-- The editor asks for the keyboard only once its slide-in has finished, by
-  listening to the route's animation. No `autofocus` on that field.
+- Adding asks for the keyboard only once the editor's slide-in has
+  finished, by listening to the route's animation. Editing never asks:
+  the keyboard waits for a tap on the words. No `autofocus` on that field.
+- Settings groups its rows in `BrandedSection` panels, one per section.
 - Pin lives on the read view as the same switch row the editor has, on
   the attention sheet beside View, and on the editor's Pin row, and
   nowhere else. From the editor it rides
@@ -294,6 +336,11 @@ lands in one place and shows up everywhere.
 - Carry over is a switch under Pin, in the editor and on the read view,
   and nowhere else. It is absent for a done task and, like Date, for a
   repeating one; choosing a repeat drops it. No mark on the card.
+- Ignore if not done is a switch under Carry over, in the editor and on
+  the read view, and nowhere else. It is absent for a done task and one
+  opened from Left behind, and offered for a repeating task, where it is
+  the rule's: the read view writes the series through `saveSeries`. No
+  mark on the card.
 - Done is the circle on the card, and the attention sheet's Done. Edit and
   delete live on the swipe buttons and nowhere else; there is no action
   sheet.
