@@ -337,10 +337,12 @@ lands in one place and shows up everywhere.
   and nowhere else. It is absent for a done task and, like Date, for a
   repeating one; choosing a repeat drops it. No mark on the card.
 - Ignore if not done is a switch under Carry over, in the editor and on
-  the read view, and nowhere else. It is absent for a done task and one
-  opened from Left behind, and offered for a repeating task, where it is
-  the rule's: the read view writes the series through `saveSeries`. No
-  mark on the card.
+  the read view. It is absent for a done task and one opened from Left
+  behind, and offered for a repeating task, where it is the rule's: the
+  read view writes the series through `saveSeries`. No mark on the card.
+  Left behind's Ignore on a one-off turns it on and nothing else; on a
+  rule it is `ignoreMissed`, which lets the missed showings go and leaves
+  the rule's flag alone.
 - Done is the circle on the card, and the attention sheet's Done. Edit and
   delete live on the swipe buttons and nowhere else; there is no action
   sheet.

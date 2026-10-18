@@ -23,7 +23,7 @@ String backlogDetail(BacklogEntry entry, {required DateTime now}) {
 }
 
 /// What to do with one entry. A one-off can be done, brought to today, sent
-/// to a day in the future, or deleted. A rule's missed showings are done,
+/// to a day in the future, ignored or deleted. A rule's missed showings are done,
 /// ignored or deleted together; the rule itself goes on. Either kind can be
 /// gone to and left where it is. A task sent on is announced by the banner,
 /// which offers to go to it.
@@ -100,6 +100,11 @@ Future<void> showBacklogEntrySheet(
               label: 'Send to future',
               icon: Icons.event_rounded,
               onTap: () => choose(() => _sendToFuture(context, ref, entry)),
+            ),
+            BrandedOptionRow(
+              label: 'Ignore',
+              icon: Icons.visibility_off_outlined,
+              onTap: () => choose(() => backlog.ignore(entry)),
             ),
             BrandedOptionRow(
               label: 'Delete',

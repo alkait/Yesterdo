@@ -58,6 +58,15 @@ class BacklogController extends AsyncNotifier<Backlog> {
     return moved.key;
   }
 
+  /// Leaves a one-off where it is, not done, and sets it to be ignored if
+  /// not done, so Left behind never raises it again. The switch on the
+  /// task undoes it.
+  Future<void> ignore(BacklogEntry entry) async {
+    final item = entry.items.single;
+    await _store.save(item.todo.withSkipBacklog(true));
+    await _settle();
+  }
+
   /// Removes a one-off outright.
   Future<void> delete(BacklogEntry entry) async {
     final item = entry.items.single;

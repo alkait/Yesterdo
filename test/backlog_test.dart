@@ -43,39 +43,42 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  test('a task ignored if not done is passed over until that is undone', () async {
-    final store = MemoryTodoStore();
-    final left = await store.insert(
-      day: today - 1,
-      title: 'Optional',
-      skipBacklog: true,
-    );
-    final id = await store.insertSeries(
-      day: today - 3,
-      title: 'Optional stretch',
-      rule: RepeatRule.daily(today - 3),
-      skipBacklog: true,
-    );
-    // A written-down showing is passed over the same.
-    final showing = (await store.todosOn(today - 2)).single;
-    await store.materialize(day: today - 2, todo: showing);
-    expect(await Backlog.read(store, today: today), isEmpty);
+  test(
+    'a task ignored if not done is passed over until that is undone',
+    () async {
+      final store = MemoryTodoStore();
+      final left = await store.insert(
+        day: today - 1,
+        title: 'Optional',
+        skipBacklog: true,
+      );
+      final id = await store.insertSeries(
+        day: today - 3,
+        title: 'Optional stretch',
+        rule: RepeatRule.daily(today - 3),
+        skipBacklog: true,
+      );
+      // A written-down showing is passed over the same.
+      final showing = (await store.todosOn(today - 2)).single;
+      await store.materialize(day: today - 2, todo: showing);
+      expect(await Backlog.read(store, today: today), isEmpty);
 
-    await store.save(left.withSkipBacklog(false));
-    final rule = (await store.recurrencesFor(today)).single;
-    await store.saveSeries(
-      recurrenceId: id,
-      body: rule.body,
-      rule: rule.rule,
-      skipBacklog: false,
-    );
-    final backlog = await Backlog.read(store, today: today);
-    expect(backlog.entries.map((e) => e.todo.title), [
-      'Optional',
-      'Optional stretch',
-    ]);
-    expect(backlog.count, 4);
-  });
+      await store.save(left.withSkipBacklog(false));
+      final rule = (await store.recurrencesFor(today)).single;
+      await store.saveSeries(
+        recurrenceId: id,
+        body: rule.body,
+        rule: rule.rule,
+        skipBacklog: false,
+      );
+      final backlog = await Backlog.read(store, today: today);
+      expect(backlog.entries.map((e) => e.todo.title), [
+        'Optional',
+        'Optional stretch',
+      ]);
+      expect(backlog.count, 4);
+    },
+  );
 
   testWidgets('a task ignored if not done is not counted or listed', (
     tester,
@@ -319,6 +322,26 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('2 left from earlier days'), findsOneWidget);
     expect(tileFor(tester, 'Stretch').todo.done, isFalse, reason: 'today');
+  });
+
+  testWidgets('ignoring a one-off leaves it undone and sets it ignored', (
+    tester,
+  ) async {
+    final store = await seeded();
+    await tester.pumpWidget(bootApp(store: store, clock: () => at(9, 0)));
+    await tester.pumpAndSettle();
+
+    await openBacklog(tester);
+    await choose(tester, 't1', 'Ignore');
+    expect(find.byKey(const ValueKey('backlog-t1')), findsNothing);
+    final call = (await store.todosOn(today - 1))
+        .singleWhere((t) => t.title == 'Call Sam');
+    expect(call.done, isFalse, reason: 'left on its day');
+    expect(call.skipBacklog, isTrue);
+
+    await tester.tap(find.text('Back'));
+    await tester.pumpAndSettle();
+    expect(find.text('4 left from earlier days'), findsOneWidget);
   });
 
   test('an ignored rule counts again once a later day is missed', () async {
